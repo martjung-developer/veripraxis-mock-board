@@ -1,25 +1,21 @@
-// apps/web/app/layout.tsx
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
-import './globals.css' 
-
-const inter = Inter({ subsets: ['latin'] })
+import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Veripraxis - Mock Board Exam System',
-  description: 'Comprehensive mock board examination platform for students',
+  title: 'VERIPRAXIS',
+  description:
+    'Ace your board exams with confidence. Realistic mock exams, detailed analytics, and comprehensive study materials for Filipino PRC licensure examinations.',
+  openGraph: {
+    title: 'Veripraxis',
+    description: 'Pass your board exams on the first try.',
+    type: 'website',
+  },
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={inter.className} style={{ minHeight: '100vh' }}>
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   )
 }
