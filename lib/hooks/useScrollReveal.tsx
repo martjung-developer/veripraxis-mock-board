@@ -1,3 +1,4 @@
+// src/hooks/useScrollReveal.tsx
 'use client'
 
 import { useEffect, useRef } from 'react'

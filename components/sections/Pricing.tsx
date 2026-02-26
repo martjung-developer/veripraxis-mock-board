@@ -1,3 +1,4 @@
+// src/components/sections/Pricing.tsx
 import Link from 'next/link'
 import styles from '@/app/page.module.css'
 

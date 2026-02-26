@@ -1,3 +1,4 @@
+// src/components/sections/Programs.tsx
 import Image from 'next/image'
 import styles from '@/app/page.module.css'
 

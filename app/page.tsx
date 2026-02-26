@@ -1,31 +1,29 @@
 // apps/web/app/page.tsx
 'use client'
 
-import { useScrollReveal } from '@/lib/hooks/useScrollReveal'
 import Navbar from '@/components/layout/Navbar'
-import Footer from '@/components/layout/Footer'
 import Hero from '@/components/sections/Hero'
 import Features from '@/components/sections/Features'
 import Programs from '@/components/sections/Programs'
 import Testimonials from '@/components/sections/Testimonials'
 import Pricing from '@/components/sections/Pricing'
 import FAQ from '@/components/sections/FAQ'
-import styles from './page.module.css'
+import Footer from '@/components/layout/Footer'
+import styles from '@/app/page.module.css'
+import { useScrollReveal } from '@/lib/hooks/useScrollReveal'
 
-export default function HomePage() {
-  const pageRef = useScrollReveal()
+export default function Page() {
+  const containerRef = useScrollReveal()
 
   return (
-    <div className={styles.wrapper} ref={pageRef as React.RefObject<HTMLDivElement>}>
+    <div className={styles.wrapper} ref={containerRef as React.RefObject<HTMLDivElement>}>
       <Navbar />
-      <main>
-        <Hero />
-        <Features />
-        <Programs />
-        <Testimonials />
-        <Pricing />
-        <FAQ />
-      </main>
+      <Hero />
+      <Features />
+      <Programs />
+      <Testimonials />
+      <Pricing />
+      <FAQ />
       <Footer />
     </div>
   )

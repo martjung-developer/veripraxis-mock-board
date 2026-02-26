@@ -1,10 +1,11 @@
+// src/hooks/useCountUp.tsx
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
 
 interface UseCountUpOptions {
   end: number
-  duration?: number   // ms
+  duration?: number // ms
   prefix?: string
   suffix?: string
   startOnMount?: boolean
@@ -22,7 +23,7 @@ export function useCountUp({
   const ref = useRef<HTMLElement>(null)
 
   useEffect(() => {
-    if (startOnMount) return // handled below via observer
+    if (startOnMount) return 
     const el = ref.current
     if (!el) return
 

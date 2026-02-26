@@ -1,3 +1,4 @@
+// src/components/layout/Footer.tsx
 import Link from 'next/link'
 import Image from 'next/image'
 import styles from '@/app/page.module.css'
