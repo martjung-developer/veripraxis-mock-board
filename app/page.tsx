@@ -1,4 +1,4 @@
-// apps/web/app/page.tsx
+// app/page.tsx
 'use client'
 
 import Navbar from '@/components/layout/Navbar'

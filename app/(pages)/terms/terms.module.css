@@ -1,0 +1,5 @@
+/* terms.module.css */
+.wrapper { padding: 5rem 0; }
+.container { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }
+.heading { font-family: var(--font-display); font-size: clamp(2rem, 4vw, 3rem); font-weight: 800; color: var(--navy); margin-bottom: 1rem; }
+.body { font-size: 1rem; color: var(--slate); line-height: 1.7; max-width: 640px; }

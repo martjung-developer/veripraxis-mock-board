@@ -16,21 +16,18 @@ const TYPED_PHRASES = [
 ]
 
 const IMAGE_SETS = [
-  // Main image slot
   [
     { src: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=900&q=80', alt: 'Student studying for board exam' },
     { src: 'https://images.unsplash.com/photo-1488190211105-8b0e65b80b4e?w=900&q=80', alt: 'Open notebook and pen' },
     { src: 'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=900&q=80', alt: 'Student writing notes' },
     { src: 'https://images.unsplash.com/photo-1498243691581-b145c3f54a5a?w=900&q=80', alt: 'University lecture hall' },
   ],
-  // Secondary image slot
   [
     { src: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=600&q=80', alt: 'Medical professional reviewing materials' },
     { src: 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=600&q=80', alt: 'Doctor studying medical books' },
     { src: 'https://images.unsplash.com/photo-1606761568499-6d2451b23c66?w=600&q=80', alt: 'Engineer at workstation' },
     { src: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=600&q=80', alt: 'Students studying together' },
   ],
-  // Accent image slot
   [
     { src: 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=400&q=80', alt: 'Library and academic resources' },
     { src: 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=400&q=80', alt: 'Books stacked on desk' },
@@ -152,7 +149,7 @@ export default function Hero() {
   return (
     <section className={styles.hero} aria-label="Hero">
       <div className={styles.heroContent}>
-        <div className={`${styles.heroBadge} reveal`}></div>
+        <div className={`${styles.heroBadge}`}></div>
 
         <h1 className={`${styles.heroTitle} reveal reveal-delay-1`}>
           Ace Your{' '}

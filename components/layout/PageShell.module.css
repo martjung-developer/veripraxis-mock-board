@@ -1,0 +1,16 @@
+/* components/layout/PageShell.module.css */
+
+.shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.main {
+  flex: 1;
+}
+
+.mainPadded {
+  flex: 1;
+  padding: clamp(1.25rem, 3vw, 2.5rem);
+}

@@ -1,0 +1,58 @@
+/* contact.module.css */
+
+/* ── CONTACT WRAPPER ── */
+.wrapper {
+    background: linear-gradient(135deg, var(--slate-pale) 0%, #f8fafc 100%);
+    padding: 6rem 0 4rem;
+    position: relative;
+    overflow: hidden;
+}
+.wrapper::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 80% 55% at 50% 110%, rgba(59,130,246,0.12) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+/* ── CONTAINER ── */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+}
+
+/* ── HEADING ── */
+.heading {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 800;
+    color: var(--navy);
+    letter-spacing: -0.02em;
+    margin-bottom: 1.5rem;
+    text-align: center;
+    line-height: 1.1;
+}
+
+/* ── BODY ── */
+.body {
+    font-size: 1.05rem;
+    color: var(--slate);
+    line-height: 1.7;
+    max-width: 640px;
+    margin: 0 auto;
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+    padding: 2rem 1.5rem;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+    .wrapper { padding: 3rem 0 2rem; }
+    .body { padding: 1.25rem 1rem; }
+}
+@media (max-width: 600px) {
+    .heading { font-size: 1.5rem; }
+    .body { max-width: 100%; }
+}

@@ -1,0 +1,4 @@
+/* profile.module.css */
+.page { display: flex; flex-direction: column; gap: 1.5rem; }
+.pageTitle { font-family: var(--font-display); font-size: 1.5rem; font-weight: 800; color: var(--navy); }
+.pageBody { font-size: 0.925rem; color: var(--slate); line-height: 1.7; }

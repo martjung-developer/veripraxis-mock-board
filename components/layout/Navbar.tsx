@@ -5,18 +5,21 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useState, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import styles from '@/app/page.module.css'
 
 const NAV_LINKS = [
-  { label: 'Features',  href: '#features'  },
-  { label: 'Programs',  href: '#programs'  },
-  { label: 'Pricing',   href: '#pricing'   },
-  { label: 'FAQ',       href: '#faq'       },
+  { label: 'Home',     href: '/'          },
+  { label: 'Features', href: '/#features' },
+  { label: 'Programs', href: '/#programs' },
+  { label: 'Pricing',  href: '/#pricing'  },
+  { label: 'Help',     href: '/help'      },
 ]
 
 export default function Navbar() {
-  const [scrolled, setScrolled] = useState(false)
+  const [scrolled, setScrolled]   = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const pathname = usePathname()
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24)
@@ -32,7 +35,7 @@ export default function Navbar() {
   return (
     <header className={navClass}>
       <div className={styles.navInner}>
-        {/* Logo — image only, no text */}
+        {/* Logo */}
         <Link href="/" className={styles.navLogo} aria-label="Veripraxis home">
           <Image
             src="/images/veripraxis-logo.png"
@@ -46,21 +49,28 @@ export default function Navbar() {
 
         {/* Desktop center links */}
         <nav className={styles.navCenter} aria-label="Main navigation">
-          {NAV_LINKS.map(({ label, href }) => (
-            <Link key={label} href={href} className={styles.navLink}>
-              {label}
-            </Link>
-          ))}
+          {NAV_LINKS.map(({ label, href }) => {
+            const isActive = href === '/'
+              ? pathname === '/'
+              : pathname.startsWith(href.replace('#', '').split('#')[0]) && href !== '/'
+
+            return (
+              <Link
+                key={label}
+                href={href}
+                className={styles.navLink}
+                style={isActive ? { color: 'var(--blue)' } : undefined}
+              >
+                {label}
+              </Link>
+            )
+          })}
         </nav>
 
         {/* Desktop CTA buttons */}
         <div className={styles.navActions}>
-          <Link href="/login" className={styles.navLoginBtn}>
-            Log in
-          </Link>
-          <Link href="/register" className={styles.navSignupBtn}>
-            Sign Up
-          </Link>
+          <Link href="/login" className={styles.navLoginBtn}>Log in</Link>
+          <Link href="/register" className={styles.navSignupBtn}>Sign Up</Link>
 
           {/* Hamburger (mobile) */}
           <button
@@ -89,12 +99,8 @@ export default function Navbar() {
           </Link>
         ))}
         <div className={styles.mobileDivider} />
-        <Link href="/login" className={styles.mobileNavLink} onClick={() => setMobileOpen(false)}>
-          Log in
-        </Link>
-        <Link href="/register" className={styles.mobileSignupBtn} onClick={() => setMobileOpen(false)}>
-          Sign Up Free
-        </Link>
+        <Link href="/login"    className={styles.mobileNavLink}  onClick={() => setMobileOpen(false)}>Log in</Link>
+        <Link href="/register" className={styles.mobileSignupBtn} onClick={() => setMobileOpen(false)}>Sign Up Free</Link>
       </div>
     </header>
   )
