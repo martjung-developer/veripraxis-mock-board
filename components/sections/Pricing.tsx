@@ -85,7 +85,7 @@ export default function Pricing() {
 
             <div className={styles.pricingAmount}>
               <span className={styles.pricingCurrency}>₱</span>
-              <span className={styles.pricingPrice}>399</span>
+              <span className={styles.pricingPrice}>299</span>
               <span className={styles.pricingPeriod}>/month</span>
             </div>
 

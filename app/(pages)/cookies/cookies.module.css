@@ -1,58 +1,794 @@
-/* cookies.module.css */
+/* cookies.module.css — VeriPraxis Cookie Policy
+   Design direction: "Data Dashboard" — structured, technical feel,
+   dark midnight hero with inline consent panel, light data-table body,
+   Lucide icons as category markers. Blues + neutrals only, no gradients.
+   ---------------------------------------------------------------- */
 
-/* ── WRAPPER ── */
-.wrapper {
-    background: linear-gradient(135deg, var(--slate-pale) 0%, #f8fafc 100%);
-    padding: 6rem 0 4rem;
-    position: relative;
-    overflow: hidden;
-}
-.wrapper::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(ellipse 80% 55% at 50% 110%, rgba(59,130,246,0.12) 0%, transparent 70%);
-    pointer-events: none;
-}
+/* ── Palette (blues + neutrals only) ───────────────────────────
+   --blue-midnight : #0b1829   hero / footer dark bg
+   --blue-deep     : #162236   card surfaces on dark bg
+   --blue-border   : #1e3250   borders on dark bg
+   --blue-ink      : #1e3a5f   strong heading on light
+   --blue-mid      : #2563eb   primary CTA / accent
+   --blue-sky      : #3b82f6   hover / secondary accent
+   --blue-pale     : #eff6ff   tinted cell / tag bg
+   --blue-light    : #bfdbfe   borders on light bg
+   --neutral-page  : #f8fafc   page bg
+   --neutral-100   : #f1f5f9   table row alt / card bg
+   --neutral-200   : #e2e8f0   dividers
+   --neutral-300   : #cbd5e1   muted borders
+   --neutral-400   : #94a3b8   muted text
+   --neutral-500   : #64748b   secondary text
+   --neutral-700   : #334155   body text
+   --neutral-900   : #0f172a   strongest text
+   ---------------------------------------------------------------- */
 
-/* ── CONTAINER ── */
-.container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 1.5rem;
-}
-
-/* ── HEADING ── */
-.heading {
-    font-family: var(--font-display);
-    font-size: clamp(2rem, 4vw, 3rem);
-    font-weight: 800;
-    color: var(--navy);
-    letter-spacing: -0.02em;
-    margin-bottom: 1.5rem;
-    text-align: center;
-    line-height: 1.1;
+.page {
+  background: #f8fafc;
 }
 
-/* ── BODY ── */
-.body {
-    font-size: 1.05rem;
-    color: var(--slate);
-    line-height: 1.7;
-    max-width: 640px;
-    margin: 0 auto;
-    background: var(--white);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-card);
-    padding: 2rem 1.5rem;
+/* ═══════════════════════════════════════════════════════════════
+   HERO — dark panel with centered typographic lockup
+   + inline consent widget, no photo, no gradient
+═══════════════════════════════════════════════════════════════ */
+.hero {
+  background: #0b1829;
+  padding-top: 68px;
+  position: relative;
+  overflow: hidden;
 }
 
-/* ── RESPONSIVE ── */
-@media (max-width: 900px) {
-    .wrapper { padding: 3rem 0 2rem; }
-    .body { padding: 1.25rem 1rem; }
+/* Dot-grid texture overlay */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.045) 1px, transparent 1px);
+  background-size: 28px 28px;
+  pointer-events: none;
 }
-@media (max-width: 600px) {
-    .heading { font-size: 1.5rem; }
-    .body { max-width: 100%; }
+
+/* Subtle horizontal rule lines */
+.hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(255,255,255,0.018) 0px,
+    rgba(255,255,255,0.018) 1px,
+    transparent 1px,
+    transparent 80px
+  );
+  pointer-events: none;
+}
+
+.heroInner {
+  position: relative;
+  z-index: 2;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 5.5rem 1.5rem 4.5rem;
+  text-align: center;
+}
+
+/* Eyebrow tag */
+.heroBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  background: #162236;
+  border: 1px solid #1e3250;
+  border-radius: 6px;
+  padding: 0.3rem 0.85rem;
+  margin-bottom: 1.75rem;
+}
+
+.heroBadgeIcon {
+  color: #3b82f6;
+}
+
+.heroTitle {
+  font-family: var(--font-display);
+  font-size: clamp(2.6rem, 5.5vw, 4.5rem);
+  font-weight: 900;
+  color: #f8fafc;
+  letter-spacing: -0.042em;
+  line-height: 1;
+  margin-bottom: 1.1rem;
+}
+
+/* Sky-blue underline rule on "Policy" */
+.heroTitleAccent {
+  position: relative;
+  display: inline-block;
+  color: #e2e8f0;
+}
+
+.heroTitleAccent::after {
+  content: '';
+  position: absolute;
+  bottom: -0.08em;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: #3b82f6;
+  border-radius: 1px;
+}
+
+.heroSub {
+  font-size: 0.92rem;
+  color: #64748b;
+  line-height: 1.75;
+  max-width: 480px;
+  margin: 0 auto 2.5rem;
+}
+
+/* ── Inline consent widget ── */
+.consentWidget {
+  background: #162236;
+  border: 1px solid #1e3250;
+  border-radius: 16px;
+  padding: 1.5rem 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  text-align: left;
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.consentWidgetLeft {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  flex: 1;
+}
+
+.consentWidgetIconWrap {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  background: #1e3250;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #3b82f6;
+  flex-shrink: 0;
+}
+
+.consentWidgetText {
+  flex: 1;
+}
+
+.consentWidgetTitle {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin-bottom: 0.2rem;
+}
+
+.consentWidgetSub {
+  font-size: 0.71rem;
+  color: #64748b;
+  line-height: 1.55;
+}
+
+.consentWidgetActions {
+  display: flex;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.consentEssentialBtn {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #94a3b8;
+  background: transparent;
+  border: 1px solid #1e3250;
+  border-radius: 8px;
+  padding: 0.55rem 1rem;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  font-family: inherit;
+}
+
+.consentEssentialBtn:hover {
+  color: #e2e8f0;
+  border-color: #334155;
+  background: #1e3250;
+}
+
+.consentAllBtn {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+  background: #2563eb;
+  border: 1px solid #2563eb;
+  border-radius: 8px;
+  padding: 0.55rem 1.1rem;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  font-family: inherit;
+}
+
+.consentAllBtn:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+/* Saved confirmation state */
+.consentConfirm {
+  max-width: 680px;
+  margin: 0 auto;
+  background: #162236;
+  border: 1px solid #1e3250;
+  border-radius: 16px;
+  padding: 1.2rem 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.consentConfirmText {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.consentConfirmIcon {
+  color: #3b82f6;
+  flex-shrink: 0;
+}
+
+.consentResetBtn {
+  font-size: 0.71rem;
+  font-weight: 700;
+  color: #3b82f6;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.14s ease;
+}
+
+.consentResetBtn:hover { color: #2563eb; }
+
+/* Bottom border strip */
+.heroRule {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border-top: 1px solid #1e3250;
+  margin-top: 4.5rem;
+}
+
+.heroRuleItem {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.9rem 1rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #1e3250;
+  letter-spacing: 0.04em;
+  border-right: 1px solid #1e3250;
+}
+
+.heroRuleItem:last-child { border-right: none; }
+
+.heroRuleItemIcon {
+  color: #1e3250;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LAYOUT — sticky TOC + content
+═══════════════════════════════════════════════════════════════ */
+.layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 3.5rem;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 5rem 1.5rem 7rem;
+  align-items: start;
+}
+
+/* ─────────────────────────────────────────
+   TOC SIDEBAR
+───────────────────────────────────────── */
+.toc {
+  position: sticky;
+  top: calc(68px + 2rem);
+}
+
+.tocHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.tocHeaderIcon {
+  color: #94a3b8;
+}
+
+.tocList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.tocItem {
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.tocLink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: #64748b;
+  text-decoration: none;
+  padding: 0.55rem 0.5rem 0.55rem 0;
+  transition: color 0.14s ease, padding-left 0.14s ease;
+  line-height: 1.38;
+}
+
+.tocLinkArrow {
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 0.14s ease, transform 0.14s ease;
+  flex-shrink: 0;
+  color: #3b82f6;
+}
+
+.tocLink:hover {
+  color: #0f172a;
+  padding-left: 0.5rem;
+}
+
+.tocLink:hover .tocLinkArrow {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Dark info card */
+.tocCard {
+  margin-top: 1.75rem;
+  background: #0b1829;
+  border-radius: 14px;
+  padding: 1.3rem 1.4rem;
+  border: 1px solid #1e3250;
+}
+
+.tocCardIconWrap {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: #162236;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #3b82f6;
+  margin-bottom: 0.7rem;
+}
+
+.tocCardTitle {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin-bottom: 0.4rem;
+}
+
+.tocCardText {
+  font-size: 0.67rem;
+  color: #64748b;
+  line-height: 1.6;
+  margin-bottom: 0.8rem;
+}
+
+.tocCardLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  font-size: 0.67rem;
+  font-weight: 700;
+  color: #3b82f6;
+  text-decoration: none;
+  transition: gap 0.14s ease;
+}
+
+.tocCardLink:hover { gap: 0.48rem; }
+
+/* ─────────────────────────────────────────
+   CONTENT AREA
+───────────────────────────────────────── */
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Section */
+.section {
+  padding: 2rem 0;
+  border-bottom: 1px solid #e2e8f0;
+  scroll-margin-top: calc(68px + 2.5rem);
+}
+
+.section:last-child { border-bottom: none; }
+
+.sectionHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
+  margin-bottom: 1.1rem;
+}
+
+.sectionIconWrap {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  flex-shrink: 0;
+  transition: background 0.17s ease, border-color 0.17s ease, color 0.17s ease;
+}
+
+.section:hover .sectionIconWrap {
+  background: #0b1829;
+  border-color: #0b1829;
+  color: #3b82f6;
+}
+
+.sectionTitleGroup { flex: 1; }
+
+.sectionNum {
+  display: block;
+  font-size: 0.54rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  margin-bottom: 0.2rem;
+}
+
+.sectionTitle {
+  font-family: var(--font-display);
+  font-size: 1.12rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+  line-height: 1.22;
+}
+
+.paragraph {
+  font-size: 0.875rem;
+  color: #334155;
+  line-height: 1.84;
+  margin-bottom: 0.85rem;
+  padding-left: 3rem;
+}
+
+.paragraph:last-child { margin-bottom: 0; }
+
+.email {
+  color: #2563eb;
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 1px solid #bfdbfe;
+  transition: color 0.14s ease, border-color 0.14s ease;
+}
+
+.email:hover {
+  color: #1d4ed8;
+  border-bottom-color: #3b82f6;
+}
+
+/* ── Cookie table ── */
+.tableWrap {
+  padding-left: 3rem;
+  overflow-x: auto;
+  margin-top: 0.5rem;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.81rem;
+}
+
+.table thead tr {
+  border-bottom: 2px solid #0b1829;
+}
+
+.table thead th {
+  text-align: left;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #64748b;
+  padding: 0 1rem 0.75rem 0;
+  white-space: nowrap;
+}
+
+.table thead th:last-child { padding-right: 0; }
+
+.table tbody tr {
+  border-bottom: 1px solid #f1f5f9;
+  transition: background 0.14s ease;
+}
+
+.table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.table tbody td {
+  padding: 0.75rem 1rem 0.75rem 0;
+  color: #334155;
+  vertical-align: middle;
+  line-height: 1.55;
+}
+
+.table tbody td:last-child { padding-right: 0; }
+
+/* Monospace cookie name */
+.code {
+  font-family: 'Fira Code', 'Cascadia Code', 'Courier New', monospace;
+  font-size: 0.76rem;
+  color: #1e3a5f;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 5px;
+  padding: 0.18rem 0.5rem;
+  white-space: nowrap;
+}
+
+/* Type badge — blues + neutral only */
+.typeBadge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  border-radius: 5px;
+  padding: 0.22rem 0.6rem;
+  white-space: nowrap;
+}
+
+/* Essential */
+.badgeEssential {
+  background: #eff6ff;
+  color: #1e3a5f;
+  border: 1px solid #bfdbfe;
+}
+
+/* Functional */
+.badgeFunctional {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+/* Analytics */
+.badgeAnalytics {
+  background: #e2e8f0;
+  color: #1e3a5f;
+  border: 1px solid #94a3b8;
+}
+
+/* ── Type legend cards (section 2 intro) ── */
+.typeLegend {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.65rem;
+  padding-left: 3rem;
+  margin-bottom: 1.25rem;
+}
+
+.legendCard {
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.legendCard:hover {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.legendCardIconRow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.35rem;
+  color: #64748b;
+}
+
+.legendCardTitle {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.legendCardText {
+  font-size: 0.68rem;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+/* ── Manage cookies — browser list ── */
+.browserList {
+  list-style: none;
+  padding: 0 0 0 3rem;
+  margin: 0.5rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.browserItem {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.83rem;
+  color: #334155;
+  padding: 0.55rem 0.85rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-left: 3px solid #e2e8f0;
+  border-radius: 0 8px 8px 0;
+  transition: border-left-color 0.15s ease, background 0.15s ease;
+}
+
+.browserItem:hover {
+  border-left-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.browserItemIcon {
+  color: #cbd5e1;
+  flex-shrink: 0;
+  transition: color 0.15s ease;
+}
+
+.browserItem:hover .browserItemIcon {
+  color: #3b82f6;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RELATED LINKS — midnight footer
+═══════════════════════════════════════════════════════════════ */
+.relatedLinks {
+  background: #0b1829;
+  padding: 4.5rem 1.5rem;
+  border-top: 1px solid #1e3250;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Dot-grid repeated from hero */
+.relatedLinks::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 28px 28px;
+  pointer-events: none;
+}
+
+.relatedInner {
+  position: relative;
+  max-width: 1100px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.relatedTitle {
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #1e3250;
+  margin-bottom: 2rem;
+}
+
+.relatedGrid {
+  display: flex;
+  justify-content: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.relatedBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #94a3b8;
+  background: transparent;
+  border: 1px solid #1e3250;
+  border-radius: 10px;
+  padding: 0.75rem 1.5rem;
+  text-decoration: none;
+  transition: color 0.17s ease, border-color 0.17s ease, background 0.17s ease;
+}
+
+.relatedBtn:hover {
+  color: #f8fafc;
+  border-color: #334155;
+  background: #162236;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════════════════════════ */
+@media (max-width: 1024px) {
+  .layout { grid-template-columns: 1fr; gap: 2rem; padding: 3.5rem 1.5rem 5.5rem; }
+  .toc { position: static; }
+  .tocList { flex-direction: row; flex-wrap: wrap; border-top: 2px solid #e2e8f0; }
+  .tocItem { border-bottom: none; }
+  .tocLink { padding: 0.38rem 0.55rem; font-size: 0.72rem; }
+  .tocLink:hover { padding-left: 0.55rem; }
+  .tocCard { display: none; }
+  .paragraph,
+  .tableWrap,
+  .typeLegend,
+  .browserList { padding-left: 0; }
+  .typeLegend { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 768px) {
+  .consentWidget {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.1rem;
+  }
+  .consentWidgetActions { width: 100%; }
+  .consentEssentialBtn,
+  .consentAllBtn { flex: 1; text-align: center; }
+  .heroRule { display: none; }
+}
+
+@media (max-width: 640px) {
+  .heroTitle { font-size: 2.4rem; }
+  .heroSub { font-size: 0.85rem; }
+  .sectionTitle { font-size: 1rem; }
+  .typeLegend { grid-template-columns: 1fr; }
+  .table { font-size: 0.75rem; }
 }

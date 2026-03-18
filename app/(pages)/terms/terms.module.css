@@ -1,5 +1,751 @@
-/* terms.module.css */
-.wrapper { padding: 5rem 0; }
-.container { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }
-.heading { font-family: var(--font-display); font-size: clamp(2rem, 4vw, 3rem); font-weight: 800; color: var(--navy); margin-bottom: 1rem; }
-.body { font-size: 1rem; color: var(--slate); line-height: 1.7; max-width: 640px; }
+/* terms.module.css — VeriPraxis Terms of Service
+   Design direction: "Legal Monograph" — editorial typographic layout,
+   midnight navy on cool white, ruled lines, no gradients anywhere,
+   Lucide icons as structural accents throughout.
+   Palette: midnight blues, sky blues, cool blue-grays, white/off-white neutrals only.
+   ---------------------------------------------------------------- */
+
+/* ── Palette reference (all blues + neutrals) ──────────────────
+   --blue-midnight : #0d1b2e   deepest dark panel
+   --blue-deep     : #1e2d40   rule borders on dark bg
+   --blue-ink      : #1e3a5f   headings on light bg
+   --blue-mid      : #2563eb   primary accent (links, active)
+   --blue-sky      : #3b82f6   hover accent
+   --blue-pale     : #eff6ff   tinted bg panels
+   --blue-light    : #bfdbfe   borders on light bg
+   --blue-faint    : #dbeafe   soft tint
+   --neutral-white : #f8fafc   page background
+   --neutral-100   : #f1f5f9   light gray surfaces
+   --neutral-200   : #e2e8f0   dividers on light bg
+   --neutral-400   : #94a3b8   muted text
+   --neutral-500   : #64748b   secondary text
+   --neutral-700   : #334155   body text
+   --neutral-900   : #0f172a   strongest text
+   ---------------------------------------------------------------- */
+
+.page {
+  background: #f8fafc;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HERO — full-bleed typographic lockup
+   Midnight navy panel, no photo, no gradient — pure type + rule
+═══════════════════════════════════════════════════════════════ */
+.hero {
+  background: #0d1b2e;
+  padding-top: 68px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Cross-hatch rule texture (CSS only) */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.025) 0px,
+      rgba(255, 255, 255, 0.025) 1px,
+      transparent 1px,
+      transparent 60px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.025) 0px,
+      rgba(255, 255, 255, 0.025) 1px,
+      transparent 1px,
+      transparent 60px
+    );
+  pointer-events: none;
+}
+
+/* Vignette edges */
+.hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+
+.heroInner {
+  position: relative;
+  z-index: 2;
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 5rem 1.5rem 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4rem;
+  align-items: end;
+}
+
+/* Left: typographic lockup */
+.heroLeft {
+  padding-bottom: 4rem;
+}
+
+.heroEyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  margin-bottom: 1.75rem;
+}
+
+.heroEyebrowLine {
+  display: block;
+  width: 32px;
+  height: 1px;
+  background: #1e2d40;
+}
+
+.heroTitle {
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 6vw, 5.5rem);
+  font-weight: 900;
+  color: #f8fafc;
+  letter-spacing: -0.045em;
+  line-height: 0.95;
+  margin-bottom: 2rem;
+}
+
+/* Underline accent on last word — solid sky-blue rule, no gradient */
+.heroTitleAccent {
+  display: block;
+  color: #e2e8f0;
+  position: relative;
+  width: fit-content;
+}
+
+.heroTitleAccent::after {
+  content: '';
+  position: absolute;
+  bottom: -0.1em;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: #3b82f6;
+  border-radius: 1px;
+}
+
+.heroMeta {
+  font-size: 0.78rem;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.heroMetaRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.heroMetaIcon {
+  color: #1e2d40;
+  flex-shrink: 0;
+}
+
+/* Right: rule-separated quick facts */
+.heroRight {
+  padding-bottom: 4rem;
+  border-left: 1px solid #1e2d40;
+  padding-left: 4rem;
+}
+
+.heroFactsLabel {
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 1.5rem;
+}
+
+.heroFacts {
+  display: flex;
+  flex-direction: column;
+}
+
+.heroFact {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.95rem;
+  padding: 1.1rem 0;
+  border-bottom: 1px solid #1e2d40;
+}
+
+.heroFact:first-of-type {
+  border-top: 1px solid #1e2d40;
+}
+
+.heroFactIconWrap {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: #1e2d40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #94a3b8;
+}
+
+.heroFactText {
+  flex: 1;
+}
+
+.heroFactTitle {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin-bottom: 0.18rem;
+}
+
+.heroFactSub {
+  font-size: 0.72rem;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+/* Bottom rule strip */
+.heroRule {
+  position: relative;
+  z-index: 2;
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-top: 2rem;
+  padding-bottom: 0;
+  border-top: 1px solid #1e2d40;
+}
+
+.heroRuleLabel {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #1e2d40;
+  white-space: nowrap;
+}
+
+.heroRuleLine {
+  flex: 1;
+  height: 1px;
+  background: #1e2d40;
+}
+
+.heroRuleTag {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #94a3b8;
+  background: #1e2d40;
+  border-radius: 6px;
+  padding: 0.3rem 0.7rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LAYOUT — sticky TOC + content
+═══════════════════════════════════════════════════════════════ */
+.layout {
+  display: grid;
+  grid-template-columns: 230px 1fr;
+  gap: 3.5rem;
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 5rem 1.5rem 7rem;
+  align-items: start;
+}
+
+/* ─────────────────────────────────────────
+   TOC SIDEBAR
+───────────────────────────────────────── */
+.toc {
+  position: sticky;
+  top: calc(68px + 2rem);
+}
+
+.tocHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.tocHeaderIcon {
+  color: #94a3b8;
+}
+
+.tocList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.tocItem {
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.tocLink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: #64748b;
+  text-decoration: none;
+  padding: 0.58rem 0.5rem 0.58rem 0;
+  transition:
+    color 0.15s ease,
+    padding-left 0.15s ease;
+  line-height: 1.38;
+}
+
+.tocLinkArrow {
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  flex-shrink: 0;
+  color: #3b82f6;
+}
+
+.tocLink:hover {
+  color: #0f172a;
+  padding-left: 0.5rem;
+}
+
+.tocLink:hover .tocLinkArrow {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Dark bottom card */
+.tocCard {
+  margin-top: 1.75rem;
+  background: #0d1b2e;
+  border-radius: 14px;
+  padding: 1.35rem 1.4rem;
+  border: 1px solid #1e2d40;
+}
+
+.tocCardIcon {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  background: #1e2d40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  margin-bottom: 0.75rem;
+}
+
+.tocCardTitle {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin-bottom: 0.45rem;
+}
+
+.tocCardText {
+  font-size: 0.68rem;
+  color: #64748b;
+  line-height: 1.6;
+  margin-bottom: 0.85rem;
+}
+
+.tocCardLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #3b82f6;
+  text-decoration: none;
+  transition: gap 0.15s ease;
+}
+
+.tocCardLink:hover { gap: 0.5rem; }
+
+/* ─────────────────────────────────────────
+   CONTENT AREA
+───────────────────────────────────────── */
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Lead highlight — sky-blue left rule, no gradient */
+.highlight {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-left: 4px solid #3b82f6;
+  border-radius: 0 12px 12px 0;
+  padding: 1.35rem 1.6rem;
+  font-size: 0.9rem;
+  color: #1e3a5f;
+  line-height: 1.78;
+  font-weight: 500;
+  margin-bottom: 2.5rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.highlightIcon {
+  color: #2563eb;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+/* Individual section — editorial style */
+.section {
+  padding: 2rem 0 2rem;
+  border-bottom: 1px solid #e2e8f0;
+  scroll-margin-top: calc(68px + 2.5rem);
+  position: relative;
+}
+
+.section:last-child {
+  border-bottom: none;
+}
+
+/* Section number + title row */
+.sectionHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.1rem;
+}
+
+.sectionIconWrap {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  flex-shrink: 0;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.section:hover .sectionIconWrap {
+  background: #0d1b2e;
+  border-color: #0d1b2e;
+  color: #3b82f6;
+}
+
+.sectionTitleGroup {
+  flex: 1;
+}
+
+.sectionNum {
+  display: block;
+  font-size: 0.55rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  margin-bottom: 0.22rem;
+}
+
+.sectionTitle {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.022em;
+  line-height: 1.22;
+}
+
+.paragraph {
+  font-size: 0.875rem;
+  color: #334155;
+  line-height: 1.84;
+  margin-bottom: 0.85rem;
+  padding-left: 3rem;
+}
+
+.paragraph:last-child { margin-bottom: 0; }
+
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.85rem;
+  padding-left: 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.list li {
+  font-size: 0.86rem;
+  color: #334155;
+  line-height: 1.76;
+  padding-left: 1.4rem;
+  position: relative;
+}
+
+/* Square bullet — solid sky-blue, no gradient */
+.list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.62em;
+  width: 5px;
+  height: 5px;
+  background: #3b82f6;
+  border-radius: 1px;
+}
+
+.list li strong {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.email {
+  color: #2563eb;
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 1px solid #bfdbfe;
+  transition: border-color 0.14s ease, color 0.14s ease;
+}
+
+.email:hover {
+  color: #1d4ed8;
+  border-bottom-color: #3b82f6;
+}
+
+/* ── Prohibited conduct — highlighted item variant ── */
+.prohibitedList {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.85rem;
+  padding-left: 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.prohibitedItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  font-size: 0.86rem;
+  color: #334155;
+  line-height: 1.7;
+  padding: 0.6rem 0.85rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-left: 3px solid #e2e8f0;
+  border-radius: 0 8px 8px 0;
+  transition: border-left-color 0.15s ease, background 0.15s ease;
+}
+
+.prohibitedItem:hover {
+  border-left-color: #2563eb;
+  background: #eff6ff;
+}
+
+.prohibitedItemIcon {
+  color: #cbd5e1;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  transition: color 0.15s ease;
+}
+
+.prohibitedItem:hover .prohibitedItemIcon {
+  color: #2563eb;
+}
+
+/* ── Payments — two-col layout ── */
+.paymentsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin: 0.5rem 0 0.85rem;
+  padding-left: 3rem;
+}
+
+.paymentCard {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.paymentCard:hover {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.paymentCardIconRow {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.5rem;
+  color: #64748b;
+}
+
+.paymentCardTitle {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.paymentCardText {
+  font-size: 0.72rem;
+  color: #64748b;
+  line-height: 1.55;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RELATED LINKS — midnight navy footer band
+═══════════════════════════════════════════════════════════════ */
+.relatedLinks {
+  background: #0d1b2e;
+  padding: 4.5rem 1.5rem;
+  border-top: 1px solid #1e2d40;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Subtle cross-hatch repeated from hero */
+.relatedLinks::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.018) 0px,
+      rgba(255, 255, 255, 0.018) 1px,
+      transparent 1px,
+      transparent 60px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.018) 0px,
+      rgba(255, 255, 255, 0.018) 1px,
+      transparent 1px,
+      transparent 60px
+    );
+  pointer-events: none;
+}
+
+.relatedInner {
+  position: relative;
+  max-width: 1160px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.relatedTitle {
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #1e2d40;
+  margin-bottom: 2rem;
+}
+
+.relatedGrid {
+  display: flex;
+  justify-content: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.relatedBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #94a3b8;
+  background: transparent;
+  border: 1px solid #1e2d40;
+  border-radius: 10px;
+  padding: 0.78rem 1.5rem;
+  text-decoration: none;
+  transition:
+    color 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+.relatedBtn:hover {
+  color: #f8fafc;
+  border-color: #334155;
+  background: #1e2d40;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════════════════════════ */
+@media (max-width: 1024px) {
+  .heroInner {
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+    padding-bottom: 0;
+  }
+  .heroLeft  { padding-bottom: 0; }
+  .heroRight {
+    border-left: none;
+    border-top: 1px solid #1e2d40;
+    padding-left: 0;
+    padding-top: 2.5rem;
+    padding-bottom: 3rem;
+  }
+  .layout { grid-template-columns: 1fr; gap: 2rem; padding: 3.5rem 1.5rem 5.5rem; }
+  .toc { position: static; }
+  .tocList { flex-direction: row; flex-wrap: wrap; border-top: 2px solid #e2e8f0; }
+  .tocItem { border-bottom: none; }
+  .tocLink {
+    padding: 0.4rem 0.55rem;
+    font-size: 0.72rem;
+  }
+  .tocLink:hover { padding-left: 0.55rem; }
+  .tocCard { display: none; }
+  .paragraph,
+  .list,
+  .prohibitedList,
+  .paymentsGrid { padding-left: 0; }
+}
+
+@media (max-width: 640px) {
+  .heroTitle { font-size: 3rem; }
+  .heroRight { display: none; }
+  .heroRule { display: none; }
+  .section { padding: 1.5rem 0; }
+  .sectionTitle { font-size: 1.05rem; }
+  .paymentsGrid { grid-template-columns: 1fr; }
+  .highlight { flex-direction: column; gap: 0.55rem; }
+}

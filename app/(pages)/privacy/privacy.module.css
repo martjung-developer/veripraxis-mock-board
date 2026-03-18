@@ -1,58 +1,728 @@
-/* privacy.module.css */
+/* privacy.module.css — VeriPraxis Privacy Policy
+   Design direction: "Editorial Clarity" — midnight navy structure,
+   sky-blue accents, neutral grays, asymmetric hero split.
+   ---------------------------------------------------------------- */
 
-/* ── WRAPPER ── */
-.wrapper {
-    background: linear-gradient(135deg, var(--slate-pale) 0%, #f8fafc 100%);
-    padding: 6rem 0 4rem;
-    position: relative;
-    overflow: hidden;
-}
-.wrapper::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(ellipse 80% 55% at 50% 110%, rgba(59,130,246,0.12) 0%, transparent 70%);
-    pointer-events: none;
+.page {
+  background: #f0f4f8;
 }
 
-/* ── CONTAINER ── */
-.container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 1.5rem;
+/* ═══════════════════════════════════════════════════════════════
+   HERO — full-bleed asymmetric split
+   Left:  midnight navy photo panel with glass "at-a-glance" card
+   Right: white panel with sky-blue gradient headline + stat chips
+═══════════════════════════════════════════════════════════════ */
+.hero {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  min-height: 72vh;
+  padding-top: 68px;
+  overflow: hidden;
 }
 
-/* ── HEADING ── */
-.heading {
-    font-family: var(--font-display);
-    font-size: clamp(2rem, 4vw, 3rem);
-    font-weight: 800;
-    color: var(--navy);
-    letter-spacing: -0.02em;
-    margin-bottom: 1.5rem;
-    text-align: center;
-    line-height: 1.1;
+/* ── Left: midnight-ink photo panel ── */
+.heroPhoto {
+  position: relative;
+  overflow: hidden;
 }
 
-/* ── BODY ── */
-.body {
-    font-size: 1.05rem;
-    color: var(--slate);
-    line-height: 1.7;
-    max-width: 640px;
-    margin: 0 auto;
-    background: var(--white);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-card);
-    padding: 2rem 1.5rem;
+.heroPhotoOverlay {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      148deg,
+      rgba(7, 14, 42, 0.90) 0%,
+      rgba(15, 40, 100, 0.74) 46%,
+      rgba(29, 78, 168, 0.56) 100%
+    );
+  z-index: 1;
 }
 
-/* ── RESPONSIVE ── */
-@media (max-width: 900px) {
-    .wrapper { padding: 3rem 0 2rem; }
-    .body { padding: 1.25rem 1rem; }
+/* Ambient glow rings */
+.heroPhoto::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 52% 52% at 22% 78%, rgba(56, 139, 253, 0.26) 0%, transparent 65%),
+    radial-gradient(ellipse 38% 38% at 78% 16%, rgba(125, 211, 252, 0.18) 0%, transparent 60%);
+  z-index: 1;
+  pointer-events: none;
 }
-@media (max-width: 600px) {
-    .heading { font-size: 1.5rem; }
-    .body { max-width: 100%; }
+
+/* Geometric accent lines */
+.heroPhotoLines {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.heroPhotoLines::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 38%;
+  width: 1px;
+  height: 100%;
+  background: linear-gradient(to bottom, transparent 0%, rgba(125, 211, 252, 0.22) 30%, rgba(125, 211, 252, 0.08) 70%, transparent 100%);
+}
+
+.heroPhotoLines::after {
+  content: '';
+  position: absolute;
+  top: 62%;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(to right, transparent 0%, rgba(125, 211, 252, 0.18) 30%, rgba(125, 211, 252, 0.06) 80%, transparent 100%);
+}
+
+/* Floating glass "at a glance" card */
+.heroPhotoCard {
+  position: absolute;
+  bottom: 2.75rem;
+  left: 2.25rem;
+  right: 2.25rem;
+  z-index: 3;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border-radius: 20px;
+  padding: 1.65rem 1.85rem;
+  box-shadow:
+    0 8px 40px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.heroPhotoCardEyebrow {
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #7dd3fc;
+  margin-bottom: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.heroPhotoCardEyebrow::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.3);
+  animation: glowPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.3); }
+  50%       { box-shadow: 0 0 0 9px rgba(56, 189, 248, 0.04); }
+}
+
+/* Three mini-stat grid */
+.heroPhotoStats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+.heroPhotoStat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.heroPhotoStatNum {
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.heroPhotoStatLabel {
+  font-size: 0.66rem;
+  color: #94a3b8;
+  line-height: 1.35;
+}
+
+.heroPhotoStatDivider {
+  width: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  align-self: stretch;
+  margin: 0 0.25rem;
+}
+
+/* ── Right: content panel ── */
+.heroContent {
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 5rem 3.5rem 5rem 3.25rem;
+  border-left: 1px solid #e2e8f0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Decorative sky-blue corner glow */
+.heroContent::before {
+  content: '';
+  position: absolute;
+  bottom: -80px;
+  left: -80px;
+  width: 380px;
+  height: 380px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.06) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+/* Top-right corner dot-grid pattern */
+.heroContent::after {
+  content: '';
+  position: absolute;
+  top: 2.5rem;
+  right: 2.5rem;
+  width: 88px;
+  height: 88px;
+  background-image: radial-gradient(circle, #bae6fd 1.2px, transparent 1.2px);
+  background-size: 11px 11px;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.heroBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: #0369a1;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border: 1px solid #bae6fd;
+  padding: 0.3rem 0.9rem;
+  border-radius: 999px;
+  margin-bottom: 1.65rem;
+  width: fit-content;
+}
+
+.heroBadgeDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #0ea5e9;
+  flex-shrink: 0;
+}
+
+.heroTitle {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 3.6vw, 3.1rem);
+  font-weight: 900;
+  color: #0b1c3d;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  margin-bottom: 1rem;
+}
+
+.heroTitleAccent {
+  background: linear-gradient(118deg, #1d4ed8 0%, #0ea5e9 50%, #38bdf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.heroSub {
+  font-size: 0.96rem;
+  color: #475569;
+  line-height: 1.82;
+  max-width: 390px;
+  margin-bottom: 2rem;
+}
+
+/* Date + version chips */
+.heroChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 2.4rem;
+}
+
+.heroChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #0c2d5e;
+  background: #f0f9ff;
+  border: 1.5px solid #bae6fd;
+  border-radius: 999px;
+  padding: 0.42rem 0.95rem;
+  text-decoration: none;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  cursor: default;
+}
+
+.heroChip:hover {
+  border-color: #38bdf8;
+  background: #e0f2fe;
+  color: #0369a1;
+  box-shadow: 0 5px 16px rgba(14, 165, 233, 0.18);
+}
+
+.heroChipIcon {
+  font-size: 0.85rem;
+}
+
+/* Compliance row — neutral slate */
+.heroComplianceRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.65rem 1.15rem;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  width: fit-content;
+}
+
+.heroComplianceIcon {
+  font-size: 1rem;
+}
+
+.heroComplianceText {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MAIN — TOC left rail, sections right
+═══════════════════════════════════════════════════════════════ */
+.layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 3rem;
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 5rem 1.5rem 7rem;
+  align-items: start;
+}
+
+/* ─────────────────────────────────────────
+   TOC SIDEBAR
+───────────────────────────────────────── */
+.toc {
+  position: sticky;
+  top: calc(68px + 2rem);
+}
+
+.tocHeader {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #0369a1;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tocHeader::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #bae6fd;
+}
+
+.tocTitle {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #475569;
+  margin-bottom: 0.85rem;
+  letter-spacing: 0.01em;
+}
+
+.tocList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+
+.tocItem {
+  /* wraps the link for stagger animation */
+}
+
+.tocLink {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #64748b;
+  text-decoration: none;
+  padding: 0.42rem 0.75rem;
+  border-radius: 8px;
+  border-left: 2px solid transparent;
+  transition:
+    color 0.17s ease,
+    background 0.17s ease,
+    border-color 0.17s ease,
+    padding-left 0.17s ease;
+  line-height: 1.4;
+}
+
+.tocLink:hover {
+  color: #0369a1;
+  background: #f0f9ff;
+  border-left-color: #0ea5e9;
+  padding-left: 1rem;
+}
+
+/* Dark midnight info card below TOC */
+.tocInfoCard {
+  margin-top: 1.75rem;
+  background: linear-gradient(140deg, #0b1429 0%, #0f2556 100%);
+  border-radius: 16px;
+  padding: 1.4rem 1.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.tocInfoCard::before {
+  content: '';
+  position: absolute;
+  top: -30px;
+  right: -30px;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.22) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.tocInfoCardTitle {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #e0f2fe;
+  margin-bottom: 0.65rem;
+}
+
+.tocInfoCardText {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  line-height: 1.65;
+  margin-bottom: 1rem;
+}
+
+.tocInfoCardLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.71rem;
+  font-weight: 700;
+  color: #7dd3fc;
+  text-decoration: none;
+  transition: gap 0.15s ease;
+}
+
+.tocInfoCardLink:hover { gap: 0.55rem; }
+
+/* ─────────────────────────────────────────
+   CONTENT — card-per-section layout
+───────────────────────────────────────── */
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* Lead highlight banner — sky blue */
+.highlight {
+  background: linear-gradient(118deg, #f0f9ff 0%, #e0f2fe 50%, #eff6ff 100%);
+  border: 1.5px solid #7dd3fc;
+  border-radius: 18px;
+  padding: 1.5rem 1.75rem;
+  font-size: 0.93rem;
+  color: #0c4a6e;
+  line-height: 1.78;
+  font-weight: 500;
+  position: relative;
+  overflow: hidden;
+}
+
+.highlight::before {
+  content: '🔒';
+  position: absolute;
+  right: 1.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 2rem;
+  opacity: 0.12;
+}
+
+/* Individual section card */
+.section {
+  background: #ffffff;
+  border: 1.5px solid #e8edf5;
+  border-radius: 20px;
+  padding: 1.85rem 2rem;
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.22s ease,
+    border-color 0.22s ease;
+  scroll-margin-top: calc(68px + 2.5rem);
+}
+
+/* Left accent stripe — rests as neutral, animates to blue on hover */
+.section::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: #e2e8f0;
+  transition: background 0.22s ease;
+}
+
+.section:hover {
+  transform: translateY(-3px);
+  border-color: #bae6fd;
+  box-shadow: 0 12px 36px rgba(14, 165, 233, 0.1);
+}
+
+.section:hover::before {
+  background: linear-gradient(to bottom, #1d4ed8, #38bdf8);
+}
+
+/* Section number badge */
+.sectionNum {
+  display: inline-block;
+  font-size: 0.57rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #0369a1;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  margin-bottom: 0.75rem;
+}
+
+.sectionTitle {
+  font-family: var(--font-display);
+  font-size: 1.18rem;
+  font-weight: 800;
+  color: #0b1c3d;
+  letter-spacing: -0.022em;
+  margin-bottom: 0.9rem;
+  line-height: 1.25;
+}
+
+.paragraph {
+  font-size: 0.88rem;
+  color: #475569;
+  line-height: 1.82;
+  margin-bottom: 0.9rem;
+}
+
+.paragraph:last-child { margin-bottom: 0; }
+
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.list li {
+  font-size: 0.86rem;
+  color: #475569;
+  line-height: 1.72;
+  padding-left: 1.3rem;
+  position: relative;
+}
+
+.list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.58em;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1d4ed8, #38bdf8);
+}
+
+.list li strong {
+  color: #0b1c3d;
+  font-weight: 700;
+}
+
+.email {
+  color: #0369a1;
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 1px solid #bae6fd;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.email:hover {
+  color: #0284c7;
+  border-bottom-color: #38bdf8;
+}
+
+/* ── Rights section — mini card grid ── */
+.rightsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.rightCard {
+  background: #f8fafc;
+  border: 1.5px solid #e8edf5;
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.rightCard:hover {
+  border-color: #7dd3fc;
+  background: #f0f9ff;
+}
+
+.rightCardIcon { font-size: 1.1rem; margin-bottom: 0.35rem; }
+
+.rightCardTitle {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #0b1c3d;
+  margin-bottom: 0.2rem;
+}
+
+.rightCardText {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  line-height: 1.55;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RELATED LINKS — midnight navy footer band
+═══════════════════════════════════════════════════════════════ */
+.relatedLinks {
+  background: linear-gradient(140deg, #0b1429 0%, #0f2556 100%);
+  padding: 4.5rem 1.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.relatedLinks::before {
+  content: '';
+  position: absolute;
+  top: -80px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.12) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+.relatedInner {
+  max-width: 1160px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.relatedTitle {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #7dd3fc;
+  margin-bottom: 2rem;
+}
+
+.relatedGrid {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.relatedBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 0.8rem 1.6rem;
+  text-decoration: none;
+  transition: all 0.22s ease;
+}
+
+.relatedBtn:hover {
+  color: #fff;
+  background: rgba(56, 189, 248, 0.14);
+  border-color: rgba(125, 211, 252, 0.4);
+  box-shadow: 0 8px 24px rgba(14, 165, 233, 0.15);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════════════════════════ */
+@media (max-width: 1024px) {
+  .hero { grid-template-columns: 1fr; min-height: unset; }
+  .heroPhoto { height: 380px; }
+  .heroContent {
+    padding: 3.5rem 2.5rem;
+    border-left: none;
+    border-top: 1px solid #e2e8f0;
+  }
+  .heroContent::before,
+  .heroContent::after { display: none; }
+  .layout { grid-template-columns: 1fr; gap: 2rem; padding: 3.5rem 1.5rem 5.5rem; }
+  .toc { position: static; }
+  .tocList { flex-direction: row; flex-wrap: wrap; gap: 0.35rem; }
+  .tocLink { border-left: none; border-bottom: 2px solid transparent; padding: 0.32rem 0.65rem; }
+  .tocLink:hover { padding-left: 0.65rem; border-left: none; border-bottom-color: #0ea5e9; }
+  .tocInfoCard { display: none; }
+}
+
+@media (max-width: 640px) {
+  .heroPhoto { height: 320px; }
+  .heroPhotoCard { left: 1rem; right: 1rem; bottom: 1rem; padding: 1.15rem 1.35rem; }
+  .heroPhotoStatNum { font-size: 1.2rem; }
+  .heroTitle { font-size: 1.85rem; }
+  .heroContent { padding: 2.5rem 1.25rem; }
+  .heroChips { gap: 0.35rem; }
+  .section { padding: 1.45rem 1.35rem; }
+  .sectionTitle { font-size: 1.05rem; }
+  .rightsGrid { grid-template-columns: 1fr; }
 }

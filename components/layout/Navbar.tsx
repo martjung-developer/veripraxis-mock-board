@@ -9,15 +9,15 @@ import { usePathname } from 'next/navigation'
 import styles from '@/app/page.module.css'
 
 const NAV_LINKS = [
-  { label: 'Home',     href: '/'          },
-  { label: 'Features', href: '/#features' },
-  { label: 'Programs', href: '/#programs' },
-  { label: 'Pricing',  href: '/#pricing'  },
-  { label: 'Help',     href: '/help'      },
+  { label: 'Home',     href: '/'         },
+  { label: 'Features', href: '/features' },
+  { label: 'Programs', href: '/programs' },
+  { label: 'Pricing',  href: '/pricing'  },
+  { label: 'Help',     href: '/help'     },
 ]
 
 export default function Navbar() {
-  const [scrolled, setScrolled]   = useState(false)
+  const [scrolled, setScrolled]     = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const pathname = usePathname()
 
@@ -52,7 +52,7 @@ export default function Navbar() {
           {NAV_LINKS.map(({ label, href }) => {
             const isActive = href === '/'
               ? pathname === '/'
-              : pathname.startsWith(href.replace('#', '').split('#')[0]) && href !== '/'
+              : pathname.startsWith(href)
 
             return (
               <Link
@@ -69,7 +69,7 @@ export default function Navbar() {
 
         {/* Desktop CTA buttons */}
         <div className={styles.navActions}>
-          <Link href="/login" className={styles.navLoginBtn}>Log in</Link>
+          <Link href="/login"    className={styles.navLoginBtn}>Log in</Link>
           <Link href="/register" className={styles.navSignupBtn}>Sign Up</Link>
 
           {/* Hamburger (mobile) */}
@@ -99,7 +99,7 @@ export default function Navbar() {
           </Link>
         ))}
         <div className={styles.mobileDivider} />
-        <Link href="/login"    className={styles.mobileNavLink}  onClick={() => setMobileOpen(false)}>Log in</Link>
+        <Link href="/login"    className={styles.mobileNavLink}   onClick={() => setMobileOpen(false)}>Log in</Link>
         <Link href="/register" className={styles.mobileSignupBtn} onClick={() => setMobileOpen(false)}>Sign Up Free</Link>
       </div>
     </header>

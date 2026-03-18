@@ -373,7 +373,7 @@
   font-weight: 500;
 }
 
-/* Hero image collage */
+/* ── Hero image collage ── */
 .heroVisual {
   position: relative;
   height: 560px;
@@ -382,67 +382,26 @@
   justify-content: center;
 }
 
-/* ── Rotating wrapper — inherits position/size from the slot class below ── */
-.rotatingImageWrapper {
-  position: absolute;
-  overflow: hidden;
-}
-
-.rotatingImageLayer {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: opacity 0.8s ease-in-out, transform 0.8s ease-in-out;
-}
-
-.rotatingImageLayerVisible {
-  opacity: 1;
-  transform: scale(1);
-  z-index: 1;
-}
-
-.rotatingImageLayerOut {
-  opacity: 0;
-  transform: scale(1.04);
-  z-index: 1;
-}
-
-.rotatingImageLayerIn {
-  opacity: 1;
-  transform: scale(1);
-  z-index: 2;
-  animation: imgFadeIn 0.8s ease-in-out forwards;
-}
-
-@keyframes imgFadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* ── Slot positions (previously applied to <Image> directly) ── */
+/* ── Static slot positions ── */
 .heroImgMain {
+  position: absolute;
   top: 3rem;
   right: 0;
   width: 78%;
   height: 420px;
+  object-fit: cover;
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lifted);
   z-index: 2;
 }
 
 .heroImgSecondary {
+  position: absolute;
   bottom: 1.5rem;
   left: 0;
   width: 55%;
   height: 240px;
+  object-fit: cover;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lifted);
   z-index: 3;
@@ -450,10 +409,12 @@
 }
 
 .heroImgAccent {
+  position: absolute;
   top: 1rem;
   left: 1rem;
   width: 38%;
   height: 180px;
+  object-fit: cover;
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
   z-index: 1;

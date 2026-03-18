@@ -1,40 +1,69 @@
 'use client'
 
 import React from 'react'
+import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
+import { MessageCircle, Mail, ArrowRight } from 'lucide-react'
 
 import PageShell from '@/components/layout/PageShell'
 import styles from './contact.module.css'
 
-/* ✅ Public page presets */
 import {
-  pageEntry,
-  heroContainer,
-  heroItem,
-  revealUp,
-} from '@/animations/presets/publicPage'
-
-/* ✅ Contact-specific animations */
-import {
+  heroPanelLeft,
+  heroPanelRight,
+  heroRightContainer,
+  heroRightItem,
+  chipsContainer,
+  chip,
   channelsCol,
   formCol,
   channelsContainer,
   channelCard,
+  officeHoursReveal,
   formContainer,
   formField,
+  successReveal,
 } from '@/animations/contact/contactAnimations'
 
+// ─── Data ─────────────────────────────────────────────────────────────────────
+
+const QUICK_CHIPS = [
+  { icon: '📧', label: 'support@veripraxis.ph', href: 'mailto:support@veripraxis.ph' },
+  { icon: '💬', label: 'Live Chat',              href: '#chat' },
+  { icon: '📱', label: 'Facebook',               href: 'https://facebook.com/veripraxis' },
+]
+
 const CHANNELS = [
-  { icon: '📧', title: 'Email Support', value: 'support@veripraxis.ph', note: 'We reply within 24 hours' },
-  { icon: '💬', title: 'Live Chat', value: 'Chat available on the platform', note: 'Mon–Fri, 9AM–6PM PHT' },
-  { icon: '📱', title: 'Facebook Page', value: 'facebook.com/veripraxis', note: 'DMs answered daily' },
-  { icon: '📣', title: 'Community Forum', value: 'Join our reviewee Discord', note: '3,500+ active members' },
+  {
+    icon:  '📧',
+    title: 'Email Support',
+    value: 'support@veripraxis.ph',
+    note:  'We reply within 24 hours',
+  },
+  {
+    icon:  '💬',
+    title: 'Live Chat',
+    value: 'Chat available on the platform',
+    note:  'Mon–Fri, 9AM–6PM PHT',
+  },
+  {
+    icon:  '📱',
+    title: 'Facebook Page',
+    value: 'facebook.com/veripraxis',
+    note:  'DMs answered daily',
+  },
+  {
+    icon:  '📣',
+    title: 'Community Forum',
+    value: 'Join our reviewee Discord',
+    note:  '3,500+ active members',
+  },
 ]
 
 const OFFICE_HOURS = [
   { day: 'Monday – Friday', time: '9:00 AM – 6:00 PM PHT' },
-  { day: 'Saturday', time: '10:00 AM – 3:00 PM PHT' },
-  { day: 'Sunday', time: 'Closed' },
+  { day: 'Saturday',        time: '10:00 AM – 3:00 PM PHT' },
+  { day: 'Sunday',          time: 'Closed' },
 ]
 
 const TOPICS = [
@@ -46,6 +75,8 @@ const TOPICS = [
   'Press / Media',
 ]
 
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function ContactPage() {
   const [submitted, setSubmitted] = React.useState(false)
 
@@ -56,24 +87,85 @@ export default function ContactPage() {
 
   return (
     <PageShell>
-      <motion.main {...pageEntry} className={styles.page}>
-        {/* ───────────────── HERO ───────────────── */}
-        <motion.section {...heroContainer} className={styles.hero}>
-          <motion.span {...heroItem} className={styles.heroLabel}>
-            Contact Us
-          </motion.span>
-          <motion.h1 {...heroItem} className={styles.heroTitle}>
-            We&apos;re here to help
-          </motion.h1>
-          <motion.p {...heroItem} className={styles.heroSub}>
-            Whether it&apos;s a technical issue, a billing question, or just a suggestion —
-            reach out and we&apos;ll get back to you as soon as possible.
-          </motion.p>
-        </motion.section>
+      <main className={styles.page}>
 
-        {/* ───────────────── CHANNELS & FORM ───────────────── */}
+        {/* ══════════════════════════════════════════════════════
+            HERO — asymmetric split
+        ══════════════════════════════════════════════════════ */}
+        <section className={styles.hero}>
+
+          {/* Left: dark photo panel */}
+          <motion.div {...heroPanelLeft} className={styles.heroPhoto}>
+            <Image
+              src="https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=1000&q=80"
+              alt="Team collaborating at work"
+              fill
+              style={{ objectFit: 'cover' }}
+              priority
+            />
+            <div className={styles.heroPhotoOverlay} />
+
+            {/* Floating stat card */}
+            <div className={styles.heroPhotoCard}>
+              <div className={styles.heroPhotoCardEyebrow}>Average response time</div>
+              <div className={styles.heroPhotoCardStat}>&lt; 4 hrs</div>
+              <div className={styles.heroPhotoCardNote}>
+                Our support team is on standby Monday through Saturday.
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Right: content panel */}
+          <motion.div {...heroPanelRight} className={styles.heroContent}>
+            <motion.div {...heroRightContainer}>
+              <motion.span {...heroRightItem} className={styles.heroBadge}>
+                <MessageCircle size={11} strokeWidth={2.5} />
+                Contact VeriPraxis
+              </motion.span>
+
+              <motion.h1 {...heroRightItem} className={styles.heroTitle}>
+                We&apos;re here{' '}
+                <span className={styles.heroTitleAccent}>whenever</span>{' '}
+                you need us.
+              </motion.h1>
+
+              <motion.p {...heroRightItem} className={styles.heroSub}>
+                Whether it&apos;s a technical issue, a billing question, or just a
+                suggestion — reach out and we&apos;ll get back to you as soon as possible.
+              </motion.p>
+
+              {/* Quick-contact chips */}
+              <motion.div {...chipsContainer} className={styles.heroChips}>
+                {QUICK_CHIPS.map((c) => (
+                  <motion.a
+                    key={c.label}
+                    href={c.href}
+                    className={styles.heroChip}
+                    {...chip}
+                  >
+                    <span className={styles.heroChipIcon}>{c.icon}</span>
+                    {c.label}
+                  </motion.a>
+                ))}
+              </motion.div>
+
+              {/* Response indicator */}
+              <motion.div {...heroRightItem} className={styles.heroResponseRow}>
+                <span className={styles.heroResponseDot} />
+                <span className={styles.heroResponseText}>
+                  Support team is online now
+                </span>
+              </motion.div>
+            </motion.div>
+          </motion.div>
+        </section>
+
+        {/* ══════════════════════════════════════════════════════
+            CHANNELS + FORM
+        ══════════════════════════════════════════════════════ */}
         <div className={styles.main}>
-          {/* Channels */}
+
+          {/* Channels column */}
           <motion.section {...channelsCol} className={styles.channelsCol}>
             <span className={styles.colLabel}>Get in Touch</span>
             <h2 className={styles.colTitle}>Choose your preferred channel</h2>
@@ -98,7 +190,7 @@ export default function ContactPage() {
               ))}
             </motion.div>
 
-            <motion.div {...revealUp(0.2)} className={styles.officeHours}>
+            <motion.div {...officeHoursReveal} className={styles.officeHours}>
               <div className={styles.officeHoursTitle}>🕐 Office Hours</div>
               {OFFICE_HOURS.map((row) => (
                 <div key={row.day} className={styles.officeHoursRow}>
@@ -109,17 +201,11 @@ export default function ContactPage() {
             </motion.div>
           </motion.section>
 
-          {/* Form */}
+          {/* Form card */}
           <motion.section {...formCol} className={styles.formCard}>
             <AnimatePresence mode="wait">
               {submitted ? (
-                <motion.div
-                  key="success"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
-                  className={styles.success}
-                >
+                <motion.div key="success" {...successReveal} className={styles.success}>
                   <div className={styles.successIcon}>✅</div>
                   <h3 className={styles.formTitle}>Message sent!</h3>
                   <p className={styles.formSub}>
@@ -142,17 +228,22 @@ export default function ContactPage() {
                     <motion.div {...formField} className={styles.formRow}>
                       <div className={styles.formGroup}>
                         <label className={styles.formLabel}>First Name</label>
-                        <input required className={styles.formInput} />
+                        <input required className={styles.formInput} placeholder="Maria" />
                       </div>
                       <div className={styles.formGroup}>
                         <label className={styles.formLabel}>Last Name</label>
-                        <input required className={styles.formInput} />
+                        <input required className={styles.formInput} placeholder="Santos" />
                       </div>
                     </motion.div>
 
                     <motion.div {...formField} className={styles.formGroup}>
                       <label className={styles.formLabel}>Email Address</label>
-                      <input type="email" required className={styles.formInput} />
+                      <input
+                        type="email"
+                        required
+                        className={styles.formInput}
+                        placeholder="maria@email.com"
+                      />
                     </motion.div>
 
                     <motion.div {...formField} className={styles.formGroup}>
@@ -167,16 +258,22 @@ export default function ContactPage() {
 
                     <motion.div {...formField} className={styles.formGroup}>
                       <label className={styles.formLabel}>Message</label>
-                      <textarea required className={styles.formTextarea} />
+                      <textarea
+                        required
+                        className={styles.formTextarea}
+                        placeholder="Tell us how we can help…"
+                      />
                     </motion.div>
 
                     <motion.button
                       type="submit"
                       className={styles.submitBtn}
-                      whileHover={{ y: -1 }}
+                      whileHover={{ y: -1, scale: 1.005 }}
                       whileTap={{ scale: 0.99 }}
                     >
-                      Send Message →
+                      <Mail size={15} strokeWidth={2.2} />
+                      Send Message
+                      <ArrowRight size={14} strokeWidth={2.5} />
                     </motion.button>
 
                     <p className={styles.formNote}>
@@ -188,7 +285,8 @@ export default function ContactPage() {
             </AnimatePresence>
           </motion.section>
         </div>
-      </motion.main>
+
+      </main>
     </PageShell>
   )
 }
