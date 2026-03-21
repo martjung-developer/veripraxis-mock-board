@@ -1,0 +1,629 @@
+/* app/(auth)/auth.module.css — shared styles, form LEFT · photo RIGHT */
+
+/* ─────────────────────────────────────────
+   ROOT SPLIT LAYOUT
+───────────────────────────────────────── */
+.authPage {
+  min-height: 100svh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: #0d1117;
+  overflow: hidden; /* clips panels during slide so they don't show outside viewport */
+}
+
+/* ─────────────────────────────────────────
+   LEFT — form panel
+───────────────────────────────────────── */
+.formPanel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 3rem 3.5rem;
+  background: #0d1117;
+  overflow-y: auto;
+  order: 1;
+}
+
+.formInner {
+  max-width: 420px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* Logo + back link row at top of form */
+.formTopRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2.5rem;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #475569;
+  text-decoration: none;
+  transition: color 0.18s;
+}
+
+.backLink:hover { color: #94a3b8; }
+
+/* ─────────────────────────────────────────
+   RIGHT — photo panel
+───────────────────────────────────────── */
+.photoPannel {
+  position: relative;
+  overflow: hidden;
+  order: 2;
+}
+
+.photoImg {
+  object-fit: cover;
+}
+
+.photoOverlay {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to left,   rgba(10, 18, 40, 0.3)  0%, rgba(10, 18, 40, 0.5) 100%),
+    linear-gradient(to top,    rgba(10, 18, 40, 0.88) 0%, transparent 55%);
+}
+
+.photoContent {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 2.5rem 2.25rem;
+}
+
+.photoTagline {
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 2.2vw, 2rem);
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+  margin-bottom: 0.625rem;
+}
+
+.photoTaglineAccent { color: #60a5fa; }
+
+.photoSub {
+  font-size: 0.845rem;
+  color: #64748b;
+  line-height: 1.65;
+  max-width: 300px;
+  margin-bottom: 1.75rem;
+}
+
+.photoStats {
+  display: flex;
+  gap: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.photoStat {}
+
+.photoStatValue {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.photoStatLabel {
+  font-size: 0.68rem;
+  color: #475569;
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+/* ─────────────────────────────────────────
+   FORM HEADER
+───────────────────────────────────────── */
+.formTitle {
+  font-family: var(--font-display);
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.025em;
+  margin-bottom: 0.35rem;
+  line-height: 1.15;
+}
+
+.formSubtitle {
+  font-size: 0.875rem;
+  color: #475569;
+  line-height: 1.6;
+  margin-bottom: 2rem;
+}
+
+.formSubtitle a {
+  color: #60a5fa;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.formSubtitle a:hover { color: #93c5fd; }
+
+/* ─────────────────────────────────────────
+   FORM FIELDS
+───────────────────────────────────────── */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.fieldRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #475569;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.inputWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.inputIcon {
+  position: absolute;
+  left: 0.875rem;
+  color: #334155;
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.input {
+  width: 100%;
+  background: #111827;
+  border: 1.5px solid #1f2937;
+  border-radius: 0.625rem;
+  padding: 0.825rem 0.875rem 0.825rem 2.6rem;
+  font-size: 0.875rem;
+  color: #e2e8f0;
+  outline: none;
+  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.input::placeholder { color: #374151; }
+
+.input:focus {
+  border-color: #3b82f6;
+  background: #131d2e;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14);
+}
+
+.inputError {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+}
+
+/* Password toggle */
+.inputToggle {
+  position: absolute;
+  right: 0.875rem;
+  color: #374151;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.2rem;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s;
+}
+
+.inputToggle:hover { color: #94a3b8; }
+
+/* Error message */
+.errorMsg {
+  font-size: 0.72rem;
+  color: #f87171;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/* ─────────────────────────────────────────
+   ROLE SELECTOR — 2 roles only
+───────────────────────────────────────── */
+.roleRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.625rem;
+}
+
+.roleBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0.5rem;
+  border-radius: 0.625rem;
+  border: 1.5px solid #1f2937;
+  background: #111827;
+  color: #475569;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: all 0.18s ease;
+}
+
+.roleBtn:hover {
+  border-color: #3b82f6;
+  color: #93c5fd;
+  background: #131d2e;
+}
+
+.roleBtnActive {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+  color: #60a5fa;
+}
+
+/* ─────────────────────────────────────────
+   CHECKBOX
+───────────────────────────────────────── */
+.checkRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+}
+
+.checkbox {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  cursor: pointer;
+  accent-color: #3b82f6;
+}
+
+.checkLabel {
+  font-size: 0.78rem;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.checkLabel a {
+  color: #60a5fa;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.checkLabel a:hover { color: #93c5fd; }
+
+/* ─────────────────────────────────────────
+   SUBMIT BUTTON
+───────────────────────────────────────── */
+.submitBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #fff;
+  background: #2563eb;
+  padding: 0.9rem;
+  border-radius: 0.625rem;
+  border: none;
+  cursor: pointer;
+  transition: background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
+  margin-top: 0.25rem;
+  text-decoration: none;
+}
+
+.submitBtn:hover:not(:disabled) {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.45);
+}
+
+.submitBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ─────────────────────────────────────────
+   DIVIDER
+───────────────────────────────────────── */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.dividerLine {
+  flex: 1;
+  height: 1px;
+  background: #1f2937;
+}
+
+.dividerText {
+  font-size: 0.72rem;
+  color: #374151;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ─────────────────────────────────────────
+   GOOGLE BUTTON
+───────────────────────────────────────── */
+.googleBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  width: 100%;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #d1d5db;
+  background: #111827;
+  border: 1.5px solid #1f2937;
+  padding: 0.825rem;
+  border-radius: 0.625rem;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.googleBtn:hover {
+  background: #131d2e;
+  border-color: #374151;
+  transform: translateY(-1px);
+}
+
+.googleIcon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* ─────────────────────────────────────────
+   ERROR BANNER
+───────────────────────────────────────── */
+.errorBanner {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 0.625rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.82rem;
+  color: #f87171;
+  line-height: 1.5;
+  margin-bottom: 0.25rem;
+}
+
+/* ─────────────────────────────────────────
+   MODE TABS (login ↔ signup toggle)
+───────────────────────────────────────── */
+.modeTabs {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: #111827;
+  border: 1px solid #1f2937;
+  border-radius: 0.625rem;
+  padding: 3px;
+  margin-bottom: 0.25rem;
+}
+
+.modeTab {
+  position: relative;
+  z-index: 1;
+  padding: 0.575rem 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+  background: none;
+  border: none;
+  border-radius: 0.45rem;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.modeTabActive { color: #fff; }
+
+/* Sliding pill behind active tab */
+.modeTabIndicator {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  width: 50%;
+  background: #1d2d44;
+  border: 1px solid #2a3a52;
+  border-radius: 0.45rem;
+  pointer-events: none;
+}
+
+/* Switch prompt at bottom of form */
+.switchPrompt {
+  text-align: center;
+  font-size: 0.78rem;
+  color: #475569;
+  padding-top: 0.25rem;
+}
+
+.switchBtn {
+  color: #60a5fa;
+  font-weight: 600;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.78rem;
+  transition: color 0.15s;
+}
+
+.switchBtn:hover { color: #93c5fd; }
+
+/* ─────────────────────────────────────────
+   FORGOT / HELPER LINKS
+───────────────────────────────────────── */
+.forgotLink {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #60a5fa;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.forgotLink:hover { color: #93c5fd; }
+
+/* ─────────────────────────────────────────
+   INFO / SUCCESS BOXES
+───────────────────────────────────────── */
+.infoBox {
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  border-radius: 0.625rem;
+  padding: 0.875rem 1.1rem;
+  font-size: 0.82rem;
+  color: #93c5fd;
+  line-height: 1.65;
+  display: flex;
+  gap: 0.625rem;
+  align-items: flex-start;
+}
+
+.successBox {
+  background: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.18);
+  border-radius: 0.625rem;
+  padding: 0.875rem 1.1rem;
+  font-size: 0.82rem;
+  color: #86efac;
+  line-height: 1.65;
+  display: flex;
+  gap: 0.625rem;
+  align-items: flex-start;
+}
+
+/* ─────────────────────────────────────────
+   OTP INPUTS
+───────────────────────────────────────── */
+.otpRow {
+  display: flex;
+  gap: 0.625rem;
+  justify-content: center;
+}
+
+.otpInput {
+  width: 52px;
+  height: 58px;
+  background: #111827;
+  border: 1.5px solid #1f2937;
+  border-radius: 0.625rem;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #fff;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.otpInput:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14);
+}
+
+.otpFilled {
+  border-color: #22c55e;
+  color: #86efac;
+}
+
+.otpError {
+  border-color: #ef4444 !important;
+  color: #f87171 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+}
+
+/* ─────────────────────────────────────────
+   RESEND
+───────────────────────────────────────── */
+.resendRow {
+  text-align: center;
+  font-size: 0.78rem;
+  color: #475569;
+}
+
+.resendBtn {
+  color: #60a5fa;
+  font-weight: 600;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.78rem;
+  transition: color 0.15s;
+}
+
+.resendBtn:hover { color: #93c5fd; }
+.resendBtn:disabled { color: #374151; cursor: not-allowed; }
+
+/* ─────────────────────────────────────────
+   PASSWORD STRENGTH
+───────────────────────────────────────── */
+.strengthRow {
+  display: flex;
+  gap: 3px;
+}
+
+.strengthBar {
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: #1f2937;
+  transition: background 0.3s ease;
+}
+
+.strengthWeak   .strengthBar:nth-child(-n+1) { background: #ef4444; }
+.strengthFair   .strengthBar:nth-child(-n+2) { background: #f59e0b; }
+.strengthGood   .strengthBar:nth-child(-n+3) { background: #3b82f6; }
+.strengthStrong .strengthBar:nth-child(-n+4) { background: #22c55e; }
+
+.strengthLabel {
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.strengthWeak   .strengthLabel { color: #ef4444; }
+.strengthFair   .strengthLabel { color: #f59e0b; }
+.strengthGood   .strengthLabel { color: #3b82f6; }
+.strengthStrong .strengthLabel { color: #22c55e; }
+
+/* ─────────────────────────────────────────
+   RESPONSIVE
+───────────────────────────────────────── */
+@media (max-width: 900px) {
+  .authPage      { grid-template-columns: 1fr; }
+  .photoPannel   { display: none; }
+  .formPanel     { padding: 2rem 1.5rem; min-height: 100svh; justify-content: flex-start; padding-top: 3rem; }
+}

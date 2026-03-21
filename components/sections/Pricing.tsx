@@ -65,7 +65,7 @@ export default function Pricing() {
               ))}
             </ul>
 
-            <Link href="/register" className={styles.pricingCtaFree}>
+            <Link href="/signup" className={styles.pricingCtaFree}>
               Create Free Account
             </Link>
           </div>

@@ -70,7 +70,7 @@ export default function Navbar() {
         {/* Desktop CTA buttons */}
         <div className={styles.navActions}>
           <Link href="/login"    className={styles.navLoginBtn}>Log in</Link>
-          <Link href="/register" className={styles.navSignupBtn}>Sign Up</Link>
+          <Link href="/signup" className={styles.navSignupBtn}>Sign Up</Link>
 
           {/* Hamburger (mobile) */}
           <button

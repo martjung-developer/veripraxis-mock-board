@@ -27,6 +27,9 @@ import styles from './features.module.css'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import {
+  heroContainer,
+  heroFadeUp,
+  heroImageZoom,
   cardsContainer,
   featureCard,
   splitText,
@@ -103,52 +106,82 @@ export default function FeaturesPage() {
       <main className={styles.page}>
 
         {/* ── HERO ── */}
-        <section className={styles.hero}>
-          <div className={styles.heroImageGrid}>
-            <div className={styles.heroImgA}>
-              <Image
-                src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=800&q=80"
-                alt="Student reviewing notes"
-                fill
-                style={{ objectFit: 'cover' }}
-                priority
-              />
-            </div>
-            <div className={styles.heroImgB}>
-              <Image
-                src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=600&q=80"
-                alt="Students studying together"
-                fill
-                style={{ objectFit: 'cover' }}
-              />
-            </div>
-            <div className={styles.heroImgC}>
-              <Image
-                src="https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=500&q=80"
-                alt="Books and study materials"
-                fill
-                style={{ objectFit: 'cover' }}
-              />
-            </div>
-            <div className={styles.heroOverlay} />
-          </div>
+<motion.section className={styles.hero} {...heroContainer}>
 
-          <div className={styles.heroBody}>
-            <span className={styles.heroBadge}>Platform Features</span>
-            <h1 className={styles.heroTitle}>
-              Built for one goal —<br />
-              <span className={styles.heroAccent}>passing your board exam.</span>
-            </h1>
-            <p className={styles.heroSub}>
-              Every feature in VeriPraxis exists because Filipino reviewees needed it.
-              No bloat. No filler. Just the tools that actually move your score.
-            </p>
-            <div className={styles.heroActions}>
-              <Link href="/register" className={styles.btnPrimary}>Start Free Today</Link>
-              <Link href="/pricing"  className={styles.btnGhost}>See Pricing</Link>
-            </div>
-          </div>
-        </section>
+  <div className={styles.heroImageGrid}>
+
+    <motion.div
+      className={styles.heroImgA}
+      {...heroImageZoom}
+      animate={{ y: [0, -10, 0] }}
+      transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+    >
+      <Image
+        src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=800&q=80"
+        alt="Student reviewing notes"
+        fill
+        style={{ objectFit: 'cover' }}
+        priority
+      />
+    </motion.div>
+
+    <motion.div
+      className={styles.heroImgB}
+      {...heroImageZoom}
+      transition={{ delay: 0.2 }}
+    >
+      <Image
+        src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=600&q=80"
+        alt="Students studying together"
+        fill
+        style={{ objectFit: 'cover' }}
+      />
+    </motion.div>
+
+    <motion.div
+      className={styles.heroImgC}
+      {...heroImageZoom}
+      transition={{ delay: 0.35 }}
+    >
+      <Image
+        src="https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=500&q=80"
+        alt="Books and study materials"
+        fill
+        style={{ objectFit: 'cover' }}
+      />
+    </motion.div>
+
+    <div className={styles.heroOverlay} />
+  </div>
+
+  <div className={styles.heroBody}>
+    <motion.span className={styles.heroBadge} {...heroFadeUp}>
+      Platform Features
+    </motion.span>
+
+    <motion.h1 className={styles.heroTitle} {...heroFadeUp}>
+      Built for one goal —<br />
+      <span className={styles.heroAccent}>
+        passing your board exam.
+      </span>
+    </motion.h1>
+
+    <motion.p className={styles.heroSub} {...heroFadeUp}>
+      Every feature in VeriPraxis exists because Filipino reviewees needed it.
+      No bloat. No filler. Just the tools that actually move your score.
+    </motion.p>
+
+    <motion.div className={styles.heroActions} {...heroFadeUp}>
+      <Link href="/register" className={styles.btnPrimary}>
+        Start Free Today
+      </Link>
+      <Link href="/pricing" className={styles.btnGhost}>
+        See Pricing
+      </Link>
+    </motion.div>
+  </div>
+
+</motion.section>
 
         {/* ── OVERVIEW CARDS — Animation 1: stagger scale-in on scroll ── */}
         <section className={styles.overviewSection}>

@@ -1,42 +1,29 @@
 // app/(pages)/blog/page.tsx
 'use client'
 
-import React from 'react'
-import Link from 'next/link'
+import React, { useState } from 'react'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
-import { Clock, ArrowRight, Tag, Rss } from 'lucide-react'
-import { heroContainer, heroItem, revealUp } from '@/animations/presets/publicPage'
 import {
-  postsContainer, postCard, featuredCard, filterRow, newsletter,
+  ArrowRight, Rss,
+  BadgeCheck, Star, ChevronLeft, ChevronRight,
+} from 'lucide-react'
+import { heroContainer, heroItem } from '@/animations/presets/publicPage'
+import {
+  filterRow, newsletter,
 } from '@/animations/blog/blogAnimations'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import styles from './blog.module.css'
 
+/* ─────────────────────────────────────────
+   BLOG DATA
+───────────────────────────────────────── */
 const CATEGORIES = ['All', 'Study Tips', 'Exam Updates', 'Success Stories', 'Wellness']
-
-const CATEGORY_COLORS: Record<string, { color: string; bg: string }> = {
-  'Study Tips':      { color: '#1d4ed8', bg: '#eff6ff' },
-  'Exam Updates':    { color: '#15803d', bg: '#f0fdf4' },
-  'Success Stories': { color: '#92400e', bg: '#fffbeb' },
-  'Wellness':        { color: '#7c3aed', bg: '#faf5ff' },
-}
-
-const FEATURED_POST = {
-  photo:     'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=1200&q=80',
-  photoAlt:  'Student studying with notebook',
-  category:  'Study Tips',
-  date:      'Feb 20, 2025',
-  readTime:  '6 min read',
-  title:     'The 90-Day Study Plan That Helped 10,000 Reviewees Pass Their PRC Boards',
-  excerpt:   'A structured, science-backed approach to your final 3 months before exam day — covering when to review, how to practice, and how to handle exam-day nerves.',
-  href:      '/blog/90-day-study-plan',
-}
 
 const POSTS = [
   {
-    photo:    'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=600&q=80',
+    photo: 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=600&q=80',
     photoAlt: 'Nursing professional reviewing materials',
     category: 'Exam Updates', date: 'Feb 14, 2025', readTime: '4 min read',
     title: 'PRC NLE 2025 Schedule & Coverage: What Nursing Reviewees Need to Know',
@@ -44,7 +31,7 @@ const POSTS = [
     href: '/blog/nle-2025-updates',
   },
   {
-    photo:    'https://images.unsplash.com/photo-1518770660439-4636190af475?w=600&q=80',
+    photo: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=600&q=80',
     photoAlt: 'Engineering circuit board',
     category: 'Success Stories', date: 'Feb 10, 2025', readTime: '5 min read',
     title: "From Failing Twice to Passing with Flying Colors: Mark's Story",
@@ -52,7 +39,7 @@ const POSTS = [
     href: '/blog/mark-success-story',
   },
   {
-    photo:    'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=600&q=80',
+    photo: 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=600&q=80',
     photoAlt: 'Books stacked on desk',
     category: 'Study Tips', date: 'Feb 5, 2025', readTime: '7 min read',
     title: 'Active Recall vs. Passive Reading: Which Works Better for Board Exams?',
@@ -60,7 +47,7 @@ const POSTS = [
     href: '/blog/active-recall-board-exams',
   },
   {
-    photo:    'https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=600&q=80',
+    photo: 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=600&q=80',
     photoAlt: 'Person resting at desk',
     category: 'Wellness', date: 'Jan 28, 2025', readTime: '4 min read',
     title: 'Sleep, Stress & Exam Performance: A Guide for the Final Week',
@@ -68,7 +55,7 @@ const POSTS = [
     href: '/blog/sleep-stress-exam',
   },
   {
-    photo:    'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=600&q=80',
+    photo: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=600&q=80',
     photoAlt: 'Accountant reviewing documents',
     category: 'Exam Updates', date: 'Jan 20, 2025', readTime: '5 min read',
     title: 'PRC CPA Board Exam 2025: Coverage Changes You Should Not Ignore',
@@ -76,7 +63,7 @@ const POSTS = [
     href: '/blog/cpa-2025-coverage',
   },
   {
-    photo:    'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=600&q=80',
+    photo: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=600&q=80',
     photoAlt: 'Students studying together',
     category: 'Study Tips', date: 'Jan 15, 2025', readTime: '6 min read',
     title: '5 Things Top Board Passers Do Differently During Their Review',
@@ -85,12 +72,168 @@ const POSTS = [
   },
 ]
 
+/* ─────────────────────────────────────────
+   WALL OF TRUST DATA
+───────────────────────────────────────── */
+type EndorserType = 'prc-professional' | 'faculty-head' | 'board-passer' | 'hiring-partner' | 'review-center'
+
+interface Endorser {
+  initials:   string
+  name:       string
+  role:       string
+  type:       EndorserType
+  quote:      string
+  stars:      number
+  verifiedAs: string
+}
+
+const TYPE_CONFIG: Record<EndorserType, { label: string; color: string; bg: string; border: string; avatar: string }> = {
+  'prc-professional': { label: 'PRC Professional',   color: '#0C447C', bg: '#E6F1FB', border: '#85B7EB', avatar: '#dbeafe' },
+  'faculty-head':     { label: 'Faculty Head',        color: '#085041', bg: '#E1F5EE', border: '#5DCAA5', avatar: '#ccfbf1' },
+  'board-passer':     { label: 'Board Exam Passer',   color: '#3C3489', bg: '#EEEDFE', border: '#AFA9EC', avatar: '#ede9fe' },
+  'hiring-partner':   { label: 'Hiring Partner',      color: '#633806', bg: '#FAEEDA', border: '#EF9F27', avatar: '#fef3c7' },
+  'review-center':    { label: 'Review Center',       color: '#712B13', bg: '#FAECE7', border: '#F0997B', avatar: '#ffedd5' },
+}
+
+const ENDORSERS: Endorser[] = [
+  {
+    initials: 'MR', name: 'Dr. Maria Reyes',
+    role: 'Licensed Physician · PRC Reg. No. 012345',
+    type: 'prc-professional', stars: 5,
+    quote: 'VeriPraxis questions are remarkably close to the actual board format. I recommend it to all my interns preparing for their licensure.',
+    verifiedAs: 'Verified PRC license holder',
+  },
+  {
+    initials: 'JC', name: 'Prof. Jose Cruz',
+    role: 'Dean, College of Education · LCCB Bacolod',
+    type: 'faculty-head', stars: 5,
+    quote: "Our students who used VeriPraxis consistently outperform in the LET. The question quality and subject alignment to PRC's syllabus is excellent. This is now part of our official review toolkit.",
+    verifiedAs: 'Verified school department head',
+  },
+  {
+    initials: 'AL', name: 'Ana Lim',
+    role: 'LET Passer — Secondary Math · Batch 2024',
+    type: 'board-passer', stars: 5,
+    quote: 'Passed on my first try! The per-subject drills and analytics helped me pinpoint exactly where I was weak. Highly recommend to all future teachers.',
+    verifiedAs: 'Verified board exam passer',
+  },
+  {
+    initials: 'SP', name: 'Sir. Samuel Perez',
+    role: 'Lead Instructor · Leyte Review Center',
+    type: 'review-center', stars: 5,
+    quote: "I've seen dozens of review platforms. VeriPraxis stands out because the rationale per question actually teaches — not just tells — the correct answer. My reviewees love it.",
+    verifiedAs: 'Verified review center instructor',
+  },
+  {
+    initials: 'CG', name: 'Arch. Clara Garcia',
+    role: 'Licensed Architect · PRC Reg. No. 023891',
+    type: 'prc-professional', stars: 5,
+    quote: 'The ALE question bank is thorough and well-structured. I wish this existed when I was reviewing. Passed my boards and now refer all junior colleagues here.',
+    verifiedAs: 'Verified PRC license holder',
+  },
+  {
+    initials: 'RB', name: 'Engr. Rico Bautista',
+    role: 'HR Manager · Aboitiz Construction Group',
+    type: 'hiring-partner', stars: 4,
+    quote: 'We actively encourage fresh graduates to use VeriPraxis before applying. Candidates who pass their boards on the first attempt stand out significantly in our hiring process.',
+    verifiedAs: 'Verified company representative',
+  },
+  {
+    initials: 'KS', name: 'Karen Santos',
+    role: 'LLE Passer · Batch 2023',
+    type: 'board-passer', stars: 4,
+    quote: 'Great question bank for LLE. The cataloging and classification section could use a few more items but overall the platform is well-designed and easy to use.',
+    verifiedAs: 'Verified board exam passer',
+  },
+  {
+    initials: 'BT', name: 'Prof. Ben Torres',
+    role: 'Program Chair, Architecture · STI Bacolod',
+    type: 'faculty-head', stars: 4,
+    quote: 'A solid platform for architecture students. I would love to see more structural engineering questions added to the ALE bank in future updates.',
+    verifiedAs: 'Verified school department head',
+  },
+  {
+    initials: 'LD', name: 'Liza Dela Cruz',
+    role: 'Interior Design Passer · Batch 2024',
+    type: 'board-passer', stars: 3,
+    quote: 'The IDLE section is good but still growing. Some topics are not yet fully covered. I supplemented with other materials but the mock exam format was very helpful.',
+    verifiedAs: 'Verified board exam passer',
+  },
+  {
+    initials: 'MN', name: 'Mark Navarro',
+    role: 'PLE Passer · Batch 2023',
+    type: 'board-passer', stars: 3,
+    quote: 'Decent platform overall. The UI is clean and easy to navigate. Wish the PLE statistics section had more depth — it felt lighter than the other subjects.',
+    verifiedAs: 'Verified board exam passer',
+  },
+  {
+    initials: 'RP', name: 'Riza Pascual',
+    role: 'Review Center Coordinator · Cebu',
+    type: 'review-center', stars: 2,
+    quote: 'Promising platform but still needs more content for some programs. The mobile experience also needs improvement — some pages load slowly on our students\' phones.',
+    verifiedAs: 'Verified review center instructor',
+  },
+  {
+    initials: 'JM', name: 'Joel Mendoza',
+    role: 'LET Secondary Science Passer · Batch 2024',
+    type: 'board-passer', stars: 2,
+    quote: 'The science section needs more biology questions. I found myself relying on other review materials to cover those gaps. The platform itself is well-designed though.',
+    verifiedAs: 'Verified board exam passer',
+  },
+]
+
+type SortOption = 'all' | 'positive' | 'negative'
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: 'all',      label: 'All Reviews'  },
+  { value: 'positive', label: 'Highest First' },
+  { value: 'negative', label: 'Lowest First' },
+]
+const ITEMS_PER_PAGE = 6
+
+function StarRow({ count }: { count: number }) {
+  return (
+    <div className={styles.wotStars}>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Star
+          key={i}
+          size={12}
+          strokeWidth={1.5}
+          fill={i < count ? '#f59e0b' : 'none'}
+          color={i < count ? '#f59e0b' : 'var(--slate-border)'}
+        />
+      ))}
+    </div>
+  )
+}
+
+/* ─────────────────────────────────────────
+   PAGE
+───────────────────────────────────────── */
 export default function BlogPage() {
   const [activeCategory, setActiveCategory] = React.useState('All')
 
-  const filtered = activeCategory === 'All'
-    ? POSTS
-    : POSTS.filter((p) => p.category === activeCategory)
+  // Wall of Trust state
+  const [sort, setSort]           = useState<SortOption>('all')
+  const [starFilter, setStarFilter] = useState<number>(0)
+  const [page, setPage]           = useState(1)
+
+  // WoT logic
+  const wotSorted = [...ENDORSERS].sort((a, b) =>
+    sort === 'positive' ? b.stars - a.stars :
+    sort === 'negative' ? a.stars - b.stars : 0
+  )
+  const wotFiltered   = starFilter === 0 ? wotSorted : wotSorted.filter((e) => e.stars === starFilter)
+  const totalPages    = Math.ceil(wotFiltered.length / ITEMS_PER_PAGE)
+  const wotPaginated  = wotFiltered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
+  const avgRating     = (ENDORSERS.reduce((s, e) => s + e.stars, 0) / ENDORSERS.length).toFixed(1)
+  const starCounts    = [5, 4, 3, 2, 1].map((s) => ({
+    star:  s,
+    count: ENDORSERS.filter((e) => e.stars === s).length,
+    pct:   Math.round((ENDORSERS.filter((e) => e.stars === s).length / ENDORSERS.length) * 100),
+  }))
+
+  function handleSort(v: SortOption) { setSort(v); setPage(1) }
+  function handleStar(v: number)     { setStarFilter(v); setPage(1) }
 
   return (
     <>
@@ -109,7 +252,6 @@ export default function BlogPage() {
             />
             <div className={styles.heroBgOverlay} />
           </div>
-
           <div className={styles.heroInner}>
             <motion.div {...heroContainer} className={styles.heroContent}>
               <motion.span {...heroItem} className={styles.heroBadge}>
@@ -124,8 +266,6 @@ export default function BlogPage() {
                 Study strategies, PRC exam updates, success stories, and wellness
                 tips — all designed to help you pass.
               </motion.p>
-
-              {/* Filter pills */}
               <motion.div {...filterRow} className={styles.filterRow}>
                 {CATEGORIES.map((cat) => (
                   <button
@@ -141,116 +281,140 @@ export default function BlogPage() {
           </div>
         </section>
 
-        {/* ── FEATURED POST ── */}
-        {activeCategory === 'All' && (
-          <section className={styles.featuredSection}>
-            <div className={styles.featuredInner}>
-              <div className={styles.featuredLabel}>
-                <Tag size={12} strokeWidth={2.5} />
-                Featured Article
+        {/* ── WALL OF TRUST ── */}
+        <section className={styles.wotSection}>
+          <div className={styles.wotInner}>
+
+            {/* Header row */}
+            <div className={styles.wotHeader}>
+              <div className={styles.wotHeaderLeft}>
+                <span className={styles.wotEyebrow}>
+                  <span className={styles.wotEyebrowDot} />
+                  Wall of Trust
+                </span>
+                <h2 className={styles.wotTitle}>Reviewed by professionals & educators</h2>
+                <p className={styles.wotSub}>Real voices from the Philippine licensure community</p>
               </div>
-              <motion.div {...featuredCard}>
-                <Link href={FEATURED_POST.href} className={styles.featuredCard}>
-                  {/* Photo */}
-                  <div className={styles.featuredPhoto}>
-                    <Image
-                      src={FEATURED_POST.photo}
-                      alt={FEATURED_POST.photoAlt}
-                      fill style={{ objectFit: 'cover' }}
-                    />
-                    <div className={styles.featuredPhotoOverlay} />
-                    <div className={styles.featuredPhotoContent}>
-                      <span
-                        className={styles.postCategoryBadge}
-                        style={{
-                          color: CATEGORY_COLORS[FEATURED_POST.category]?.color,
-                          background: CATEGORY_COLORS[FEATURED_POST.category]?.bg,
-                        }}
-                      >
-                        {FEATURED_POST.category}
-                      </span>
-                    </div>
-                  </div>
-                  {/* Body */}
-                  <div className={styles.featuredBody}>
-                    <div className={styles.postMeta}>
-                      <span className={styles.postDate}>{FEATURED_POST.date}</span>
-                      <span className={styles.postDot}>·</span>
-                      <Clock size={12} strokeWidth={2} />
-                      <span className={styles.postReadTime}>{FEATURED_POST.readTime}</span>
-                    </div>
-                    <h2 className={styles.featuredTitle}>{FEATURED_POST.title}</h2>
-                    <p className={styles.featuredExcerpt}>{FEATURED_POST.excerpt}</p>
-                    <div className={styles.readMoreLink}>
-                      Read article <ArrowRight size={14} strokeWidth={2.5} />
-                    </div>
-                  </div>
-                </Link>
-              </motion.div>
+
+              {/* Rating summary card */}
+              <div className={styles.wotRatingCard}>
+                <div className={styles.wotRatingBig}>{avgRating}</div>
+                <StarRow count={Math.round(Number(avgRating))} />
+                <div className={styles.wotRatingCount}>{ENDORSERS.length} review ratings</div>
+                <div className={styles.wotRatingBars}>
+                  {starCounts.map(({ star, count, pct }) => (
+                    <button
+                      key={star}
+                      className={`${styles.wotRatingBar} ${starFilter === star ? styles.wotRatingBarActive : ''}`}
+                      onClick={() => handleStar(starFilter === star ? 0 : star)}
+                    >
+                      <span className={styles.wotRatingBarLabel}>{star}</span>
+                      <Star size={9} fill="#f59e0b" stroke="none" />
+                      <div className={styles.wotRatingBarTrack}>
+                        <div className={styles.wotRatingBarFill} style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className={styles.wotRatingBarCount}>{count}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
-          </section>
-        )}
 
-        {/* ── POSTS GRID ── */}
-        <section className={styles.postsSection}>
-          <div className={styles.postsSectionInner}>
-            {activeCategory !== 'All' && (
-              <motion.div {...revealUp()} className={styles.categoryHeader}>
-                <span
-                  className={styles.categoryHeaderBadge}
-                  style={{
-                    color: CATEGORY_COLORS[activeCategory]?.color ?? '#1d4ed8',
-                    background: CATEGORY_COLORS[activeCategory]?.bg ?? '#eff6ff',
-                  }}
-                >
-                  {activeCategory}
-                </span>
-                <span className={styles.categoryHeaderCount}>
-                  {filtered.length} article{filtered.length !== 1 ? 's' : ''}
-                </span>
-              </motion.div>
-            )}
+            {/* Filter bar */}
+            <div className={styles.wotFilterBar}>
+              <div className={styles.wotSortRow}>
+                {SORT_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    className={`${styles.wotSortBtn} ${sort === opt.value ? styles.wotSortBtnActive : ''}`}
+                    onClick={() => handleSort(opt.value)}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <div className={styles.wotStarPills}>
+                {[0, 5, 4, 3, 2, 1].map((s) => (
+                  <button
+                    key={s}
+                    className={`${styles.wotStarPill} ${starFilter === s ? styles.wotStarPillActive : ''}`}
+                    onClick={() => handleStar(s)}
+                  >
+                    {s === 0 ? 'All' : `${s} ★`}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-            <motion.div className={styles.postsGrid} {...postsContainer}>
-              {filtered.map((post) => (
-                <motion.div key={post.href} className={styles.postCard} {...postCard}>
-                  <Link href={post.href} className={styles.postCardLink}>
-                    {/* Photo */}
-                    <div className={styles.postCardPhoto}>
-                      <Image
-                        src={post.photo}
-                        alt={post.photoAlt}
-                        fill style={{ objectFit: 'cover' }}
-                      />
-                      <div className={styles.postCardPhotoOverlay} />
-                      <span
-                        className={styles.postCategoryBadge}
-                        style={{
-                          color: CATEGORY_COLORS[post.category]?.color,
-                          background: CATEGORY_COLORS[post.category]?.bg,
-                        }}
+            {/* Masonry grid */}
+            <div className={styles.wotMasonry}>
+              {wotPaginated.map((e) => {
+                const cfg = TYPE_CONFIG[e.type]
+                return (
+                  <div key={`${e.name}-${e.stars}`} className={styles.wotCard}>
+                    <div className={styles.wotCardTop}>
+                      <div
+                        className={styles.wotAvatar}
+                        style={{ background: cfg.avatar, color: cfg.color }}
                       >
-                        {post.category}
-                      </span>
-                    </div>
-                    {/* Body */}
-                    <div className={styles.postCardBody}>
-                      <div className={styles.postMeta}>
-                        <span className={styles.postDate}>{post.date}</span>
-                        <span className={styles.postDot}>·</span>
-                        <Clock size={11} strokeWidth={2} />
-                        <span className={styles.postReadTime}>{post.readTime}</span>
+                        {e.initials}
                       </div>
-                      <h3 className={styles.postCardTitle}>{post.title}</h3>
-                      <p className={styles.postCardExcerpt}>{post.excerpt}</p>
-                      <div className={styles.readMoreLink}>
-                        Read more <ArrowRight size={13} strokeWidth={2.5} />
+                      <div className={styles.wotCardMeta}>
+                        <div className={styles.wotCardName}>{e.name}</div>
+                        <div className={styles.wotCardRole}>{e.role}</div>
+                        <span
+                          className={styles.wotTypeBadge}
+                          style={{ color: cfg.color, background: cfg.bg, borderColor: cfg.border }}
+                        >
+                          {cfg.label}
+                        </span>
                       </div>
                     </div>
-                  </Link>
-                </motion.div>
-              ))}
-            </motion.div>
+
+                    <StarRow count={e.stars} />
+
+                    <blockquote className={styles.wotQuote}>{e.quote}</blockquote>
+
+                    <div className={styles.wotVerified}>
+                      <BadgeCheck size={12} color="#1d4ed8" strokeWidth={2} />
+                      {e.verifiedAs}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className={styles.wotPagination}>
+                <button
+                  className={styles.wotPageBtn}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  <ChevronLeft size={15} strokeWidth={2} />
+                </button>
+                {Array.from({ length: totalPages }).map((_, i) => (
+                  <button
+                    key={i}
+                    className={`${styles.wotPageNum} ${page === i + 1 ? styles.wotPageNumActive : ''}`}
+                    onClick={() => setPage(i + 1)}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+                <button
+                  className={styles.wotPageBtn}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                >
+                  <ChevronRight size={15} strokeWidth={2} />
+                </button>
+                <span className={styles.wotPageInfo}>
+                  Showing {(page - 1) * ITEMS_PER_PAGE + 1}–{Math.min(page * ITEMS_PER_PAGE, wotFiltered.length)} of {wotFiltered.length}
+                </span>
+              </div>
+            )}
           </div>
         </section>
 

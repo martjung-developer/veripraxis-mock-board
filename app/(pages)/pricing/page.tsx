@@ -427,9 +427,9 @@ export default function PricingPage() {
         <section className={styles.ctaSection}>
           <div className={styles.ctaBg}>
             <Image
-              src="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=1400&q=80"
-              alt="Graduates celebrating"
-              fill
+                src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=1400&q=80"
+                alt="Student studying at a desk"
+                fill
               style={{ objectFit: 'cover' }}
             />
             <div className={styles.ctaBgOverlay} />

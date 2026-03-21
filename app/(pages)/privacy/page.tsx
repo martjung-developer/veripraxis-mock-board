@@ -4,7 +4,23 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
-import { ChevronRight } from 'lucide-react'
+import {
+  ChevronRight,
+  Calendar,
+  Globe,
+  Lock,
+  Share2,
+  Eye,
+  Edit,
+  Trash2,
+  XCircle,
+  Package,
+  Scale,
+  MessageCircle,
+  FileText,
+  Cookie,
+  Mail,
+} from 'lucide-react'
 import {
   legalHeroPanelLeft,
   legalHeroPanelRight,
@@ -28,10 +44,10 @@ import styles from './privacy.module.css'
 // ─── Data ────────────────────────────────────────────────────────────────────
 
 const HERO_CHIPS = [
-  { icon: '📅', label: 'Effective Jan 1, 2025' },
-  { icon: '🇵🇭', label: 'Philippines – NPC Compliant' },
-  { icon: '🔐', label: 'TLS + bcrypt encrypted' },
-  { icon: '📤', label: 'Never sold to third parties' },
+  { icon: Calendar, label: 'Effective Jan 1, 2025' },
+  { icon: Globe, label: 'Philippines – NPC Compliant' },
+  { icon: Lock, label: 'TLS + bcrypt encrypted' },
+  { icon: Share2, label: 'Never sold to third parties' },
 ]
 
 const HERO_STATS = [
@@ -53,12 +69,12 @@ const SECTIONS = [
 ]
 
 const YOUR_RIGHTS = [
-  { icon: '👁️', title: 'Access',  text: 'See what data we hold about you at any time.' },
-  { icon: '✏️', title: 'Correct', text: 'Fix inaccurate or outdated information.' },
-  { icon: '🗑️', title: 'Delete',  text: 'Remove your account and all associated data.' },
-  { icon: '🚫', title: 'Opt Out', text: 'Unsubscribe from marketing emails instantly.' },
-  { icon: '📦', title: 'Export',  text: 'Download your exam history and analytics.' },
-  { icon: '⚖️', title: 'Object',  text: 'Dispute how your data is processed or used.' },
+  { icon: Eye, title: 'Access',  text: 'See what data we hold about you at any time.' },
+  { icon: Edit, title: 'Correct', text: 'Fix inaccurate or outdated information.' },
+  { icon: Trash2, title: 'Delete',  text: 'Remove your account and all associated data.' },
+  { icon: XCircle, title: 'Opt Out', text: 'Unsubscribe from marketing emails instantly.' },
+  { icon: Package, title: 'Export',  text: 'Download your exam history and analytics.' },
+  { icon: Scale, title: 'Object',  text: 'Dispute how your data is processed or used.' },
 ]
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -124,7 +140,7 @@ export default function PrivacyPage() {
               <motion.div {...legalChipsContainer} className={styles.heroChips}>
                 {HERO_CHIPS.map((c) => (
                   <motion.span key={c.label} {...legalChip} className={styles.heroChip}>
-                    <span className={styles.heroChipIcon}>{c.icon}</span>
+                    <c.icon className={styles.heroChipIcon} size={18} />
                     {c.label}
                   </motion.span>
                 ))}
@@ -132,7 +148,7 @@ export default function PrivacyPage() {
 
               {/* NPC compliance badge */}
               <motion.div {...legalHeroRightItem} className={styles.heroComplianceRow}>
-                <span className={styles.heroComplianceIcon}>⚖️</span>
+                <Scale size={18} className={styles.heroComplianceIcon} />
                 <span className={styles.heroComplianceText}>
                   Compliant with RA 10173 — Data Privacy Act of 2012
                 </span>
@@ -160,7 +176,10 @@ export default function PrivacyPage() {
 
             {/* Dark info card */}
             <motion.div {...infoBlockReveal} className={styles.tocInfoCard}>
-              <div className={styles.tocInfoCardTitle}>🔒 &nbsp;Questions about your data?</div>
+              <div className={styles.tocInfoCardTitle}>
+                <Lock size={18} style={{ display: 'inline-block', marginRight: '0.5rem' }} />
+                Questions about your data?
+              </div>
               <div className={styles.tocInfoCardText}>
                 Our Data Privacy Officer is available to address any concerns about how your information is handled.
               </div>
@@ -254,7 +273,7 @@ export default function PrivacyPage() {
               <div className={styles.rightsGrid}>
                 {YOUR_RIGHTS.map((r) => (
                   <div key={r.title} className={styles.rightCard}>
-                    <div className={styles.rightCardIcon}>{r.icon}</div>
+                    <r.icon className={styles.rightCardIcon} size={24} />
                     <div className={styles.rightCardTitle}>{r.title}</div>
                     <div className={styles.rightCardText}>{r.text}</div>
                   </div>
@@ -319,12 +338,15 @@ export default function PrivacyPage() {
             <div className={styles.relatedTitle}>Related Legal Documents</div>
             <motion.div className={styles.relatedGrid} {...relatedContainer}>
               {[
-                { label: '📄 Terms of Service', href: '/terms' },
-                { label: '🍪 Cookie Policy',    href: '/cookies' },
-                { label: '✉️ Contact Us',        href: '/contact' },
-              ].map(({ label, href }) => (
+                { label: 'Terms of Service', href: '/terms', icon: FileText },
+                { label: 'Cookie Policy',    href: '/cookies', icon: Cookie },
+                { label: 'Contact Us',        href: '/contact', icon: Mail },
+              ].map(({ label, href, icon: Icon }) => (
                 <motion.div key={label} {...relatedBtn}>
-                  <Link href={href} className={styles.relatedBtn}>{label}</Link>
+                  <Link href={href} className={styles.relatedBtn}>
+                    <Icon size={16} style={{ marginRight: '0.5rem' }} />
+                    {label}
+                  </Link>
                 </motion.div>
               ))}
             </motion.div>

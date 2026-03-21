@@ -231,7 +231,7 @@ export default function AboutPage() {
         {/* ── MISSION PHOTO BREAK ── */}
         <section className={styles.photoBreak}>
           <Image
-            src="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=1400&q=80"
+            src="https://images.pexels.com/photos/1205651/pexels-photo-1205651.jpeg?auto=compress&cs=tinysrgb&w=1400"
             alt="Graduates celebrating"
             fill style={{ objectFit: 'cover' }}
           />

@@ -33,6 +33,7 @@
 ═══════════════════════════════════════════════════════════════ */
 .hero {
   background: #0d1b2e;
+   margin-top: 50px;
   padding-top: 68px;
   position: relative;
   overflow: hidden;

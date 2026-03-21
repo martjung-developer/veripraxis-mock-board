@@ -3,7 +3,7 @@
 import React from 'react'
 import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
-import { MessageCircle, Mail, ArrowRight } from 'lucide-react'
+import { MessageCircle, Mail, ArrowRight, Mail as MailIcon, MessageSquare, Facebook, Users, Clock, CheckCircle } from 'lucide-react'
 
 import PageShell from '@/components/layout/PageShell'
 import styles from './contact.module.css'
@@ -28,32 +28,32 @@ import {
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
 const QUICK_CHIPS = [
-  { icon: '📧', label: 'support@veripraxis.ph', href: 'mailto:support@veripraxis.ph' },
-  { icon: '💬', label: 'Live Chat',              href: '#chat' },
-  { icon: '📱', label: 'Facebook',               href: 'https://facebook.com/veripraxis' },
+  { icon: MailIcon, label: 'support@veripraxis.ph', href: 'mailto:support@veripraxis.ph' },
+  { icon: MessageSquare, label: 'Live Chat',              href: '#chat' },
+  { icon: Facebook, label: 'Facebook',               href: 'https://facebook.com/veripraxis' },
 ]
 
 const CHANNELS = [
   {
-    icon:  '📧',
+    icon:  MailIcon,
     title: 'Email Support',
     value: 'support@veripraxis.ph',
     note:  'We reply within 24 hours',
   },
   {
-    icon:  '💬',
+    icon:  MessageSquare,
     title: 'Live Chat',
     value: 'Chat available on the platform',
     note:  'Mon–Fri, 9AM–6PM PHT',
   },
   {
-    icon:  '📱',
+    icon:  Facebook,
     title: 'Facebook Page',
     value: 'facebook.com/veripraxis',
     note:  'DMs answered daily',
   },
   {
-    icon:  '📣',
+    icon:  Users,
     title: 'Community Forum',
     value: 'Join our reviewee Discord',
     note:  '3,500+ active members',
@@ -143,7 +143,7 @@ export default function ContactPage() {
                     className={styles.heroChip}
                     {...chip}
                   >
-                    <span className={styles.heroChipIcon}>{c.icon}</span>
+                    <c.icon size={16} strokeWidth={2} className={styles.heroChipIcon} />
                     {c.label}
                   </motion.a>
                 ))}
@@ -180,7 +180,7 @@ export default function ContactPage() {
                   {...channelCard}
                   className={styles.channelCard}
                 >
-                  <div className={styles.channelIcon}>{ch.icon}</div>
+                  <ch.icon size={24} strokeWidth={2} className={styles.channelIcon} />
                   <div className={styles.channelText}>
                     <div className={styles.channelTitle}>{ch.title}</div>
                     <div className={styles.channelValue}>{ch.value}</div>
@@ -191,7 +191,10 @@ export default function ContactPage() {
             </motion.div>
 
             <motion.div {...officeHoursReveal} className={styles.officeHours}>
-              <div className={styles.officeHoursTitle}>🕐 Office Hours</div>
+              <div className={styles.officeHoursTitle}>
+                <Clock size={16} strokeWidth={2} style={{ display: 'inline-block', marginRight: '0.5rem' }} />
+                Office Hours
+              </div>
               {OFFICE_HOURS.map((row) => (
                 <div key={row.day} className={styles.officeHoursRow}>
                   <span className={styles.officeHoursDay}>{row.day}</span>
@@ -206,7 +209,7 @@ export default function ContactPage() {
             <AnimatePresence mode="wait">
               {submitted ? (
                 <motion.div key="success" {...successReveal} className={styles.success}>
-                  <div className={styles.successIcon}>✅</div>
+                  <CheckCircle size={48} strokeWidth={2} className={styles.successIcon} />
                   <h3 className={styles.formTitle}>Message sent!</h3>
                   <p className={styles.formSub}>
                     We&apos;ll get back to you within 24 hours.
