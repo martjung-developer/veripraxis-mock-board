@@ -1,6 +1,5 @@
 // lib/types/auth.ts
-import type { UserRole } from './database'
-export type { UserRole }
+export type UserRole = 'student' | 'admin' | 'faculty'
 
 export interface Profile {
   id:         string
