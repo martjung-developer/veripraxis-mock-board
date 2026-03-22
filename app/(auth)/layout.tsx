@@ -1,5 +1,7 @@
-import AuthLayout from '@/components/layout/AuthLayout'
+// app/(auth)/layout.tsx
+import { redirectIfAuthenticated } from '@/lib/auth/helpers'
 
-export default function AuthGroupLayout({ children }: { children: React.ReactNode }) {
-  return <AuthLayout>{children}</AuthLayout>
+export default async function AuthGroupLayout({ children }: { children: React.ReactNode }) {
+  await redirectIfAuthenticated()
+  return <>{children}</>
 }

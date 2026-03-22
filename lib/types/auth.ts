@@ -37,9 +37,9 @@ export const canManageContent = (role: UserRole) => role === 'faculty' || role =
 
 export function getDashboardByRole(role: UserRole): string {
   switch (role) {
-    case 'admin':   return '/admin'
-    case 'faculty': return '/faculty'
-    case 'student': return '/dashboard'
+    case 'admin':   return '/faculty/dashboard' 
+    case 'faculty': return '/faculty/dashboard'
+    case 'student': return '/student/dashboard'
   }
 }
 

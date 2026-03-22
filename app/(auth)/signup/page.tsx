@@ -27,6 +27,16 @@ const ROLE_ICONS: Record<SignupRole, React.ElementType> = {
   faculty: BookOpen,
 }
 
+const GRADUATION_CAP_SVG = `
+  <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"
+    viewBox="0 0 24 24" fill="none"
+    stroke="white" stroke-width="1.75"
+    stroke-linecap="round" stroke-linejoin="round">
+    <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+    <path d="M6 12v5c0 1.657 2.686 3 6 3s6-1.343 6-3v-5"/>
+  </svg>
+`
+
 export default function SignupPage() {
   const router = useRouter()
   const [mode,      setMode]      = useState<'login' | 'signup'>('signup')
@@ -71,7 +81,7 @@ export default function SignupPage() {
     setLoading(false)
     if (!result.success) { setError(result.error); return }
 
-    // 🎉 Success alert
+    // 🎉 Success alert — icon uses Lucide GraduationCap SVG (no emoji)
     const Swal = (await import('sweetalert2')).default
     await Swal.fire({
       html: `
@@ -82,8 +92,9 @@ export default function SignupPage() {
             display: flex; align-items: center; justify-content: center;
             margin: 0 auto 20px;
             box-shadow: 0 8px 32px rgba(99,102,241,0.35);
-            font-size: 36px;
-          ">🎓</div>
+          ">
+            ${GRADUATION_CAP_SVG}
+          </div>
           <h2 style="
             font-size: 1.4rem; font-weight: 800;
             color: #0f172a; margin: 0 0 10px;
@@ -99,7 +110,7 @@ export default function SignupPage() {
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             margin: 0;
-          ">Let's ace your board exam 🚀</p>
+          ">Let's ace your board exam</p>
         </div>
       `,
       showConfirmButton: true,
@@ -117,7 +128,9 @@ export default function SignupPage() {
       hideClass:  { popup: 'swal-fade-out' },
     })
 
-    router.push(result.redirectTo)
+    // Redirect students to their dashboard; fall back to result.redirectTo for other roles
+    const destination = role === 'student' ? '/student/dashboard' : result.redirectTo
+    router.push(destination)
   }
 
   async function handleGoogle() {

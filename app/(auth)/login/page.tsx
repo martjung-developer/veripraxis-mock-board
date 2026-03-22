@@ -19,8 +19,8 @@ const PHOTOS = {
 }
 
 const ROLE_ICONS: Record<SignupRole, React.ElementType> = {
-  student:  GraduationCap,
-  reviewer: BookOpen,
+  student: GraduationCap,
+  faculty: BookOpen,        // ← was 'reviewer'
 }
 
 export default function LoginPage() {
@@ -37,36 +37,64 @@ export default function LoginPage() {
     router.replace(next === 'login' ? '/login' : '/signup')
   }
 
-  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
-    const fd     = new FormData(e.currentTarget)
-    const result = await signIn(
-      fd.get('email')    as string,
-      fd.get('password') as string,
-    )
-    setLoading(false)
-    if (!result.success) { setError(result.error); return }
-    router.push(result.redirectTo)
-  }
+ async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
+  e.preventDefault()
+  setError(null)
+  setLoading(true)
+  const fd     = new FormData(e.currentTarget)
+  const result = await signIn(
+    fd.get('email')    as string,
+    fd.get('password') as string,
+  )
+  setLoading(false)
+  if (!result.success) { setError(result.error); return }
+  window.location.href = result.redirectTo  
+}
 
-  async function handleSignup(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
-    const fd     = new FormData(e.currentTarget)
-    const result = await signUp(
-      fd.get('fullName')  as string,
-      fd.get('email')     as string,
-      fd.get('password')  as string,
-      fd.get('role')      as SignupRole,
-    )
-    setLoading(false)
-    if (!result.success) { setError(result.error); return }
-    router.push(result.redirectTo)
-  }
+ async function handleSignup(e: React.FormEvent<HTMLFormElement>) {
+  e.preventDefault()
+  setError(null)
+  setLoading(true)
+  const fd   = new FormData(e.currentTarget)
+  const role = fd.get('role') as SignupRole
+  const result = await signUp(
+    fd.get('fullName') as string,
+    fd.get('email')    as string,
+    fd.get('password') as string,
+    role,
+  )
+  setLoading(false)
+  if (!result.success) { setError(result.error); return }
 
+  const Swal = (await import('sweetalert2')).default
+  await Swal.fire({
+    html: `
+      <div style="padding: 8px 0 4px">
+        <div style="
+          width: 80px; height: 80px; border-radius: 50%;
+          background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+          display: flex; align-items: center; justify-content: center;
+          margin: 0 auto 20px;
+          box-shadow: 0 8px 32px rgba(99,102,241,0.35);
+          font-size: 36px;
+        ">🎓</div>
+        <h2 style="font-size: 1.4rem; font-weight: 800; color: #0f172a; margin: 0 0 10px;">Welcome to VeriPraxis!</h2>
+        <p style="font-size: 0.925rem; color: #64748b; margin: 0 0 6px;">Your account has been created successfully.</p>
+        <p style="font-size: 0.875rem; font-weight: 600; background: linear-gradient(135deg, #3b82f6, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0;">Let's ace your board exam 🚀</p>
+      </div>
+    `,
+    showConfirmButton: true,
+    confirmButtonText: 'Go to Dashboard →',
+    confirmButtonColor: '#4f46e5',
+    background: '#ffffff',
+    customClass: { popup: 'swal-popup-custom', confirmButton: 'swal-btn-custom' },
+    allowOutsideClick: false,
+    width: 360,
+    padding: '2rem',
+  })
+
+  router.push(result.redirectTo) 
+}
   async function handleGoogle() {
     setError(null)
     const result = await signInWithGoogle()
@@ -95,7 +123,6 @@ export default function LoginPage() {
               </Link>
             </div>
 
-            {/* Tabs */}
             <div className={styles.modeTabs}>
               <button
                 className={`${styles.modeTab} ${mode === 'login'  ? styles.modeTabActive : ''}`}
@@ -112,7 +139,6 @@ export default function LoginPage() {
               />
             </div>
 
-            {/* Error banner */}
             {error && (
               <div className={styles.errorBanner}>{error}</div>
             )}
@@ -188,7 +214,6 @@ export default function LoginPage() {
   )
 }
 
-/* ── Shared Google button ── */
 function GoogleButton({ onClick }: { onClick: () => void }) {
   return (
     <button type="button" className={styles.googleBtn} onClick={onClick}>
@@ -203,7 +228,6 @@ function GoogleButton({ onClick }: { onClick: () => void }) {
   )
 }
 
-/* ── Login form ── */
 function LoginForm({ loading, showPw, setShowPw, onSubmit, onGoogle, onSwitch }: {
   loading: boolean; showPw: boolean; setShowPw: (v: boolean) => void
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void
@@ -261,7 +285,6 @@ function LoginForm({ loading, showPw, setShowPw, onSubmit, onGoogle, onSwitch }:
   )
 }
 
-/* ── Signup form ── */
 function SignupForm({ loading, showPw, setShowPw, roleIcons, onSubmit, onGoogle, onSwitch }: {
   loading: boolean; showPw: boolean; setShowPw: (v: boolean) => void
   roleIcons: Record<SignupRole, React.ElementType>
@@ -273,24 +296,21 @@ function SignupForm({ loading, showPw, setShowPw, roleIcons, onSubmit, onGoogle,
   const [agreed,   setAgreed]   = useState(false)
 
   function getStrength(pw: string) {
-    if (!pw)          return null
+    if (!pw)            return null
     if (pw.length < 6)  return 'weak'
     if (pw.length < 10) return 'fair'
     if (/[A-Z]/.test(pw) && /[0-9]/.test(pw)) return 'strong'
     return 'good'
   }
 
-  const strength = getStrength(password)
+  const strength      = getStrength(password)
   const strengthClass = strength
     ? styles[`strength${strength.charAt(0).toUpperCase()}${strength.slice(1)}`] : ''
 
   return (
     <form className={styles.form} onSubmit={onSubmit} style={{ marginTop: '1.75rem' }}>
-
-      {/* Hidden role field passed to FormData */}
       <input type="hidden" name="role" value={role} />
 
-      {/* Role selector — UI shows Student / Faculty */}
       <div className={styles.fieldGroup}>
         <span className={styles.label}>I am a</span>
         <div className={styles.roleRow}>
@@ -307,7 +327,6 @@ function SignupForm({ loading, showPw, setShowPw, roleIcons, onSubmit, onGoogle,
             )
           })}
         </div>
-        {/* Small description under the selected role */}
         <p style={{ fontSize: '0.72rem', color: '#475569', marginTop: '0.35rem' }}>
           {SIGNUP_ROLES.find(r => r.value === role)?.description}
         </p>

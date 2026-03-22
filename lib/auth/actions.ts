@@ -1,6 +1,9 @@
+// lib/auth/actions.ts
+'use server'
+
 import type { AuthError } from '@supabase/supabase-js'
 
-import { createClient }           from '@/lib/supabase/client'
+import { createClient }           from '@/lib/supabase/server'
 import type { Database }          from '@/lib/types/database'
 import type { SignupRole, UserRole } from '@/lib/types/auth'
 import { getDashboardByRole }     from '@/lib/types/auth'
@@ -17,7 +20,7 @@ export async function signUp(
   password:   string,
   signupRole: SignupRole,
 ): Promise<AuthResult> {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { error } = await supabase.auth.signUp({
     email,
@@ -38,7 +41,7 @@ export async function signIn(
   email:    string,
   password: string,
 ): Promise<AuthResult> {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
@@ -48,7 +51,11 @@ export async function signIn(
   if (error) return { success: false, error: formatError(error) }
 
   const role = (data.user?.user_metadata?.role ?? 'student') as UserRole
-  return { success: true, redirectTo: getDashboardByRole(role) }
+  const redirectTo = getDashboardByRole(role)
+  
+  console.log('Login success:', { role, redirectTo })
+
+  return { success: true, redirectTo }
 }
 
 export async function signOut(): Promise<void> {

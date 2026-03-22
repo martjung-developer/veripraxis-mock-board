@@ -84,7 +84,7 @@ export default function Hero() {
         </p>
 
         <div className={`${styles.heroActions} reveal reveal-delay-3`}>
-          <Link href="/register" className={styles.btnPrimary}>
+          <Link href="/signup" className={styles.btnPrimary}>
             Start Reviewing Free
             <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5-5 5M6 12h12" />
