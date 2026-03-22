@@ -9,8 +9,6 @@ import type { Database }                 from '@/lib/types/database'
 import type { SignupRole, UserRole }      from '@/lib/types/auth'
 import { getDashboardByRole }            from '@/lib/types/auth'
 
-type StudentsInsert = Database['public']['Tables']['students']['Insert']
-
 export type AuthResult =
   | { success: true;  redirectTo: string }
   | { success: false; error: string }
@@ -94,9 +92,9 @@ export async function verifyOtp(
 
   if ((role === 'student' || role === 'faculty') && data.user) {
     await supabase
-      .from('students')
-      .insert({ id: data.user.id } as unknown as StudentsInsert)
-      .throwOnError()
+  .from('students')
+  .insert({ id: data.user.id } as any)
+  .throwOnError()
   }
 
   return { success: true, redirectTo: getDashboardByRole(role) }
