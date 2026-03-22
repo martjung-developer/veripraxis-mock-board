@@ -1,0 +1,142 @@
+/* components/dashboard/student/StudentTopbar.module.css */
+
+.topbar {
+  height: 68px;
+  background: #ffffff;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2.5rem;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.04);
+}
+
+/* ── Search ── */
+.searchWrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.5rem 1rem;
+  width: 300px;
+  transition: border-color 0.15s;
+}
+
+.searchWrap:focus-within {
+  border-color: #1a56db;
+  background: #ffffff;
+}
+
+.searchInput {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 0.825rem;
+  color: #475569;
+  width: 100%;
+  font-family: inherit;
+}
+
+.searchInput::placeholder {
+  color: #94a3b8;
+}
+
+/* ── Right section ── */
+.right {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+/* ── Notification bell ── */
+.notifBtn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  color: #475569;
+  text-decoration: none;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+
+.notifBtn:hover {
+  border-color: #1a56db;
+  color: #1a56db;
+  background: #eff6ff;
+}
+
+.notifBadge {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  border: 2px solid #ffffff;
+}
+
+/* ── Divider ── */
+.divider {
+  width: 1px;
+  height: 28px;
+  background: #e2e8f0;
+}
+
+/* ── User profile pill ── */
+.userPill {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.35rem 0.75rem 0.35rem 0.35rem;
+  border-radius: 99px;
+  border: 1.5px solid #e2e8f0;
+  background: #f8fafc;
+  text-decoration: none;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+
+.userPill:hover {
+  border-color: #1a56db;
+  background: #eff6ff;
+}
+
+.avatarSmall {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1a56db, #6366f1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 0.775rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.userName {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.userRole {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  font-weight: 500;
+}

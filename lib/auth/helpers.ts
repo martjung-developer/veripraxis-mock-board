@@ -1,8 +1,8 @@
 // lib/auth/helpers.ts
 // Server-side helpers — import only in Server Components / Route Handlers.
 
-import { createClient }      from '@/lib/supabase/server'
-import { redirect }          from 'next/navigation'
+import { createClient }    from '@/lib/supabase/server'
+import { redirect }        from 'next/navigation'
 import type { Profile, StudentProfile, UserRole } from '@/lib/types/auth'
 import { getDashboardByRole, canManageContent }   from '@/lib/types/auth'
 
@@ -29,7 +29,7 @@ export async function getProfile(userId: string): Promise<Profile | null> {
 }
 
 // ── Get student+profile joined row ────────────────────────────────────────────
-// Works for both 'student' and 'reviewer' roles since both have students rows.
+// Works for both 'student' and 'faculty' roles since both have students rows.
 export async function getStudentProfile(userId: string): Promise<StudentProfile | null> {
   const supabase = await createClient()
 
@@ -53,7 +53,6 @@ export async function getStudentProfile(userId: string): Promise<StudentProfile 
     students:   StudentRow | StudentRow[] | null
   }
 
-  // Use unknown as intermediary to avoid 'never' inference from relational select
   const { data: rawData, error } = await supabase
     .from('profiles')
     .select(`
@@ -109,10 +108,9 @@ export async function requireRole(allowedRoles: UserRole[]) {
   return { user, profile }
 }
 
-// ── Require faculty (reviewer role) ──────────────────────────────────────────
-// Use at the top of question bank / exam management pages.
+// ── Require faculty ───────────────────────────────────────────────────────────
 export async function requireFaculty() {
-  return requireRole(['reviewer', 'admin'])
+  return requireRole(['faculty', 'admin'])
 }
 
 // ── Require admin ─────────────────────────────────────────────────────────────
@@ -121,7 +119,7 @@ export async function requireAdmin() {
 }
 
 // ── Require content management access ────────────────────────────────────────
-// reviewer + admin can manage questions and exams
+// faculty + admin can manage questions and exams
 export async function requireContentAccess() {
   const user    = await requireAuth()
   const profile = await getProfile(user.id)

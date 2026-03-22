@@ -64,7 +64,7 @@ CREATE TABLE public.profiles (
   id uuid NOT NULL,
   email text NOT NULL UNIQUE,
   full_name text,
-  role text NOT NULL CHECK (role = ANY (ARRAY['student'::text, 'admin'::text, 'reviewer'::text])),
+  role text NOT NULL CHECK (role = ANY (ARRAY['student'::text, 'admin'::text, 'faculty'::text])),
   avatar_url text,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),

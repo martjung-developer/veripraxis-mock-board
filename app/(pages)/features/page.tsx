@@ -172,7 +172,7 @@ export default function FeaturesPage() {
     </motion.p>
 
     <motion.div className={styles.heroActions} {...heroFadeUp}>
-      <Link href="/register" className={styles.btnPrimary}>
+      <Link href="/signup" className={styles.btnPrimary}>
         Start Free Today
       </Link>
       <Link href="/pricing" className={styles.btnGhost}>

@@ -1,5 +1,4 @@
 // app/(auth)/signup/page.tsx
-// Identical to login/page.tsx — only difference is initial mode = 'signup'
 
 'use client'
 
@@ -13,7 +12,10 @@ import { formSwap, photoPanel, authSubmitBtn } from '@/animations/auth/authAnima
 import { signIn, signUp, signInWithGoogle } from '@/lib/auth/actions'
 import { SIGNUP_ROLES } from '@/lib/types/auth'
 import type { SignupRole } from '@/lib/types/auth'
+import LegalModal from '@/components/auth/LegalModal'
 import styles from '../auth.module.css'
+
+type DocType = 'terms' | 'privacy' | null
 
 const PHOTOS = {
   login:  'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&q=85',
@@ -21,16 +23,17 @@ const PHOTOS = {
 }
 
 const ROLE_ICONS: Record<SignupRole, React.ElementType> = {
-  student:  GraduationCap,
-  reviewer: BookOpen,
+  student: GraduationCap,
+  faculty: BookOpen,
 }
 
 export default function SignupPage() {
-  const router  = useRouter()
-  const [mode,    setMode]    = useState<'login' | 'signup'>('signup') // ← starts as signup
-  const [showPw,  setShowPw]  = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error,   setError]   = useState<string | null>(null)
+  const router = useRouter()
+  const [mode,      setMode]      = useState<'login' | 'signup'>('signup')
+  const [showPw,    setShowPw]    = useState(false)
+  const [loading,   setLoading]   = useState(false)
+  const [error,     setError]     = useState<string | null>(null)
+  const [legalOpen, setLegalOpen] = useState<DocType>(null)
 
   function switchMode(next: 'login' | 'signup') {
     setShowPw(false)
@@ -58,14 +61,62 @@ export default function SignupPage() {
     setError(null)
     setLoading(true)
     const fd     = new FormData(e.currentTarget)
+    const role   = fd.get('role') as SignupRole
     const result = await signUp(
-      fd.get('fullName')  as string,
-      fd.get('email')     as string,
-      fd.get('password')  as string,
-      fd.get('role')      as SignupRole,
+      fd.get('fullName') as string,
+      fd.get('email')    as string,
+      fd.get('password') as string,
+      role,
     )
     setLoading(false)
     if (!result.success) { setError(result.error); return }
+
+    // 🎉 Success alert
+    const Swal = (await import('sweetalert2')).default
+    await Swal.fire({
+      html: `
+        <div style="padding: 8px 0 4px">
+          <div style="
+            width: 80px; height: 80px; border-radius: 50%;
+            background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 20px;
+            box-shadow: 0 8px 32px rgba(99,102,241,0.35);
+            font-size: 36px;
+          ">🎓</div>
+          <h2 style="
+            font-size: 1.4rem; font-weight: 800;
+            color: #0f172a; margin: 0 0 10px;
+            letter-spacing: -0.02em;
+          ">Welcome to VeriPraxis!</h2>
+          <p style="
+            font-size: 0.925rem; color: #64748b;
+            margin: 0 0 6px; line-height: 1.5;
+          ">Your account has been created successfully.</p>
+          <p style="
+            font-size: 0.875rem; font-weight: 600;
+            background: linear-gradient(135deg, #3b82f6, #6366f1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+          ">Let's ace your board exam 🚀</p>
+        </div>
+      `,
+      showConfirmButton: true,
+      confirmButtonText: 'Go to Dashboard →',
+      confirmButtonColor: '#4f46e5',
+      background: '#ffffff',
+      customClass: {
+        popup:         'swal-popup-custom',
+        confirmButton: 'swal-btn-custom',
+      },
+      allowOutsideClick: false,
+      width: 360,
+      padding: '2rem',
+      showClass:  { popup: 'swal-fade-in'  },
+      hideClass:  { popup: 'swal-fade-out' },
+    })
+
     router.push(result.redirectTo)
   }
 
@@ -77,6 +128,45 @@ export default function SignupPage() {
 
   return (
     <div className={styles.authPage}>
+
+      {/* ── SWEET ALERT CUSTOM STYLES ── */}
+      <style>{`
+        .swal-popup-custom {
+          border-radius: 20px !important;
+          box-shadow: 0 25px 60px rgba(0,0,0,0.15) !important;
+          border: 1px solid rgba(99,102,241,0.12) !important;
+        }
+        .swal-btn-custom {
+          border-radius: 10px !important;
+          font-weight: 600 !important;
+          font-size: 0.9rem !important;
+          padding: 10px 28px !important;
+          letter-spacing: 0.01em !important;
+          box-shadow: 0 4px 14px rgba(79,70,229,0.4) !important;
+          transition: all 0.2s ease !important;
+        }
+        .swal-btn-custom:hover {
+          transform: translateY(-1px) !important;
+          box-shadow: 0 6px 20px rgba(79,70,229,0.5) !important;
+        }
+        .swal-fade-in {
+          animation: swalFadeIn 0.3s cubic-bezier(0.34,1.56,0.64,1) !important;
+        }
+        .swal-fade-out {
+          animation: swalFadeOut 0.2s ease-in !important;
+        }
+        @keyframes swalFadeIn {
+          from { opacity: 0; transform: scale(0.85) translateY(20px); }
+          to   { opacity: 1; transform: scale(1)    translateY(0);    }
+        }
+        @keyframes swalFadeOut {
+          from { opacity: 1; transform: scale(1);    }
+          to   { opacity: 0; transform: scale(0.95); }
+        }
+      `}</style>
+
+      {/* ── LEGAL MODAL ── */}
+      <LegalModal open={legalOpen} onClose={() => setLegalOpen(null)} />
 
       {/* ── LEFT — FORM PANEL ── */}
       <AnimatePresence mode="wait" initial={false}>
@@ -129,6 +219,7 @@ export default function SignupPage() {
                 roleIcons={ROLE_ICONS}
                 onSubmit={handleSignup} onGoogle={handleGoogle}
                 onSwitch={() => switchMode('login')}
+                onOpenLegal={setLegalOpen}
               />
             )}
           </div>
@@ -188,7 +279,7 @@ export default function SignupPage() {
   )
 }
 
-/* ── Shared components (duplicated from login/page.tsx intentionally) ── */
+/* ── Shared components ── */
 
 function GoogleButton({ onClick }: { onClick: () => void }) {
   return (
@@ -261,11 +352,12 @@ function LoginForm({ loading, showPw, setShowPw, onSubmit, onGoogle, onSwitch }:
   )
 }
 
-function SignupForm({ loading, showPw, setShowPw, roleIcons, onSubmit, onGoogle, onSwitch }: {
+function SignupForm({ loading, showPw, setShowPw, roleIcons, onSubmit, onGoogle, onSwitch, onOpenLegal }: {
   loading: boolean; showPw: boolean; setShowPw: (v: boolean) => void
   roleIcons: Record<SignupRole, React.ElementType>
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void
   onGoogle: () => void; onSwitch: () => void
+  onOpenLegal: (doc: 'terms' | 'privacy') => void
 }) {
   const [role,     setRole]     = useState<SignupRole>('student')
   const [password, setPassword] = useState('')
@@ -279,7 +371,7 @@ function SignupForm({ loading, showPw, setShowPw, roleIcons, onSubmit, onGoogle,
     return 'good'
   }
 
-  const strength = getStrength(password)
+  const strength      = getStrength(password)
   const strengthClass = strength
     ? styles[`strength${strength.charAt(0).toUpperCase()}${strength.slice(1)}`] : ''
 
@@ -356,8 +448,14 @@ function SignupForm({ loading, showPw, setShowPw, roleIcons, onSubmit, onGoogle,
         <input type="checkbox" id="terms" className={styles.checkbox}
           checked={agreed} onChange={(e) => setAgreed(e.target.checked)} required />
         <label htmlFor="terms" className={styles.checkLabel}>
-          I agree to the <Link href="/terms">Terms of Service</Link> and{' '}
-          <Link href="/privacy">Privacy Policy</Link>
+          I agree to the{' '}
+          <button type="button" className={styles.switchBtn} onClick={() => onOpenLegal('terms')}>
+            Terms of Service
+          </button>
+          {' '}and{' '}
+          <button type="button" className={styles.switchBtn} onClick={() => onOpenLegal('privacy')}>
+            Privacy Policy
+          </button>
         </label>
       </div>
 

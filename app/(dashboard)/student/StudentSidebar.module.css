@@ -1,0 +1,181 @@
+/* components/dashboard/student/StudentSidebar.module.css */
+
+.sidebar {
+  width: 240px;
+  min-height: 100vh;
+  background: linear-gradient(160deg, #1a56db 0%, #1e3a8a 100%);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  flex-shrink: 0;
+  box-shadow: 4px 0 24px rgba(26, 86, 219, 0.15);
+}
+
+/* ── Logo ── */
+.logoWrap {
+  padding: 1.75rem 1.5rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ── Section Label ── */
+.sectionLabel {
+  padding: 1.25rem 1.5rem 0.4rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.45);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ── Nav ── */
+.nav {
+  flex: 1;
+  padding: 0.5rem 0.875rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+.navLink {
+  display: flex;
+  align-items: center;
+  gap: 0.675rem;
+  padding: 0.65rem 0.875rem;
+  border-radius: 10px;
+  font-size: 0.825rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+}
+
+.navLink:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.navLinkActive {
+  background: #ffffff !important;
+  color: #1a56db !important;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.navLinkActive svg {
+  color: #1a56db;
+}
+
+.navIcon {
+  flex-shrink: 0;
+}
+
+/* ── Help card ── */
+.helpCard {
+  margin: 0.875rem;
+  padding: 1rem 1.125rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.helpCardTitle {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0 0 0.35rem;
+}
+
+.helpCardText {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.65);
+  line-height: 1.5;
+  margin: 0 0 0.75rem;
+}
+
+.helpCardBtn {
+  display: block;
+  width: 100%;
+  padding: 0.45rem;
+  background: #ffffff;
+  color: #1a56db;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+
+.helpCardBtn:hover {
+  opacity: 0.9;
+}
+
+/* ── User avatar at bottom ── */
+.userWrap {
+  padding: 1rem 1.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 0.825rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.userName {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.userRole {
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 500;
+}
+
+.signOutBtn {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.5);
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  border-radius: 6px;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.signOutBtn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}

@@ -1,13 +1,9 @@
-// lib/auth/actions.ts
-// All Supabase auth operations.
-// The signup form shows "Student" and "Faculty" to users.
-// Faculty choice maps to DB role 'reviewer'.
-
-import { createClient } from '@/lib/supabase/client'
 import type { AuthError } from '@supabase/supabase-js'
-import type { Database } from '@/lib/types/database'
+
+import { createClient }           from '@/lib/supabase/client'
+import type { Database }          from '@/lib/types/database'
 import type { SignupRole, UserRole } from '@/lib/types/auth'
-import { getDashboardByRole } from '@/lib/types/auth'
+import { getDashboardByRole }     from '@/lib/types/auth'
 
 type StudentsInsert = Database['public']['Tables']['students']['Insert']
 
@@ -15,10 +11,6 @@ export type AuthResult =
   | { success: true;  redirectTo: string }
   | { success: false; error: string }
 
-// ── Sign Up ───────────────────────────────────────────────────────────────────
-// signupRole: 'student' | 'reviewer'
-// UI label:   'Student' | 'Faculty'
-// Both get a students row (trigger handles it) because both can take exams.
 export async function signUp(
   fullName:   string,
   email:      string,
@@ -33,21 +25,15 @@ export async function signUp(
     options: {
       data: {
         full_name: fullName,
-        role:      signupRole, // 'student' or 'reviewer'
+        role:      signupRole,
       },
-      emailRedirectTo: `${window.location.origin}/auth/callback`,
     },
   })
 
   if (error) return { success: false, error: formatError(error) }
-
-  // Save email so verify-email page knows who to verify
-  sessionStorage.setItem('verify_email', email)
-
-  return { success: true, redirectTo: '/verify-email' }
+  return { success: true, redirectTo: getDashboardByRole(signupRole) }
 }
 
-// ── Sign In ───────────────────────────────────────────────────────────────────
 export async function signIn(
   email:    string,
   password: string,
@@ -65,16 +51,12 @@ export async function signIn(
   return { success: true, redirectTo: getDashboardByRole(role) }
 }
 
-// ── Sign Out ──────────────────────────────────────────────────────────────────
 export async function signOut(): Promise<void> {
   const supabase = createClient()
   await supabase.auth.signOut()
   window.location.href = '/login'
 }
 
-// ── Google OAuth ──────────────────────────────────────────────────────────────
-// Google sign-ins always default to 'student' role.
-// Faculty must sign up via email to set the 'reviewer' role.
 export async function signInWithGoogle(): Promise<AuthResult> {
   const supabase = createClient()
 
@@ -93,7 +75,6 @@ export async function signInWithGoogle(): Promise<AuthResult> {
   return { success: true, redirectTo: '/dashboard' }
 }
 
-// ── Resend verification email ─────────────────────────────────────────────────
 export async function resendVerification(email: string): Promise<AuthResult> {
   const supabase = createClient()
 
@@ -106,7 +87,6 @@ export async function resendVerification(email: string): Promise<AuthResult> {
   return { success: true, redirectTo: '/verify-email' }
 }
 
-// ── Verify OTP ────────────────────────────────────────────────────────────────
 export async function verifyOtp(
   email: string,
   token: string,
@@ -123,13 +103,12 @@ export async function verifyOtp(
 
   const role = (data.user?.user_metadata?.role ?? 'student') as UserRole
 
-  
- if ((role === 'student' || role === 'reviewer') && data.user) {
-  await supabase
-    .from('students')
-    .insert([{ id: data.user.id }] satisfies StudentsInsert[])
-    .throwOnError()
-}
+  if ((role === 'student' || role === 'faculty') && data.user) {
+    await supabase
+      .from('students')
+      .insert({ id: data.user.id } as unknown as StudentsInsert)
+      .throwOnError()
+  }
 
   return { success: true, redirectTo: getDashboardByRole(role) }
 }
