@@ -1,5 +1,6 @@
-import DashboardLayout from '@/components/layout/DashboardLayout'
+// app/(dashboard)/admin/layout.tsx
+import { ReactNode } from 'react'
 
-export default function AdminGroupLayout({ children }: { children: React.ReactNode }) {
-  return <DashboardLayout role="admin">{children}</DashboardLayout>
+export default function AdminGroupLayout({ children }: { children: ReactNode }) {
+  return <>{children}</>
 }
