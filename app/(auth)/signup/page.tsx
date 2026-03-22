@@ -1,5 +1,4 @@
 // app/(auth)/signup/page.tsx
-
 'use client'
 
 import { useState } from 'react'
@@ -8,10 +7,14 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, ArrowRight, GraduationCap, BookOpen } from 'lucide-react'
-import { formSwap, photoPanel, authSubmitBtn } from '@/animations/auth/authAnimations'
-import { signIn, signUp, signInWithGoogle } from '@/lib/auth/actions'
-import { SIGNUP_ROLES } from '@/lib/types/auth'
-import type { SignupRole } from '@/lib/types/auth'
+import {
+  formSwap, photoPanel, authSubmitBtn,
+  authPage, formFields, formFieldItem, errorBanner,
+} from '@/animations/auth/authAnimations'
+import { signIn, signUp }   from '@/lib/auth/actions'
+import { signInWithGoogle } from '@/lib/auth/client-actions'
+import { SIGNUP_ROLES }     from '@/lib/types/auth'
+import type { SignupRole }  from '@/lib/types/auth'
 import LegalModal from '@/components/auth/LegalModal'
 import styles from '../auth.module.css'
 
@@ -81,7 +84,6 @@ export default function SignupPage() {
     setLoading(false)
     if (!result.success) { setError(result.error); return }
 
-    // 🎉 Success alert — icon uses Lucide GraduationCap SVG (no emoji)
     const Swal = (await import('sweetalert2')).default
     await Swal.fire({
       html: `
@@ -95,40 +97,23 @@ export default function SignupPage() {
           ">
             ${GRADUATION_CAP_SVG}
           </div>
-          <h2 style="
-            font-size: 1.4rem; font-weight: 800;
-            color: #0f172a; margin: 0 0 10px;
-            letter-spacing: -0.02em;
-          ">Welcome to VeriPraxis!</h2>
-          <p style="
-            font-size: 0.925rem; color: #64748b;
-            margin: 0 0 6px; line-height: 1.5;
-          ">Your account has been created successfully.</p>
-          <p style="
-            font-size: 0.875rem; font-weight: 600;
-            background: linear-gradient(135deg, #3b82f6, #6366f1);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin: 0;
-          ">Let's ace your board exam</p>
+          <h2 style="font-size: 1.4rem; font-weight: 800; color: #0f172a; margin: 0 0 10px; letter-spacing: -0.02em;">Welcome to VeriPraxis!</h2>
+          <p style="font-size: 0.925rem; color: #64748b; margin: 0 0 6px; line-height: 1.5;">Your account has been created successfully.</p>
+          <p style="font-size: 0.875rem; font-weight: 600; background: linear-gradient(135deg, #3b82f6, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0;">Let's ace your board exam</p>
         </div>
       `,
       showConfirmButton: true,
       confirmButtonText: 'Go to Dashboard →',
       confirmButtonColor: '#4f46e5',
       background: '#ffffff',
-      customClass: {
-        popup:         'swal-popup-custom',
-        confirmButton: 'swal-btn-custom',
-      },
+      customClass: { popup: 'swal-popup-custom', confirmButton: 'swal-btn-custom' },
       allowOutsideClick: false,
       width: 360,
       padding: '2rem',
-      showClass:  { popup: 'swal-fade-in'  },
-      hideClass:  { popup: 'swal-fade-out' },
+      showClass: { popup: 'swal-fade-in'  },
+      hideClass: { popup: 'swal-fade-out' },
     })
 
-    // Redirect students to their dashboard; fall back to result.redirectTo for other roles
     const destination = role === 'student' ? '/student/dashboard' : result.redirectTo
     router.push(destination)
   }
@@ -140,42 +125,18 @@ export default function SignupPage() {
   }
 
   return (
-    <div className={styles.authPage}>
+    // ── Page entrance fade-up ──
+    <motion.div className={styles.authPage} {...authPage}>
 
       {/* ── SWEET ALERT CUSTOM STYLES ── */}
       <style>{`
-        .swal-popup-custom {
-          border-radius: 20px !important;
-          box-shadow: 0 25px 60px rgba(0,0,0,0.15) !important;
-          border: 1px solid rgba(99,102,241,0.12) !important;
-        }
-        .swal-btn-custom {
-          border-radius: 10px !important;
-          font-weight: 600 !important;
-          font-size: 0.9rem !important;
-          padding: 10px 28px !important;
-          letter-spacing: 0.01em !important;
-          box-shadow: 0 4px 14px rgba(79,70,229,0.4) !important;
-          transition: all 0.2s ease !important;
-        }
-        .swal-btn-custom:hover {
-          transform: translateY(-1px) !important;
-          box-shadow: 0 6px 20px rgba(79,70,229,0.5) !important;
-        }
-        .swal-fade-in {
-          animation: swalFadeIn 0.3s cubic-bezier(0.34,1.56,0.64,1) !important;
-        }
-        .swal-fade-out {
-          animation: swalFadeOut 0.2s ease-in !important;
-        }
-        @keyframes swalFadeIn {
-          from { opacity: 0; transform: scale(0.85) translateY(20px); }
-          to   { opacity: 1; transform: scale(1)    translateY(0);    }
-        }
-        @keyframes swalFadeOut {
-          from { opacity: 1; transform: scale(1);    }
-          to   { opacity: 0; transform: scale(0.95); }
-        }
+        .swal-popup-custom { border-radius: 20px !important; box-shadow: 0 25px 60px rgba(0,0,0,0.15) !important; border: 1px solid rgba(99,102,241,0.12) !important; }
+        .swal-btn-custom { border-radius: 10px !important; font-weight: 600 !important; font-size: 0.9rem !important; padding: 10px 28px !important; letter-spacing: 0.01em !important; box-shadow: 0 4px 14px rgba(79,70,229,0.4) !important; transition: all 0.2s ease !important; }
+        .swal-btn-custom:hover { transform: translateY(-1px) !important; box-shadow: 0 6px 20px rgba(79,70,229,0.5) !important; }
+        .swal-fade-in  { animation: swalFadeIn  0.3s cubic-bezier(0.34,1.56,0.64,1) !important; }
+        .swal-fade-out { animation: swalFadeOut 0.2s ease-in !important; }
+        @keyframes swalFadeIn  { from { opacity: 0; transform: scale(0.85) translateY(20px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+        @keyframes swalFadeOut { from { opacity: 1; transform: scale(1);    } to { opacity: 0; transform: scale(0.95); } }
       `}</style>
 
       {/* ── LEGAL MODAL ── */}
@@ -190,8 +151,7 @@ export default function SignupPage() {
               <Image
                 src="/images/veripraxis-logo.png"
                 alt="VeriPraxis"
-                width={0}
-                height={32}
+                width={0} height={32}
                 style={{ width: 'auto', height: 32 }}
                 priority
               />
@@ -216,9 +176,14 @@ export default function SignupPage() {
               />
             </div>
 
-            {error && (
-              <div className={styles.errorBanner}>{error}</div>
-            )}
+            {/* ── Error banner spring-shake ── */}
+            <AnimatePresence>
+              {error && (
+                <motion.div className={styles.errorBanner} {...errorBanner}>
+                  {error}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {mode === 'login' ? (
               <LoginForm
@@ -255,8 +220,7 @@ export default function SignupPage() {
                   Welcome back, <span className={styles.photoTaglineAccent}>reviewee.</span>
                 </div>
                 <p className={styles.photoSub}>
-                  Your progress, analytics, and mock exams are waiting.
-                  Continue where you left off.
+                  Your progress, analytics, and mock exams are waiting. Continue where you left off.
                 </p>
               </>
             ) : (
@@ -267,8 +231,7 @@ export default function SignupPage() {
                   starts here.
                 </div>
                 <p className={styles.photoSub}>
-                  Join thousands of Filipino reviewees who passed their PRC
-                  licensure exams using VeriPraxis.
+                  Join thousands of Filipino reviewees who passed their PRC licensure exams using VeriPraxis.
                 </p>
               </>
             )}
@@ -288,11 +251,11 @@ export default function SignupPage() {
         </motion.div>
       </AnimatePresence>
 
-    </div>
+    </motion.div>
   )
 }
 
-/* ── Shared components ── */
+/* ── Shared sub-components ── */
 
 function GoogleButton({ onClick }: { onClick: () => void }) {
   return (
@@ -314,17 +277,19 @@ function LoginForm({ loading, showPw, setShowPw, onSubmit, onGoogle, onSwitch }:
   onGoogle: () => void; onSwitch: () => void
 }) {
   return (
-    <form className={styles.form} onSubmit={onSubmit} style={{ marginTop: '1.75rem' }}>
-      <div className={styles.fieldGroup}>
+    <motion.form className={styles.form} onSubmit={onSubmit}
+      style={{ marginTop: '1.75rem' }} {...formFields}>
+
+      <motion.div className={styles.fieldGroup} {...formFieldItem}>
         <label className={styles.label} htmlFor="login-email">Email Address</label>
         <div className={styles.inputWrap}>
           <Mail size={15} strokeWidth={2} className={styles.inputIcon} />
           <input id="login-email" name="email" type="email" className={styles.input}
             placeholder="you@email.com" required autoComplete="email" />
         </div>
-      </div>
+      </motion.div>
 
-      <div className={styles.fieldGroup}>
+      <motion.div className={styles.fieldGroup} {...formFieldItem}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <label className={styles.label} htmlFor="login-password">Password</label>
           <Link href="/forgot-password" className={styles.forgotLink}>Forgot password?</Link>
@@ -338,30 +303,35 @@ function LoginForm({ loading, showPw, setShowPw, onSubmit, onGoogle, onSwitch }:
             {showPw ? <EyeOff size={15} strokeWidth={2} /> : <Eye size={15} strokeWidth={2} />}
           </button>
         </div>
-      </div>
+      </motion.div>
 
-      <div className={styles.checkRow}>
+      <motion.div className={styles.checkRow} {...formFieldItem}>
         <input type="checkbox" id="remember" className={styles.checkbox} />
         <label htmlFor="remember" className={styles.checkLabel}>Remember me for 30 days</label>
-      </div>
+      </motion.div>
 
-      <motion.button type="submit" className={styles.submitBtn} disabled={loading} {...authSubmitBtn}>
-        {loading ? 'Signing in…' : <> Log In <ArrowRight size={15} strokeWidth={2.5} /></>}
-      </motion.button>
+      <motion.div {...formFieldItem}>
+        <motion.button type="submit" className={styles.submitBtn} disabled={loading} {...authSubmitBtn}>
+          {loading ? 'Signing in…' : <> Log In <ArrowRight size={15} strokeWidth={2.5} /></>}
+        </motion.button>
+      </motion.div>
 
-      <div className={styles.divider}>
+      <motion.div className={styles.divider} {...formFieldItem}>
         <div className={styles.dividerLine} />
         <span className={styles.dividerText}>or continue with</span>
         <div className={styles.dividerLine} />
-      </div>
+      </motion.div>
 
-      <GoogleButton onClick={onGoogle} />
+      <motion.div {...formFieldItem}>
+        <GoogleButton onClick={onGoogle} />
+      </motion.div>
 
-      <p className={styles.switchPrompt}>
+      <motion.p className={styles.switchPrompt} {...formFieldItem}>
         Don&apos;t have an account?{' '}
         <button type="button" className={styles.switchBtn} onClick={onSwitch}>Sign up free →</button>
-      </p>
-    </form>
+      </motion.p>
+
+    </motion.form>
   )
 }
 
@@ -389,10 +359,11 @@ function SignupForm({ loading, showPw, setShowPw, roleIcons, onSubmit, onGoogle,
     ? styles[`strength${strength.charAt(0).toUpperCase()}${strength.slice(1)}`] : ''
 
   return (
-    <form className={styles.form} onSubmit={onSubmit} style={{ marginTop: '1.75rem' }}>
+    <motion.form className={styles.form} onSubmit={onSubmit}
+      style={{ marginTop: '1.75rem' }} {...formFields}>
       <input type="hidden" name="role" value={role} />
 
-      <div className={styles.fieldGroup}>
+      <motion.div className={styles.fieldGroup} {...formFieldItem}>
         <span className={styles.label}>I am a</span>
         <div className={styles.roleRow}>
           {SIGNUP_ROLES.map(({ value, label }) => {
@@ -411,27 +382,27 @@ function SignupForm({ loading, showPw, setShowPw, roleIcons, onSubmit, onGoogle,
         <p style={{ fontSize: '0.72rem', color: '#475569', marginTop: '0.35rem' }}>
           {SIGNUP_ROLES.find(r => r.value === role)?.description}
         </p>
-      </div>
+      </motion.div>
 
-      <div className={styles.fieldGroup}>
+      <motion.div className={styles.fieldGroup} {...formFieldItem}>
         <label className={styles.label} htmlFor="signup-name">Full Name</label>
         <div className={styles.inputWrap}>
           <Mail size={15} strokeWidth={2} className={styles.inputIcon} />
           <input id="signup-name" name="fullName" type="text" className={styles.input}
             placeholder="Juan dela Cruz" required autoComplete="name" />
         </div>
-      </div>
+      </motion.div>
 
-      <div className={styles.fieldGroup}>
+      <motion.div className={styles.fieldGroup} {...formFieldItem}>
         <label className={styles.label} htmlFor="signup-email">Email Address</label>
         <div className={styles.inputWrap}>
           <Mail size={15} strokeWidth={2} className={styles.inputIcon} />
           <input id="signup-email" name="email" type="email" className={styles.input}
             placeholder="you@email.com" required autoComplete="email" />
         </div>
-      </div>
+      </motion.div>
 
-      <div className={styles.fieldGroup}>
+      <motion.div className={styles.fieldGroup} {...formFieldItem}>
         <label className={styles.label} htmlFor="signup-password">Password</label>
         <div className={styles.inputWrap}>
           <Lock size={15} strokeWidth={2} className={styles.inputIcon} />
@@ -455,9 +426,9 @@ function SignupForm({ loading, showPw, setShowPw, roleIcons, onSubmit, onGoogle,
             </div>
           </>
         )}
-      </div>
+      </motion.div>
 
-      <div className={styles.checkRow}>
+      <motion.div className={styles.checkRow} {...formFieldItem}>
         <input type="checkbox" id="terms" className={styles.checkbox}
           checked={agreed} onChange={(e) => setAgreed(e.target.checked)} required />
         <label htmlFor="terms" className={styles.checkLabel}>
@@ -470,26 +441,31 @@ function SignupForm({ loading, showPw, setShowPw, roleIcons, onSubmit, onGoogle,
             Privacy Policy
           </button>
         </label>
-      </div>
+      </motion.div>
 
-      <motion.button type="submit" className={styles.submitBtn}
-        disabled={loading || !agreed} {...authSubmitBtn}>
-        {loading ? 'Creating account…'
-          : <> Create Account <ArrowRight size={15} strokeWidth={2.5} /></>}
-      </motion.button>
+      <motion.div {...formFieldItem}>
+        <motion.button type="submit" className={styles.submitBtn}
+          disabled={loading || !agreed} {...authSubmitBtn}>
+          {loading ? 'Creating account…'
+            : <> Create Account <ArrowRight size={15} strokeWidth={2.5} /></>}
+        </motion.button>
+      </motion.div>
 
-      <div className={styles.divider}>
+      <motion.div className={styles.divider} {...formFieldItem}>
         <div className={styles.dividerLine} />
         <span className={styles.dividerText}>or sign up with</span>
         <div className={styles.dividerLine} />
-      </div>
+      </motion.div>
 
-      <GoogleButton onClick={onGoogle} />
+      <motion.div {...formFieldItem}>
+        <GoogleButton onClick={onGoogle} />
+      </motion.div>
 
-      <p className={styles.switchPrompt}>
+      <motion.p className={styles.switchPrompt} {...formFieldItem}>
         Already have an account?{' '}
         <button type="button" className={styles.switchBtn} onClick={onSwitch}>Log in →</button>
-      </p>
-    </form>
+      </motion.p>
+
+    </motion.form>
   )
 }

@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { AuthResult } from './actions'
 
 export async function signInWithGoogle(): Promise<AuthResult> {
-  const supabase = createClient()   // browser client — no await needed
+  const supabase = createClient()   
 
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',

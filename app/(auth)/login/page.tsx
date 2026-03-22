@@ -7,10 +7,14 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, ArrowRight, GraduationCap, BookOpen } from 'lucide-react'
-import { formSwap, photoPanel, authSubmitBtn } from '@/animations/auth/authAnimations'
-import { signIn, signUp, signInWithGoogle } from '@/lib/auth/actions'
-import { SIGNUP_ROLES } from '@/lib/types/auth'
-import type { SignupRole } from '@/lib/types/auth'
+import {
+  formSwap, photoPanel, authSubmitBtn,
+  authPage, formFields, formFieldItem, errorBanner,
+} from '@/animations/auth/authAnimations'
+import { signIn, signUp }   from '@/lib/auth/actions'
+import { signInWithGoogle } from '@/lib/auth/client-actions'
+import { SIGNUP_ROLES }     from '@/lib/types/auth'
+import type { SignupRole }  from '@/lib/types/auth'
 import styles from '../auth.module.css'
 
 const PHOTOS = {
@@ -20,7 +24,7 @@ const PHOTOS = {
 
 const ROLE_ICONS: Record<SignupRole, React.ElementType> = {
   student: GraduationCap,
-  faculty: BookOpen,        // ← was 'reviewer'
+  faculty: BookOpen,
 }
 
 export default function LoginPage() {
@@ -37,64 +41,65 @@ export default function LoginPage() {
     router.replace(next === 'login' ? '/login' : '/signup')
   }
 
- async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
-  e.preventDefault()
-  setError(null)
-  setLoading(true)
-  const fd     = new FormData(e.currentTarget)
-  const result = await signIn(
-    fd.get('email')    as string,
-    fd.get('password') as string,
-  )
-  setLoading(false)
-  if (!result.success) { setError(result.error); return }
-  window.location.href = result.redirectTo  
-}
+  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+    const fd     = new FormData(e.currentTarget)
+    const result = await signIn(
+      fd.get('email')    as string,
+      fd.get('password') as string,
+    )
+    setLoading(false)
+    if (!result.success) { setError(result.error); return }
+    window.location.href = result.redirectTo
+  }
 
- async function handleSignup(e: React.FormEvent<HTMLFormElement>) {
-  e.preventDefault()
-  setError(null)
-  setLoading(true)
-  const fd   = new FormData(e.currentTarget)
-  const role = fd.get('role') as SignupRole
-  const result = await signUp(
-    fd.get('fullName') as string,
-    fd.get('email')    as string,
-    fd.get('password') as string,
-    role,
-  )
-  setLoading(false)
-  if (!result.success) { setError(result.error); return }
+  async function handleSignup(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+    const fd   = new FormData(e.currentTarget)
+    const role = fd.get('role') as SignupRole
+    const result = await signUp(
+      fd.get('fullName') as string,
+      fd.get('email')    as string,
+      fd.get('password') as string,
+      role,
+    )
+    setLoading(false)
+    if (!result.success) { setError(result.error); return }
 
-  const Swal = (await import('sweetalert2')).default
-  await Swal.fire({
-    html: `
-      <div style="padding: 8px 0 4px">
-        <div style="
-          width: 80px; height: 80px; border-radius: 50%;
-          background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
-          display: flex; align-items: center; justify-content: center;
-          margin: 0 auto 20px;
-          box-shadow: 0 8px 32px rgba(99,102,241,0.35);
-          font-size: 36px;
-        ">🎓</div>
-        <h2 style="font-size: 1.4rem; font-weight: 800; color: #0f172a; margin: 0 0 10px;">Welcome to VeriPraxis!</h2>
-        <p style="font-size: 0.925rem; color: #64748b; margin: 0 0 6px;">Your account has been created successfully.</p>
-        <p style="font-size: 0.875rem; font-weight: 600; background: linear-gradient(135deg, #3b82f6, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0;">Let's ace your board exam 🚀</p>
-      </div>
-    `,
-    showConfirmButton: true,
-    confirmButtonText: 'Go to Dashboard →',
-    confirmButtonColor: '#4f46e5',
-    background: '#ffffff',
-    customClass: { popup: 'swal-popup-custom', confirmButton: 'swal-btn-custom' },
-    allowOutsideClick: false,
-    width: 360,
-    padding: '2rem',
-  })
+    const Swal = (await import('sweetalert2')).default
+    await Swal.fire({
+      html: `
+        <div style="padding: 8px 0 4px">
+          <div style="
+            width: 80px; height: 80px; border-radius: 50%;
+            background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 20px;
+            box-shadow: 0 8px 32px rgba(99,102,241,0.35);
+            font-size: 36px;
+          ">🎓</div>
+          <h2 style="font-size: 1.4rem; font-weight: 800; color: #0f172a; margin: 0 0 10px;">Welcome to VeriPraxis!</h2>
+          <p style="font-size: 0.925rem; color: #64748b; margin: 0 0 6px;">Your account has been created successfully.</p>
+          <p style="font-size: 0.875rem; font-weight: 600; background: linear-gradient(135deg, #3b82f6, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0;">Let's ace your board exam 🚀</p>
+        </div>
+      `,
+      showConfirmButton: true,
+      confirmButtonText: 'Go to Dashboard →',
+      confirmButtonColor: '#4f46e5',
+      background: '#ffffff',
+      customClass: { popup: 'swal-popup-custom', confirmButton: 'swal-btn-custom' },
+      allowOutsideClick: false,
+      width: 360,
+      padding: '2rem',
+    })
 
-  router.push(result.redirectTo) 
-}
+    router.push(result.redirectTo)
+  }
+
   async function handleGoogle() {
     setError(null)
     const result = await signInWithGoogle()
@@ -102,7 +107,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div className={styles.authPage}>
+    // ── Page entrance fade-up ──
+    <motion.div className={styles.authPage} {...authPage}>
 
       {/* ── LEFT — FORM PANEL ── */}
       <AnimatePresence mode="wait" initial={false}>
@@ -113,8 +119,7 @@ export default function LoginPage() {
               <Image
                 src="/images/veripraxis-logo.png"
                 alt="VeriPraxis"
-                width={0}
-                height={32}
+                width={0} height={32}
                 style={{ width: 'auto', height: 32 }}
                 priority
               />
@@ -139,9 +144,14 @@ export default function LoginPage() {
               />
             </div>
 
-            {error && (
-              <div className={styles.errorBanner}>{error}</div>
-            )}
+            {/* ── Error banner spring-shake ── */}
+            <AnimatePresence>
+              {error && (
+                <motion.div className={styles.errorBanner} {...errorBanner}>
+                  {error}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {mode === 'login' ? (
               <LoginForm
@@ -210,7 +220,7 @@ export default function LoginPage() {
         </motion.div>
       </AnimatePresence>
 
-    </div>
+    </motion.div>
   )
 }
 
@@ -234,17 +244,20 @@ function LoginForm({ loading, showPw, setShowPw, onSubmit, onGoogle, onSwitch }:
   onGoogle: () => void; onSwitch: () => void
 }) {
   return (
-    <form className={styles.form} onSubmit={onSubmit} style={{ marginTop: '1.75rem' }}>
-      <div className={styles.fieldGroup}>
+    // ── Staggered field entrance ──
+    <motion.form className={styles.form} onSubmit={onSubmit}
+      style={{ marginTop: '1.75rem' }} {...formFields}>
+
+      <motion.div className={styles.fieldGroup} {...formFieldItem}>
         <label className={styles.label} htmlFor="login-email">Email Address</label>
         <div className={styles.inputWrap}>
           <Mail size={15} strokeWidth={2} className={styles.inputIcon} />
           <input id="login-email" name="email" type="email" className={styles.input}
             placeholder="you@email.com" required autoComplete="email" />
         </div>
-      </div>
+      </motion.div>
 
-      <div className={styles.fieldGroup}>
+      <motion.div className={styles.fieldGroup} {...formFieldItem}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <label className={styles.label} htmlFor="login-password">Password</label>
           <Link href="/forgot-password" className={styles.forgotLink}>Forgot password?</Link>
@@ -258,30 +271,35 @@ function LoginForm({ loading, showPw, setShowPw, onSubmit, onGoogle, onSwitch }:
             {showPw ? <EyeOff size={15} strokeWidth={2} /> : <Eye size={15} strokeWidth={2} />}
           </button>
         </div>
-      </div>
+      </motion.div>
 
-      <div className={styles.checkRow}>
+      <motion.div className={styles.checkRow} {...formFieldItem}>
         <input type="checkbox" id="remember" className={styles.checkbox} />
         <label htmlFor="remember" className={styles.checkLabel}>Remember me for 30 days</label>
-      </div>
+      </motion.div>
 
-      <motion.button type="submit" className={styles.submitBtn} disabled={loading} {...authSubmitBtn}>
-        {loading ? 'Signing in…' : <> Log In <ArrowRight size={15} strokeWidth={2.5} /></>}
-      </motion.button>
+      <motion.div {...formFieldItem}>
+        <motion.button type="submit" className={styles.submitBtn} disabled={loading} {...authSubmitBtn}>
+          {loading ? 'Signing in…' : <> Log In <ArrowRight size={15} strokeWidth={2.5} /></>}
+        </motion.button>
+      </motion.div>
 
-      <div className={styles.divider}>
+      <motion.div className={styles.divider} {...formFieldItem}>
         <div className={styles.dividerLine} />
         <span className={styles.dividerText}>or continue with</span>
         <div className={styles.dividerLine} />
-      </div>
+      </motion.div>
 
-      <GoogleButton onClick={onGoogle} />
+      <motion.div {...formFieldItem}>
+        <GoogleButton onClick={onGoogle} />
+      </motion.div>
 
-      <p className={styles.switchPrompt}>
+      <motion.p className={styles.switchPrompt} {...formFieldItem}>
         Don&apos;t have an account?{' '}
         <button type="button" className={styles.switchBtn} onClick={onSwitch}>Sign up free →</button>
-      </p>
-    </form>
+      </motion.p>
+
+    </motion.form>
   )
 }
 
@@ -308,10 +326,12 @@ function SignupForm({ loading, showPw, setShowPw, roleIcons, onSubmit, onGoogle,
     ? styles[`strength${strength.charAt(0).toUpperCase()}${strength.slice(1)}`] : ''
 
   return (
-    <form className={styles.form} onSubmit={onSubmit} style={{ marginTop: '1.75rem' }}>
+    // ── Staggered field entrance ──
+    <motion.form className={styles.form} onSubmit={onSubmit}
+      style={{ marginTop: '1.75rem' }} {...formFields}>
       <input type="hidden" name="role" value={role} />
 
-      <div className={styles.fieldGroup}>
+      <motion.div className={styles.fieldGroup} {...formFieldItem}>
         <span className={styles.label}>I am a</span>
         <div className={styles.roleRow}>
           {SIGNUP_ROLES.map(({ value, label }) => {
@@ -330,27 +350,27 @@ function SignupForm({ loading, showPw, setShowPw, roleIcons, onSubmit, onGoogle,
         <p style={{ fontSize: '0.72rem', color: '#475569', marginTop: '0.35rem' }}>
           {SIGNUP_ROLES.find(r => r.value === role)?.description}
         </p>
-      </div>
+      </motion.div>
 
-      <div className={styles.fieldGroup}>
+      <motion.div className={styles.fieldGroup} {...formFieldItem}>
         <label className={styles.label} htmlFor="signup-name">Full Name</label>
         <div className={styles.inputWrap}>
           <Mail size={15} strokeWidth={2} className={styles.inputIcon} />
           <input id="signup-name" name="fullName" type="text" className={styles.input}
             placeholder="Juan dela Cruz" required autoComplete="name" />
         </div>
-      </div>
+      </motion.div>
 
-      <div className={styles.fieldGroup}>
+      <motion.div className={styles.fieldGroup} {...formFieldItem}>
         <label className={styles.label} htmlFor="signup-email">Email Address</label>
         <div className={styles.inputWrap}>
           <Mail size={15} strokeWidth={2} className={styles.inputIcon} />
           <input id="signup-email" name="email" type="email" className={styles.input}
             placeholder="you@email.com" required autoComplete="email" />
         </div>
-      </div>
+      </motion.div>
 
-      <div className={styles.fieldGroup}>
+      <motion.div className={styles.fieldGroup} {...formFieldItem}>
         <label className={styles.label} htmlFor="signup-password">Password</label>
         <div className={styles.inputWrap}>
           <Lock size={15} strokeWidth={2} className={styles.inputIcon} />
@@ -374,35 +394,40 @@ function SignupForm({ loading, showPw, setShowPw, roleIcons, onSubmit, onGoogle,
             </div>
           </>
         )}
-      </div>
+      </motion.div>
 
-      <div className={styles.checkRow}>
+      <motion.div className={styles.checkRow} {...formFieldItem}>
         <input type="checkbox" id="terms" className={styles.checkbox}
           checked={agreed} onChange={(e) => setAgreed(e.target.checked)} required />
         <label htmlFor="terms" className={styles.checkLabel}>
           I agree to the <Link href="/terms">Terms of Service</Link> and{' '}
           <Link href="/privacy">Privacy Policy</Link>
         </label>
-      </div>
+      </motion.div>
 
-      <motion.button type="submit" className={styles.submitBtn}
-        disabled={loading || !agreed} {...authSubmitBtn}>
-        {loading ? 'Creating account…'
-          : <> Create Account <ArrowRight size={15} strokeWidth={2.5} /></>}
-      </motion.button>
+      <motion.div {...formFieldItem}>
+        <motion.button type="submit" className={styles.submitBtn}
+          disabled={loading || !agreed} {...authSubmitBtn}>
+          {loading ? 'Creating account…'
+            : <> Create Account <ArrowRight size={15} strokeWidth={2.5} /></>}
+        </motion.button>
+      </motion.div>
 
-      <div className={styles.divider}>
+      <motion.div className={styles.divider} {...formFieldItem}>
         <div className={styles.dividerLine} />
         <span className={styles.dividerText}>or sign up with</span>
         <div className={styles.dividerLine} />
-      </div>
+      </motion.div>
 
-      <GoogleButton onClick={onGoogle} />
+      <motion.div {...formFieldItem}>
+        <GoogleButton onClick={onGoogle} />
+      </motion.div>
 
-      <p className={styles.switchPrompt}>
+      <motion.p className={styles.switchPrompt} {...formFieldItem}>
         Already have an account?{' '}
         <button type="button" className={styles.switchBtn} onClick={onSwitch}>Log in →</button>
-      </p>
-    </form>
+      </motion.p>
+
+    </motion.form>
   )
 }
