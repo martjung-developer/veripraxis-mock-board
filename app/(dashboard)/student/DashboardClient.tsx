@@ -1,6 +1,7 @@
 // app/(dashboard)/student/dashboard/DashboardClient.tsx
 'use client'
 
+import type { FC } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import {
@@ -13,43 +14,40 @@ import {
   quickGrid,   quickItem,
   card,        cardHover,
 } from '@/animations/dashboard/dashboardAnimations'
-import styles from './dashboard.module.css'
+import styles from '../student/dashboard/dashboard.module.css'
 
-interface Stat {
-  icon: React.ElementType
-  label: string
-  value: string
-  color: string
-  bg: string
-  accent: string
-}
+// ── Static data lives here (client component) so icons never cross the server boundary ──
 
-interface QuickAction {
-  href:  string
-  icon:  React.ElementType
-  label: string
-  desc:  string
-  color: string
-  bg:    string
-}
+const STATS = [
+  { icon: ClipboardList, label: 'Exams Taken',    value: '0', color: '#2563a8', bg: '#dbeafe', accent: '#3b82f6' },
+  { icon: Trophy,        label: 'Best Score',     value: '—', color: '#92600a', bg: '#fef3c7', accent: '#f59e0b' },
+  { icon: BookOpen,      label: 'Reviewers Done', value: '0', color: '#15693a', bg: '#d1fae5', accent: '#10b981' },
+  { icon: Flame,         label: 'Day Streak',     value: '1', color: '#b91c1c', bg: '#fee2e2', accent: '#ef4444' },
+] as const
 
-interface ProgressItem {
-  label: string
-  pct:   number
-  color: string
-}
+const QUICK_ACTIONS = [
+  { href: '/student/mock-exams',      icon: ClipboardList, label: 'Take a Mock Exam',  desc: 'Timed simulation',   color: '#1d4ed8', bg: '#eff6ff' },
+  { href: '/student/reviewers',       icon: BookOpen,      label: 'Start a Reviewer',  desc: 'Practice questions', color: '#047857', bg: '#ecfdf5' },
+  { href: '/student/study-materials', icon: FileText,      label: 'Study Materials',   desc: 'Read & learn',       color: '#6d28d9', bg: '#f5f3ff' },
+  { href: '/student/progress',        icon: TrendingUp,    label: 'View Progress',     desc: 'Track your growth',  color: '#b45309', bg: '#fffbeb' },
+  { href: '/student/results',         icon: Trophy,        label: 'Past Results',      desc: 'See your scores',    color: '#be123c', bg: '#fff1f2' },
+  { href: '/student/profile',         icon: BarChart2,     label: 'My Profile',        desc: 'Update your info',   color: '#0e7490', bg: '#ecfeff' },
+] as const
+
+const PROGRESS_ITEMS = [
+  { label: 'Mock Exams Completed', pct: 0, color: '#3b82f6' },
+  { label: 'Reviewers Finished',   pct: 0, color: '#10b981' },
+  { label: 'Study Materials Read', pct: 0, color: '#8b5cf6' },
+] as const
+
+// ── Only simple primitives cross the server → client boundary ──
 
 interface Props {
-  firstName:     string
-  greeting:      string
-  stats:         Stat[]
-  quickActions:  QuickAction[]
-  progressItems: ProgressItem[]
+  firstName: string
+  greeting:  string
 }
 
-export default function DashboardClient({
-  firstName, greeting, stats, quickActions, progressItems,
-}: Props) {
+const DashboardClient: FC<Props> = ({ firstName, greeting }) => {
   return (
     <motion.div className={styles.page} {...dashboardPage}>
 
@@ -87,7 +85,7 @@ export default function DashboardClient({
 
       {/* ── STATS ── */}
       <motion.div className={styles.statsGrid} {...section} {...statsGrid}>
-        {stats.map(({ icon: Icon, label, value, color, bg, accent }) => (
+        {STATS.map(({ icon: Icon, label, value, color, bg, accent }) => (
           <motion.div
             key={label}
             className={styles.statCard}
@@ -118,7 +116,7 @@ export default function DashboardClient({
               <h2 className={styles.cardTitle}>Quick Actions</h2>
             </div>
             <motion.div className={styles.quickGrid} {...quickGrid}>
-              {quickActions.map(({ href, icon: Icon, label, desc, color, bg }) => (
+              {QUICK_ACTIONS.map(({ href, icon: Icon, label, desc, color, bg }) => (
                 <motion.div key={href} {...quickItem} {...cardHover}>
                   <Link href={href} className={styles.quickItem}>
                     <div className={styles.quickIconWrap} style={{ backgroundColor: bg }}>
@@ -161,14 +159,13 @@ export default function DashboardClient({
               <h2 className={styles.cardTitle}>Progress Overview</h2>
               <Link href="/student/progress" className={styles.cardLink}>Details</Link>
             </div>
-            {progressItems.map(({ label, pct, color }) => (
+            {PROGRESS_ITEMS.map(({ label, pct, color }) => (
               <div key={label} className={styles.progressItem}>
                 <div className={styles.progressMeta}>
                   <span className={styles.progressLabel}>{label}</span>
                   <span className={styles.progressPct}>{pct}%</span>
                 </div>
                 <div className={styles.progressTrack}>
-                  {/* Animate width from 0 → pct on mount */}
                   <motion.div
                     className={styles.progressFill}
                     style={{ backgroundColor: color }}
@@ -213,3 +210,5 @@ export default function DashboardClient({
     </motion.div>
   )
 }
+
+export default DashboardClient
