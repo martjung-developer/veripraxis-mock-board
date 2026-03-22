@@ -2,11 +2,12 @@
 'use server'
 
 import type { AuthError } from '@supabase/supabase-js'
+import { redirect }       from 'next/navigation'
 
-import { createClient }           from '@/lib/supabase/server'
-import type { Database }          from '@/lib/types/database'
-import type { SignupRole, UserRole } from '@/lib/types/auth'
-import { getDashboardByRole }     from '@/lib/types/auth'
+import { createClient }                  from '@/lib/supabase/server'
+import type { Database }                 from '@/lib/types/database'
+import type { SignupRole, UserRole }      from '@/lib/types/auth'
+import { getDashboardByRole }            from '@/lib/types/auth'
 
 type StudentsInsert = Database['public']['Tables']['students']['Insert']
 
@@ -50,40 +51,21 @@ export async function signIn(
 
   if (error) return { success: false, error: formatError(error) }
 
-  const role = (data.user?.user_metadata?.role ?? 'student') as UserRole
+  const role       = (data.user?.user_metadata?.role ?? 'student') as UserRole
   const redirectTo = getDashboardByRole(role)
-  
-  console.log('Login success:', { role, redirectTo })
 
   return { success: true, redirectTo }
 }
 
+// signOut runs server-side — use Next.js redirect(), NOT window.location
 export async function signOut(): Promise<void> {
-  const supabase = createClient()
+  const supabase = await createClient()
   await supabase.auth.signOut()
-  window.location.href = '/login'
-}
-
-export async function signInWithGoogle(): Promise<AuthResult> {
-  const supabase = createClient()
-
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: `${window.location.origin}/auth/callback`,
-      queryParams: {
-        access_type: 'offline',
-        prompt:      'consent',
-      },
-    },
-  })
-
-  if (error) return { success: false, error: formatError(error) }
-  return { success: true, redirectTo: '/dashboard' }
+  redirect('/login')
 }
 
 export async function resendVerification(email: string): Promise<AuthResult> {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { error } = await supabase.auth.resend({
     type: 'signup',
@@ -98,7 +80,7 @@ export async function verifyOtp(
   email: string,
   token: string,
 ): Promise<AuthResult> {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { data, error } = await supabase.auth.verifyOtp({
     email,
@@ -119,6 +101,10 @@ export async function verifyOtp(
 
   return { success: true, redirectTo: getDashboardByRole(role) }
 }
+
+// signInWithGoogle needs window.location so it must stay client-side.
+// Move this function to a separate file: lib/auth/client-actions.ts (no 'use server')
+// and import createBrowserClient from @supabase/ssr there.
 
 function formatError(error: AuthError): string {
   switch (error.message) {

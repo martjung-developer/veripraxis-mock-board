@@ -22,25 +22,63 @@ export default async function StudentDashboardPage() {
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
   const stats = [
-    { icon: ClipboardList, label: 'Exams Taken',    value: '0',  color: '#1a56db', bg: '#eff6ff' },
-    { icon: Trophy,        label: 'Best Score',     value: '—',  color: '#f59e0b', bg: '#fffbeb' },
-    { icon: BookOpen,      label: 'Reviewers Done', value: '0',  color: '#10b981', bg: '#ecfdf5' },
-    { icon: Flame,         label: 'Day Streak',     value: '1',  color: '#ef4444', bg: '#fef2f2' },
+    {
+      icon: ClipboardList, label: 'Exams Taken',    value: '0',
+      color:  '#2563a8',
+      bg:     '#dbeafe',       // soft blue
+      accent: '#3b82f6',
+    },
+    {
+      icon: Trophy,        label: 'Best Score',     value: '—',
+      color:  '#92600a',
+      bg:     '#fef3c7',       // soft amber
+      accent: '#f59e0b',
+    },
+    {
+      icon: BookOpen,      label: 'Reviewers Done', value: '0',
+      color:  '#15693a',
+      bg:     '#d1fae5',       // soft emerald
+      accent: '#10b981',
+    },
+    {
+      icon: Flame,         label: 'Day Streak',     value: '1',
+      color:  '#b91c1c',
+      bg:     '#fee2e2',       // soft rose
+      accent: '#ef4444',
+    },
   ]
 
   const quickActions = [
-    { href: '/student/mock-exams',      icon: ClipboardList, label: 'Take a Mock Exam',  desc: 'Timed simulation',   color: '#1a56db', bg: '#eff6ff'  },
-    { href: '/student/reviewers',       icon: BookOpen,      label: 'Start a Reviewer',  desc: 'Practice questions', color: '#10b981', bg: '#ecfdf5'  },
-    { href: '/student/study-materials', icon: FileText,      label: 'Study Materials',   desc: 'Read & learn',       color: '#8b5cf6', bg: '#f5f3ff'  },
-    { href: '/student/progress',        icon: TrendingUp,    label: 'View Progress',     desc: 'Track your growth',  color: '#f59e0b', bg: '#fffbeb'  },
-    { href: '/student/results',         icon: Trophy,        label: 'Past Results',      desc: 'See your scores',    color: '#ef4444', bg: '#fef2f2'  },
-    { href: '/student/profile',         icon: BarChart2,     label: 'My Profile',        desc: 'Update your info',   color: '#06b6d4', bg: '#ecfeff'  },
+    {
+      href: '/student/mock-exams',      icon: ClipboardList, label: 'Take a Mock Exam',
+      desc: 'Timed simulation',   color: '#1d4ed8', bg: '#eff6ff',
+    },
+    {
+      href: '/student/reviewers',       icon: BookOpen,      label: 'Start a Reviewer',
+      desc: 'Practice questions', color: '#047857', bg: '#ecfdf5',
+    },
+    {
+      href: '/student/study-materials', icon: FileText,      label: 'Study Materials',
+      desc: 'Read & learn',       color: '#6d28d9', bg: '#f5f3ff',
+    },
+    {
+      href: '/student/progress',        icon: TrendingUp,    label: 'View Progress',
+      desc: 'Track your growth',  color: '#b45309', bg: '#fffbeb',
+    },
+    {
+      href: '/student/results',         icon: Trophy,        label: 'Past Results',
+      desc: 'See your scores',    color: '#be123c', bg: '#fff1f2',
+    },
+    {
+      href: '/student/profile',         icon: BarChart2,     label: 'My Profile',
+      desc: 'Update your info',   color: '#0e7490', bg: '#ecfeff',
+    },
   ]
 
   const progressItems = [
-    { label: 'Mock Exams Completed',   pct: 0,  color: '#1a56db' },
-    { label: 'Reviewers Finished',     pct: 0,  color: '#10b981' },
-    { label: 'Study Materials Read',   pct: 0,  color: '#8b5cf6' },
+    { label: 'Mock Exams Completed', pct: 0, color: '#3b82f6' },
+    { label: 'Reviewers Finished',   pct: 0, color: '#10b981' },
+    { label: 'Study Materials Read', pct: 0, color: '#8b5cf6' },
   ]
 
   return (
@@ -75,8 +113,12 @@ export default async function StudentDashboardPage() {
 
       {/* ── STATS ── */}
       <div className={styles.statsGrid}>
-        {stats.map(({ icon: Icon, label, value, color, bg }) => (
-          <div key={label} className={styles.statCard}>
+        {stats.map(({ icon: Icon, label, value, color, bg, accent }) => (
+          <div
+            key={label}
+            className={styles.statCard}
+            style={{ ['--card-accent' as string]: accent }}
+          >
             <div className={styles.statIconWrap} style={{ backgroundColor: bg }}>
               <Icon size={20} color={color} strokeWidth={2} />
             </div>
@@ -121,7 +163,7 @@ export default async function StudentDashboardPage() {
               <Link href="/student/results" className={styles.cardLink}>View all →</Link>
             </div>
             <div className={styles.emptyState}>
-              <ClipboardList size={36} strokeWidth={1.5} style={{ opacity: 0.35 }} />
+              <ClipboardList size={36} strokeWidth={1.5} color="#cbd5e1" />
               <p className={styles.emptyTitle}>No activity yet</p>
               <p className={styles.emptyText}>Take your first exam or reviewer to get started.</p>
               <Link href="/student/mock-exams" className={styles.emptyBtn}>
@@ -155,7 +197,8 @@ export default async function StudentDashboardPage() {
                 </div>
               </div>
             ))}
-            <Link href="/student/progress" className={styles.cardLink} style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: '0.75rem' }}>
+            <Link href="/student/progress" className={styles.cardLink}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: '0.75rem' }}>
               View detailed progress <ChevronRight size={13} />
             </Link>
           </div>
@@ -166,7 +209,7 @@ export default async function StudentDashboardPage() {
               <h2 className={styles.cardTitle}>Assigned to You</h2>
             </div>
             <div className={styles.assignedEmpty}>
-              <Clock size={32} strokeWidth={1.5} style={{ opacity: 0.35 }} />
+              <Clock size={32} strokeWidth={1.5} color="#cbd5e1" />
               <p className={styles.assignedEmptyText}>No assignments yet</p>
             </div>
           </div>

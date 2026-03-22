@@ -1,9 +1,9 @@
 // app/(dashboard)/student/layout.tsx
-import { redirect }      from 'next/navigation'
-import { createClient }  from '@/lib/supabase/server'
-import StudentSidebar    from '@/components/dashboard/student/StudentSidebar'
-import StudentTopbar     from '@/components/dashboard/student/StudentTopbar'
-import type { Profile }  from '@/lib/types/auth'
+import { redirect }     from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import StudentSidebar   from '@/components/dashboard/student/StudentSidebar'
+import StudentTopbar    from '@/components/dashboard/student/StudentTopbar'
+import type { Profile } from '@/lib/types/auth'
 
 export default async function StudentLayout({
   children,
@@ -27,15 +27,26 @@ export default async function StudentLayout({
 
   return (
     <div style={{
-      display:         'flex',
-      minHeight:       '100vh',
-      backgroundColor: '#f8fafc',
-      fontFamily:      "'Plus Jakarta Sans', 'DM Sans', sans-serif",
+      display:    'flex',
+      minHeight:  '100vh',
+      background: '#eef2f7',   /* cool-blue tinted light grey — not stark white, not dark */
+      fontFamily: "'Plus Jakarta Sans', 'DM Sans', sans-serif",
     }}>
       <StudentSidebar profile={profile} />
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+      <div style={{
+        flex:          1,
+        display:       'flex',
+        flexDirection: 'column',
+        overflow:      'hidden',
+        minWidth:      0,
+        background:    '#eef2f7',
+      }}>
         <StudentTopbar profile={profile} />
-        <main style={{ flex: 1, padding: '2rem 2.5rem', overflowY: 'auto' }}>
+        <main style={{
+          flex:      1,
+          padding:   '1.75rem 2rem',
+          overflowY: 'auto',
+        }}>
           {children}
         </main>
       </div>
