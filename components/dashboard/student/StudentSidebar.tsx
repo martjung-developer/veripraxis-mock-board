@@ -1,6 +1,7 @@
 'use client'
 // components/dashboard/student/StudentSidebar.tsx
 
+import { useState }    from 'react'
 import Link            from 'next/link'
 import Image           from 'next/image'
 import { usePathname } from 'next/navigation'
@@ -15,6 +16,8 @@ import {
   HelpCircle,
   GraduationCap,
   LogOut,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import { signOut }      from '@/lib/auth/actions'
 import type { Profile } from '@/lib/types/auth'
@@ -23,7 +26,7 @@ import styles           from './StudentSidebar.module.css'
 const NAV = [
   { href: '/student/dashboard',       icon: LayoutDashboard, label: 'Overview'        },
   { href: '/student/mock-exams',      icon: ClipboardList,   label: 'Mock Exams'      },
-  { href: '/student/reviewers',       icon: BookOpen,        label: 'Reviewers'       },
+  { href: '/student/reviews',         icon: BookOpen,        label: 'Reviewers'       },
   { href: '/student/study-materials', icon: FileText,        label: 'Study Materials' },
   { href: '/student/progress',        icon: BarChart2,       label: 'My Progress'     },
   { href: '/student/results',         icon: GraduationCap,   label: 'Results'         },
@@ -33,25 +36,43 @@ const NAV = [
 ]
 
 export default function StudentSidebar({ profile }: { profile: Profile }) {
-  const pathname = usePathname()
+  const pathname   = usePathname()
+  const [collapsed, setCollapsed] = useState(false)
 
   return (
-    <aside className={styles.sidebar}>
+    <aside className={`${styles.sidebar} ${collapsed ? styles.sidebarCollapsed : ''}`}>
 
       {/* Logo */}
       <div className={styles.logoWrap}>
-        <Image
-          src="/images/veripraxis-logo.png"
-          alt="VeriPraxis"
-          width={0}
-          height={30}
-          style={{ width: 'auto', height: 30, filter: 'brightness(0) invert(1)' }}
-          priority
-        />
+        {!collapsed && (
+          <Image
+            src="/images/veripraxis-logo.png"
+            alt="VeriPraxis"
+            width={0}
+            height={30}
+            style={{ width: 'auto', height: 30, filter: 'brightness(0) invert(1)' }}
+            priority
+          />
+        )}
+
+        {/* Collapse toggle button */}
+        <button
+          className={styles.collapseBtn}
+          onClick={() => setCollapsed(c => !c)}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {collapsed
+            ? <ChevronRight size={15} strokeWidth={2.5} />
+            : <ChevronLeft  size={15} strokeWidth={2.5} />
+          }
+        </button>
       </div>
 
       {/* Nav label */}
-      <div className={styles.sectionLabel}>Student Tools</div>
+      {!collapsed && (
+        <div className={styles.sectionLabel}>Student Tools</div>
+      )}
 
       {/* Nav links */}
       <nav className={styles.nav}>
@@ -61,48 +82,55 @@ export default function StudentSidebar({ profile }: { profile: Profile }) {
             <Link
               key={href}
               href={href}
-              className={`${styles.navLink} ${active ? styles.navLinkActive : ''}`}
+              className={`${styles.navLink} ${active ? styles.navLinkActive : ''} ${collapsed ? styles.navLinkCollapsed : ''}`}
+              title={collapsed ? label : undefined}
             >
               <Icon
                 size={16}
                 strokeWidth={active ? 2.5 : 2}
                 className={styles.navIcon}
               />
-              {label}
+              {!collapsed && <span className={styles.navLabel}>{label}</span>}
             </Link>
           )
         })}
       </nav>
 
-      {/* Help card */}
-      <div className={styles.helpCard}>
-        <p className={styles.helpCardTitle}>Need assistance?</p>
-        <p className={styles.helpCardText}>
-          Having trouble? Visit our help center or contact your faculty.
-        </p>
-        <Link href="/student/help" className={styles.helpCardBtn}>
-          Contact Support
-        </Link>
-      </div>
+      {/* Help card — hidden when collapsed */}
+      {!collapsed && (
+        <div className={styles.helpCard}>
+          <p className={styles.helpCardTitle}>Need assistance?</p>
+          <p className={styles.helpCardText}>
+            Having trouble? Visit our help center or contact your faculty.
+          </p>
+          <Link href="/student/help" className={styles.helpCardBtn}>
+            Contact Support
+          </Link>
+        </div>
+      )}
 
       {/* User + sign out */}
-      <div className={styles.userWrap}>
-        <div className={styles.avatar}>
+      <div className={`${styles.userWrap} ${collapsed ? styles.userWrapCollapsed : ''}`}>
+        <div className={styles.avatar} title={collapsed ? (profile.full_name ?? 'Student') : undefined}>
           {profile.full_name?.charAt(0).toUpperCase() ?? 'S'}
         </div>
-        <div style={{ overflow: 'hidden', flex: 1 }}>
-          <div className={styles.userName}>
-            {profile.full_name ?? 'Student'}
+        {!collapsed && (
+          <div style={{ overflow: 'hidden', flex: 1 }}>
+            <div className={styles.userName}>
+              {profile.full_name ?? 'Student'}
+            </div>
+            <div className={styles.userRole}>Student</div>
           </div>
-          <div className={styles.userRole}>Student</div>
-        </div>
-        <button
-          className={styles.signOutBtn}
-          onClick={() => signOut()}
-          title="Sign out"
-        >
-          <LogOut size={15} strokeWidth={2} />
-        </button>
+        )}
+        {!collapsed && (
+          <button
+            className={styles.signOutBtn}
+            onClick={() => signOut()}
+            title="Sign out"
+          >
+            <LogOut size={15} strokeWidth={2} />
+          </button>
+        )}
       </div>
 
     </aside>

@@ -29,7 +29,7 @@ export default async function StudentLayout({
     <div style={{
       display:    'flex',
       minHeight:  '100vh',
-      background: '#eef2f7',   /* cool-blue tinted light grey — not stark white, not dark */
+      background: '#eef2f7',   
       fontFamily: "'Plus Jakarta Sans', 'DM Sans', sans-serif",
     }}>
       <StudentSidebar profile={profile} />

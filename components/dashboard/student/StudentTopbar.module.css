@@ -28,8 +28,9 @@
 }
 
 .searchWrap:focus-within {
-  border-color: #a0b4c8;
+  border-color: #1e3a5f;
   background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.06);
 }
 
 .searchInput {
@@ -62,18 +63,19 @@
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  background: #f5f7fa;
-  border: 1.5px solid #e9eef4;
-  color: #6b7280;
+  background: #f0f4f9;
+  border: 1.5px solid #c8d8e8;
+  color: #1e3a5f;
   text-decoration: none;
   transition: all 0.15s;
   cursor: pointer;
 }
 
 .notifBtn:hover {
-  border-color: #a0b4c8;
-  color: #374151;
-  background: #eef2f7;
+  border-color: #1e3a5f;
+  color: #0d2540;
+  background: #dce8f5;
+  box-shadow: 0 2px 8px rgba(30, 58, 95, 0.12);
 }
 
 .notifBadge {
@@ -99,25 +101,27 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.3rem 0.625rem 0.3rem 0.3rem;
+  padding: 0.3rem 0.75rem 0.3rem 0.3rem;
   border-radius: 99px;
-  border: 1.5px solid #e9eef4;
-  background: #f5f7fa;
+  border: 1.5px solid #c8d8e8;
+  background: #f0f4f9;
   text-decoration: none;
-  transition: all 0.15s;
+  transition: all 0.18s ease;
   cursor: pointer;
 }
 
 .userPill:hover {
-  border-color: #a0b4c8;
-  background: #eef2f7;
+  border-color: #1e3a5f;
+  background: #dce8f5;
+  box-shadow: 0 2px 10px rgba(30, 58, 95, 0.12);
 }
 
+/* Avatar — midnight blue gradient with steel blue initial */
 .avatarSmall {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: #0d1117;
+  background: linear-gradient(135deg, #0d2540 0%, #1e3a5f 60%, #2a5080 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -125,6 +129,7 @@
   font-size: 0.725rem;
   font-weight: 700;
   flex-shrink: 0;
+  box-shadow: 0 1px 4px rgba(13, 37, 64, 0.25);
 }
 
 .userName {
@@ -136,6 +141,7 @@
 
 .userRole {
   font-size: 0.65rem;
-  color: #9ca3af;
-  font-weight: 500;
+  color: #1e3a5f;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
