@@ -40,8 +40,6 @@ const PROGRESS_ITEMS = [
   { label: 'Study Materials Read', pct: 0, color: '#8b5cf6' },
 ] as const
 
-// ── Only simple primitives cross the server → client boundary ──
-
 interface Props {
   firstName: string
   greeting:  string

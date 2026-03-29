@@ -10,9 +10,9 @@ import styles from '@/app/page.module.css'
 
 const NAV_LINKS = [
   { label: 'Home',     href: '/'         },
+  { label: 'About',  href: '/about'  },
   { label: 'Features', href: '/features' },
   { label: 'Programs', href: '/programs' },
-  { label: 'Pricing',  href: '/pricing'  },
   { label: 'Help',     href: '/help'     },
 ]
 

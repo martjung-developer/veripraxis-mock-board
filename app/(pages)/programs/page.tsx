@@ -8,9 +8,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   BookMarked, Brain, School, Languages, FunctionSquare,
   BookOpen, FlaskConical, Compass, Sofa,
-  Stethoscope, Cpu, Calculator, GraduationCap,
-  Zap, Wrench, Building2,
-  ArrowRight, ChevronRight, Users, TrendingUp, Calendar,
+  Users, TrendingUp, Calendar,
+  ArrowRight, ChevronRight,
 } from 'lucide-react'
 import { heroContainer, heroItem } from '@/animations/presets/publicPage'
 import {
@@ -21,7 +20,7 @@ import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import styles from './programs.module.css'
 
-type Category = 'All' | 'Health' | 'Engineering' | 'Business' | 'Education' | 'Arts & Design'
+type Category = 'All' | 'Education' | 'Arts & Design'
 
 interface Program {
   code:      string
@@ -34,12 +33,10 @@ interface Program {
   desc:      string
   questions: string
   passRate:  string
-  status:    'available' | 'coming'
-  priority?: boolean
 }
 
-/* ─── 9 LCCB-offered programs (priority = available) ─── */
-const LCCB_PROGRAMS: Program[] = [
+/* ─── 9 LCCB-offered programs ─── */
+const PROGRAMS: Program[] = [
   {
     code: 'LLE',
     name: 'Librarian Licensure Examination',
@@ -49,7 +46,7 @@ const LCCB_PROGRAMS: Program[] = [
     accent: '#0f766e',
     category: 'Education',
     desc: 'Covers cataloging & classification, reference services, library administration, collection development, and information technology.',
-    questions: '900+', passRate: '91%', status: 'available', priority: true,
+    questions: '900+', passRate: '91%',
   },
   {
     code: 'PLE',
@@ -60,7 +57,7 @@ const LCCB_PROGRAMS: Program[] = [
     accent: '#7c3aed',
     category: 'Education',
     desc: 'Covers psychological assessment, statistics, research methodology, and the ethical practice of psychometry in clinical and organizational settings.',
-    questions: '800+', passRate: '89%', status: 'available', priority: true,
+    questions: '800+', passRate: '89%',
   },
   {
     code: 'LET-Elem',
@@ -71,7 +68,7 @@ const LCCB_PROGRAMS: Program[] = [
     accent: '#d97706',
     category: 'Education',
     desc: 'Assesses foundational teaching competencies — professional education theory, child development, curriculum planning, and general education content.',
-    questions: '1,100+', passRate: '93%', status: 'available', priority: true,
+    questions: '1,100+', passRate: '93%',
   },
   {
     code: 'LET-Fil',
@@ -82,7 +79,7 @@ const LCCB_PROGRAMS: Program[] = [
     accent: '#dc2626',
     category: 'Education',
     desc: 'Focuses on Filipino language proficiency, panitikang Pilipino, retorika, and pedagogy for teaching Filipino at the secondary level.',
-    questions: '950+', passRate: '92%', status: 'available', priority: true,
+    questions: '950+', passRate: '92%',
   },
   {
     code: 'LET-Math',
@@ -93,7 +90,7 @@ const LCCB_PROGRAMS: Program[] = [
     accent: '#1d4ed8',
     category: 'Education',
     desc: 'Covers algebra, geometry, trigonometry, statistics, and calculus alongside pedagogical content knowledge for secondary math instruction.',
-    questions: '1,000+', passRate: '90%', status: 'available', priority: true,
+    questions: '1,000+', passRate: '90%',
   },
   {
     code: 'LET-Eng',
@@ -104,7 +101,7 @@ const LCCB_PROGRAMS: Program[] = [
     accent: '#0891b2',
     category: 'Education',
     desc: 'Evaluates grammar, communication arts, literature, language teaching methodology, and assessment strategies for secondary English educators.',
-    questions: '950+', passRate: '91%', status: 'available', priority: true,
+    questions: '950+', passRate: '91%',
   },
   {
     code: 'LET-Sci',
@@ -115,7 +112,7 @@ const LCCB_PROGRAMS: Program[] = [
     accent: '#16a34a',
     category: 'Education',
     desc: 'Encompasses biology, chemistry, physics, and earth science with emphasis on inquiry-based and laboratory teaching approaches.',
-    questions: '1,000+', passRate: '90%', status: 'available', priority: true,
+    questions: '1,000+', passRate: '90%',
   },
   {
     code: 'ALE',
@@ -126,7 +123,7 @@ const LCCB_PROGRAMS: Program[] = [
     accent: '#b45309',
     category: 'Arts & Design',
     desc: 'Tests architectural design, building technology, structures, utilities, and the legal framework governing architectural practice in the Philippines.',
-    questions: '1,200+', passRate: '88%', status: 'available', priority: true,
+    questions: '1,200+', passRate: '88%',
   },
   {
     code: 'IDLE',
@@ -137,87 +134,9 @@ const LCCB_PROGRAMS: Program[] = [
     accent: '#be185d',
     category: 'Arts & Design',
     desc: 'Covers design principles, space planning, materials and specifications, environmental systems, and professional practice for aspiring registered interior designers.',
-    questions: '700+', passRate: '87%', status: 'available', priority: true,
+    questions: '700+', passRate: '87%',
   },
 ]
-
-/* ─── Other programs shown as Coming Soon ─── */
-const OTHER_PROGRAMS: Program[] = [
-  {
-    code: 'NLE', name: 'Nursing Licensure Exam',
-    icon: Stethoscope,
-    photo: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=700&q=80',
-    photoAlt: 'Nurse reviewing medical materials',
-    accent: '#2563eb', category: 'Health',
-    desc: 'Comprehensive NLE prep covering all 8 nursing subjects with validated questions and detailed rationales.',
-    questions: 'Coming', passRate: '—', status: 'coming',
-  },
-  {
-    code: 'CPA', name: 'Certified Public Accountant',
-    icon: Calculator,
-    photo: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=700&q=80',
-    photoAlt: 'Accountant reviewing documents',
-    accent: '#d97706', category: 'Business',
-    desc: 'Full CPA board coverage: FAR, AFAR, MAS, Tax, Audit, and RegLaw with detailed rationales.',
-    questions: 'Coming', passRate: '—', status: 'coming',
-  },
-  {
-    code: 'ECE', name: 'Electronics Engineering',
-    icon: Cpu,
-    photo: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=700&q=80',
-    photoAlt: 'Electronics circuit board',
-    accent: '#16a34a', category: 'Engineering',
-    desc: 'ECE board exam coverage across Mathematics, EST, GEAS, and Electronics subjects.',
-    questions: 'Coming', passRate: '—', status: 'coming',
-  },
-  {
-    code: 'EE', name: 'Electrical Engineering',
-    icon: Zap,
-    photo: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=700&q=80',
-    photoAlt: 'Electrician testing electrical control panel',
-    accent: '#ea580c', category: 'Engineering',
-    desc: 'EE board exam prep: Power Systems, Machines, Electronics, and Circuit Theory.',
-    questions: 'Coming', passRate: '—', status: 'coming',
-  },
-  {
-    code: 'ME', name: 'Mechanical Engineering',
-    icon: Wrench,
-    photo: 'https://images.unsplash.com/photo-1537462715879-360eeb61a0ad?w=700&q=80',
-    photoAlt: 'Mechanical engineering workshop',
-    accent: '#475569', category: 'Engineering',
-    desc: 'ME board exam coverage: Mathematics, Machine Design, Thermodynamics, and Power Plant.',
-    questions: 'Coming', passRate: '—', status: 'coming',
-  },
-  {
-    code: 'GE', name: 'Guidance Counselor Licensure Exam',
-    icon: GraduationCap,
-    photo: 'https://images.pexels.com/photos/6325984/pexels-photo-6325984.jpeg?w=700&q=80',
-    photoAlt: 'Guidance counselor with student',
-    accent: '#0891b2', category: 'Education',
-    desc: 'Covers counseling theory, psychological assessment, group dynamics, and career development.',
-    questions: 'Coming', passRate: '—', status: 'coming',
-  },
-  {
-    code: 'SW', name: 'Social Worker Licensure Exam',
-    icon: Users,
-    photo: 'https://images.pexels.com/photos/6647037/pexels-photo-6647037.jpeg?w=700&q=80',
-    photoAlt: 'Social worker in community',
-    accent: '#15803d', category: 'Health',
-    desc: 'Covers social work practice, community organizing, and research for aspiring registered social workers.',
-    questions: 'Coming', passRate: '—', status: 'coming',
-  },
-  {
-    code: 'PharmD', name: 'Pharmacy Licensure Exam',
-    icon: Building2,
-    photo: 'https://images.unsplash.com/photo-1471864190281-a93a3070b6de?w=700&q=80',
-    photoAlt: 'Pharmacy laboratory',
-    accent: '#0891b2', category: 'Health',
-    desc: 'Pharmacist board exam prep covering Pharmaceutical Sciences, Clinical Pharmacy, and more.',
-    questions: 'Coming', passRate: '—', status: 'coming',
-  },
-]
-
-const ALL_PROGRAMS = [...LCCB_PROGRAMS, ...OTHER_PROGRAMS]
 
 const STATS = [
   { icon: BookMarked, value: '9',       label: 'Active Programs'    },
@@ -226,14 +145,14 @@ const STATS = [
   { icon: Calendar,   value: 'Live Now',label: 'LCCB Programs'      },
 ]
 
-const CATEGORIES: Category[] = ['All', 'Education', 'Arts & Design', 'Health', 'Engineering', 'Business']
+const CATEGORIES: Category[] = ['All', 'Education', 'Arts & Design']
 
 export default function ProgramsPage() {
   const [active, setActive] = useState<Category>('All')
 
   const filtered = active === 'All'
-    ? ALL_PROGRAMS
-    : ALL_PROGRAMS.filter((p) => p.category === active)
+    ? PROGRAMS
+    : PROGRAMS.filter((p) => p.category === active)
 
   return (
     <>
@@ -267,7 +186,7 @@ export default function ProgramsPage() {
             </motion.div>
           </div>
 
-          {/* 2×2 mosaic — LCCB-flavored photos */}
+          {/* 2×2 mosaic */}
           <div className={styles.heroBg}>
             {[
               { src: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=700&q=80', alt: 'Library books' },
@@ -301,8 +220,7 @@ export default function ProgramsPage() {
             <div>
               <h2 className={styles.browseTitle}>All Programs</h2>
               <p className={styles.browseSub}>
-                {filtered.length} program{filtered.length !== 1 ? 's' : ''} —{' '}
-                {filtered.filter(p => p.status === 'available').length} available now
+                {filtered.length} program{filtered.length !== 1 ? 's' : ''} available now
               </p>
             </div>
             <motion.div {...filterRow} className={styles.filterRow}>
@@ -325,7 +243,7 @@ export default function ProgramsPage() {
                 return (
                   <motion.div
                     key={prog.code}
-                    className={`${styles.programCard} ${prog.status === 'coming' ? styles.programCardDimmed : ''}`}
+                    className={styles.programCard}
                     {...programCard}
                   >
                     <div className={styles.cardPhoto}>
@@ -338,8 +256,8 @@ export default function ProgramsPage() {
                         <div className={styles.cardIconWrap} style={{ background: prog.accent }}>
                           <Icon size={16} strokeWidth={2} color="#fff" />
                         </div>
-                        <span className={`${styles.cardStatusBadge} ${prog.status === 'available' ? styles.statusAvailable : styles.statusComing}`}>
-                          {prog.status === 'available' ? 'Available' : 'Coming Soon'}
+                        <span className={`${styles.cardStatusBadge} ${styles.statusAvailable}`}>
+                          Available
                         </span>
                       </div>
                       <div className={styles.cardCodeOverlay}>{prog.code}</div>
@@ -357,13 +275,9 @@ export default function ProgramsPage() {
                           <strong>{prog.passRate}</strong>Pass Rate
                         </div>
                       </div>
-                      {prog.status === 'available' ? (
-                        <Link href="/register" className={styles.cardCta}>
-                          Start Reviewing <ArrowRight size={13} strokeWidth={2.5} />
-                        </Link>
-                      ) : (
-                        <span className={styles.cardCtaDisabled}>Notify Me When Ready</span>
-                      )}
+                      <Link href="/register" className={styles.cardCta}>
+                        Start Reviewing <ArrowRight size={13} strokeWidth={2.5} />
+                      </Link>
                     </div>
                   </motion.div>
                 )
