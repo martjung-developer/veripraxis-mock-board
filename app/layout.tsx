@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   // ── iOS PWA ──
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'black-translucent',  // blends with dark navy
+    statusBarStyle: 'black-translucent',  
     title: 'VeriPraxis',
     startupImage: [
       // iPhone XS  (1125×2436)
