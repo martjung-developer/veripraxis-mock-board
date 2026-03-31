@@ -27,7 +27,7 @@ const STATS = [
 
 const QUICK_ACTIONS = [
   { href: '/student/mock-exams',      icon: ClipboardList, label: 'Take a Mock Exam',  desc: 'Timed simulation',   color: '#1d4ed8', bg: '#eff6ff' },
-  { href: '/student/reviewers',       icon: BookOpen,      label: 'Start a Reviewer',  desc: 'Practice questions', color: '#047857', bg: '#ecfdf5' },
+  { href: '/student/reviews',       icon: BookOpen,      label: 'Start a Reviewer',  desc: 'Practice questions', color: '#047857', bg: '#ecfdf5' },
   { href: '/student/study-materials', icon: FileText,      label: 'Study Materials',   desc: 'Read & learn',       color: '#6d28d9', bg: '#f5f3ff' },
   { href: '/student/progress',        icon: TrendingUp,    label: 'View Progress',     desc: 'Track your growth',  color: '#b45309', bg: '#fffbeb' },
   { href: '/student/results',         icon: Trophy,        label: 'Past Results',      desc: 'See your scores',    color: '#be123c', bg: '#fff1f2' },
@@ -55,7 +55,7 @@ const DashboardClient: FC<Props> = ({ firstName, greeting }) => {
         style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1.75rem' }}
       >
         <div className={styles.header}>
-          <h1 className={styles.greeting}>{greeting}, {firstName} 👋</h1>
+          <h1 className={styles.greeting}>{greeting}, {firstName} </h1>
           <p className={styles.subGreeting}>Here&apos;s your board exam prep summary for today.</p>
         </div>
         <motion.div {...cardHover}>
@@ -69,7 +69,7 @@ const DashboardClient: FC<Props> = ({ firstName, greeting }) => {
       {/* ── HERO BANNER ── */}
       <motion.div className={styles.heroBanner} {...section}>
         <div className={styles.heroText}>
-          <div className={styles.heroEyebrow}>📋 Board Exam Prep</div>
+          <div className={styles.heroEyebrow}>Board Exam Prep</div>
           <h2 className={styles.heroTitle}>Ready to ace your<br />PRC licensure exam?</h2>
           <p className={styles.heroSub}>
             Take mock exams, practice with reviewers, and track your progress — all in one place.
@@ -78,7 +78,7 @@ const DashboardClient: FC<Props> = ({ firstName, greeting }) => {
             Browse Exams <ChevronRight size={14} strokeWidth={2.5} />
           </Link>
         </div>
-        <div className={styles.heroEmoji}>🎓</div>
+        <div className={styles.heroEmoji}></div>
       </motion.div>
 
       {/* ── STATS ── */}
@@ -193,7 +193,7 @@ const DashboardClient: FC<Props> = ({ firstName, greeting }) => {
 
           {/* Tip */}
           <motion.div className={styles.tipCard} {...card}>
-            <div className={styles.tipEyebrow}>💡 Study Tip</div>
+            <div className={styles.tipEyebrow}>Study Tip</div>
             <p className={styles.tipText}>
               Consistent daily practice beats last-minute cramming. Aim for at least one reviewer per day!
             </p>

@@ -16,7 +16,7 @@ import {
   faqGroups,
   faqGroup,
   faqAnswer,
-} from '@/animations/help/helpAnimations'
+} from '@/animations/help/help'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import styles from './help.module.css'

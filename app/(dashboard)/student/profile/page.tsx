@@ -1,8 +1,8 @@
-// app/(dashboard)/student/profile/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Mail,
@@ -33,49 +33,79 @@ import {
 } from "@/animations/profile/profile";
 import styles from "./profile.module.css";
 
-/* ─── Types ─── */
-interface Profile {
-  full_name: string | null;
-  email: string;
+/* ══════════════════════════════════════
+   TYPES — shaped from Supabase responses
+══════════════════════════════════════ */
+interface ProfileRow {
+  full_name:  string | null;
+  email:      string;
   avatar_url: string | null;
 }
 
-interface StudentDetail {
-  student_id: string | null;
-  year_level: number | null;
+interface StudentRow {
+  id:          string;
+  student_id:  string | null;
+  year_level:  number | null;
   target_exam: string | null;
-  school: string | null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  program: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  schoolDetail: any;
+  school:      string | null;
+  program_id:  string | null;
+  school_id:   string | null;
+}
+
+interface ProgramRow {
+  id:        string;
+  name:      string;
+  full_name: string;
+  code:      string;
+}
+
+interface SchoolRow {
+  id:   string;
+  name: string;
+}
+
+interface RawSub {
+  percentage:   number | null;
+  passed:       boolean | null;
+  submitted_at: string | null;
+  exam_id:      string | null;
 }
 
 interface SubmissionRow {
-  percentage: number | null;
-  passed: boolean | null;
-  submitted_at: string | null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  exams: any;
+  percentage:    number | null;
+  passed:        boolean | null;
+  submitted_at:  string | null;
+  exam_title:    string;
+  category_name: string;
 }
 
-/* ─── Helpers ─── */
+/* ══════════════════════════════════════
+   HELPERS
+══════════════════════════════════════ */
 function getInitials(name: string | null): string {
   if (!name) return "?";
-  return name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 }
 
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("en-US", {
-    month: "short", day: "numeric", year: "numeric",
+    month: "short",
+    day:   "numeric",
+    year:  "numeric",
   });
 }
 
 function getScoreColor(pct: number | null): string {
   if (pct === null) return "#9ca3af";
-  if (pct >= 75) return "#059669";
-  if (pct >= 50) return "#d97706";
+  if (pct >= 75)    return "#059669";
+  if (pct >= 50)    return "#d97706";
   return "#dc2626";
 }
 
@@ -85,7 +115,9 @@ function getPassRateFillClass(rate: number): string {
   return styles.fillRed;
 }
 
-/* ─── Skeleton ─── */
+/* ══════════════════════════════════════
+   SKELETON
+══════════════════════════════════════ */
 function ProfileSkeleton() {
   return (
     <div className={styles.page}>
@@ -101,8 +133,11 @@ function ProfileSkeleton() {
         {[0, 1].map((i) => (
           <div key={i} className={styles.card} style={{ minHeight: 260 }}>
             {[68, 52, 78, 58, 45, 70].map((w, j) => (
-              <div key={j} className={styles.skeleton}
-                style={{ height: 12, width: `${w}%`, marginBottom: "0.6rem", borderRadius: 5 }} />
+              <div
+                key={j}
+                className={styles.skeleton}
+                style={{ height: 12, width: `${w}%`, marginBottom: "0.6rem", borderRadius: 5 }}
+              />
             ))}
           </div>
         ))}
@@ -111,15 +146,17 @@ function ProfileSkeleton() {
   );
 }
 
-/* ═══════════════════════════════════════════
+/* ══════════════════════════════════════
    PAGE
-═══════════════════════════════════════════ */
+══════════════════════════════════════ */
 export default function ProfilePage() {
   const router   = useRouter();
   const supabase = createClient();
 
-  const [profile,     setProfile]     = useState<Profile | null>(null);
-  const [student,     setStudent]     = useState<StudentDetail | null>(null);
+  const [profile,     setProfile]     = useState<ProfileRow | null>(null);
+  const [student,     setStudent]     = useState<StudentRow | null>(null);
+  const [program,     setProgram]     = useState<ProgramRow | null>(null);
+  const [school,      setSchool]      = useState<SchoolRow | null>(null);
   const [submissions, setSubmissions] = useState<SubmissionRow[]>([]);
   const [loading,     setLoading]     = useState(true);
   const [imgError,    setImgError]    = useState(false);
@@ -127,64 +164,172 @@ export default function ProfilePage() {
 
   useEffect(() => {
     const fetchAll = async () => {
-      const { data: authData } = await supabase.auth.getUser();
-      const user = authData.user;
-      if (!user) { router.push("/login"); return; }
+      try {
+        /* ── 1. Auth ── */
+        const { data: authData, error: authError } =
+          await supabase.auth.getUser();
 
-      const [profileRes, studentRes, submissionsRes] = await Promise.all([
-        supabase
+        if (authError || !authData.user) {
+          router.push("/login");
+          return;
+        }
+
+        const userId = authData.user.id;
+
+        /* ── 2. Profile ── */
+        const { data: profileRaw, error: profileError } = await supabase
           .from("profiles")
           .select("full_name, email, avatar_url")
-          .eq("id", user.id)
-          .single(),
+          .eq("id", userId)
+          .single();
 
-        supabase
+        if (profileError) console.error("Profile fetch error:", profileError);
+
+        const profileData = profileRaw as ProfileRow | null;
+
+        /* ── 3. Student ──
+           NOTE: Do NOT chain .returns<>() on .single() — the Supabase JS
+           client resolves the generic to 'never' in that combination, which
+           makes every property inaccessible. Cast the raw result instead.   */
+        const { data: studentRaw, error: studentError } = await supabase
           .from("students")
-          .select(`
-            student_id,
-            year_level,
-            target_exam,
-            school,
-            program:programs ( name, full_name, code ),
-            schoolDetail:schools ( name )
-          `)
-          .eq("id", user.id)
-          .single(),
+          .select("id, student_id, year_level, target_exam, school, program_id, school_id")
+          .eq("id", userId)
+          .single();
 
-        supabase
+        if (studentError) console.warn("No student row found:", studentError);
+
+        const studentData = studentRaw as StudentRow | null;
+
+        /* ── 4. Program ── */
+        let programData: ProgramRow | null = null;
+
+        if (studentData?.program_id != null) {
+          const { data: programRaw, error: programError } = await supabase
+            .from("programs")
+            .select("id, name, full_name, code")
+            .eq("id", studentData.program_id)
+            .single();
+
+          if (programError) {
+            console.error("Program fetch error:", programError);
+          } else {
+            programData = programRaw as ProgramRow;
+          }
+        }
+
+        /* ── 5. School ── */
+        let schoolData: SchoolRow | null = null;
+
+        if (studentData?.school_id != null) {
+          const { data: schoolRaw, error: schoolError } = await supabase
+            .from("schools")
+            .select("id, name")
+            .eq("id", studentData.school_id)
+            .single();
+
+          if (schoolError) {
+            console.error("School fetch error:", schoolError);
+          } else {
+            schoolData = schoolRaw as SchoolRow;
+          }
+        }
+
+        /* ── 6. Submissions ── */
+        const { data: rawSubs, error: subError } = await supabase
           .from("submissions")
-          .select(`
-            percentage,
-            passed,
-            submitted_at,
-            exams ( title, exam_categories ( name ) )
-          `)
-          .eq("student_id", user.id)
+          .select("percentage, passed, submitted_at, exam_id")
+          .eq("student_id", userId)
           .in("status", ["submitted", "graded"])
           .order("submitted_at", { ascending: false })
-          .limit(5),
-      ]);
+          .limit(5)
+          .returns<RawSub[]>();
 
-      setProfile(profileRes.data ?? null);
-      setStudent(studentRes.data as unknown as StudentDetail ?? null);
-      setSubmissions((submissionsRes.data ?? []) as unknown as SubmissionRow[]);
-      setLoading(false);
-      // delay progress bar animation so card is visible first
-      setTimeout(() => setAnimate(true), 420);
+        if (subError) console.error("Submissions fetch error:", subError);
+
+        let shapedSubmissions: SubmissionRow[] = [];
+
+        if (rawSubs && rawSubs.length > 0) {
+          /* Collect unique exam IDs */
+          const examIds = [
+            ...new Set(rawSubs.map((s) => s.exam_id).filter(Boolean)),
+          ] as string[];
+
+          const { data: examsRaw } = await supabase
+            .from("exams")
+            .select("id, title, category_id")
+            .in("id", examIds);
+
+          const examsData = (examsRaw ?? []) as {
+            id:          string;
+            title:       string;
+            category_id: string;
+          }[];
+
+          /* Collect unique category IDs */
+          const categoryIds = [
+            ...new Set(examsData.map((e) => e.category_id).filter(Boolean)),
+          ] as string[];
+
+          const { data: categoriesRaw } = await supabase
+            .from("exam_categories")
+            .select("id, name")
+            .in("id", categoryIds);
+
+          const categoriesData = (categoriesRaw ?? []) as {
+            id:   string;
+            name: string;
+          }[];
+
+          /* Build lookup maps */
+          const examMap     = new Map(examsData.map((e) => [e.id, e]));
+          const categoryMap = new Map(categoriesData.map((c) => [c.id, c]));
+
+          shapedSubmissions = rawSubs.map((s: RawSub) => {
+            const exam     = examMap.get(s.exam_id ?? "");
+            const category = categoryMap.get(exam?.category_id ?? "");
+            return {
+              percentage:    s.percentage,
+              passed:        s.passed,
+              submitted_at:  s.submitted_at,
+              exam_title:    exam?.title    ?? "Unknown Exam",
+              category_name: category?.name ?? "Uncategorised",
+            };
+          });
+        }
+
+        /* ── Commit state ── */
+        setProfile(profileData);
+        setStudent(studentData);
+        setProgram(programData);
+        setSchool(schoolData);
+        setSubmissions(shapedSubmissions);
+
+      } catch (err) {
+        console.error("Unexpected error:", err);
+      } finally {
+        setLoading(false);
+        setTimeout(() => setAnimate(true), 420);
+      }
     };
 
     fetchAll();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* ── Derived stats ── */
-  const totalExams  = submissions.length;
-  const scores      = submissions.map((s) => s.percentage).filter((v): v is number => v !== null);
+  const totalExams   = submissions.length;
+  const scores       = submissions
+    .map((s) => s.percentage)
+    .filter((v): v is number => v !== null);
   const averageScore = scores.length > 0
-    ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+    ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+    : null;
   const highestScore = scores.length > 0 ? Math.round(Math.max(...scores)) : null;
   const passedCount  = submissions.filter((s) => s.passed === true).length;
-  const passRate     = totalExams > 0 ? Math.round((passedCount / totalExams) * 100) : null;
+  const passRate     = totalExams > 0
+    ? Math.round((passedCount / totalExams) * 100)
+    : null;
 
   if (loading) return <ProfileSkeleton />;
 
@@ -192,7 +337,7 @@ export default function ProfilePage() {
   const initials    = getInitials(profile?.full_name ?? null);
   const showAvatar  = !!profile?.avatar_url && !imgError;
 
-  /* ─── Data arrays ─── */
+  /* ── Static data for render ── */
   const STAT_MINI = [
     {
       Icon: FileText,
@@ -224,15 +369,51 @@ export default function ProfilePage() {
     },
   ];
 
+  const schoolDisplay  = school?.name  ?? student?.school ?? "—";
+  const programDisplay = program?.full_name ?? program?.name ?? "—";
+
   const INFO_ROWS = [
-    { Icon: Mail,         iconColor: "#2563eb", iconBg: "#eff6ff", label: "Email",        value: profile?.email ?? "—" },
-    { Icon: Hash,         iconColor: "#7c3aed", iconBg: "#f5f3ff", label: "Student ID",   value: student?.student_id ?? "—" },
-    { Icon: GraduationCap,iconColor: "#d97706", iconBg: "#fffbeb", label: "Program",      value: student?.program?.full_name ?? student?.program?.name ?? "—" },
-    { Icon: BookOpen,     iconColor: "#059669", iconBg: "#f0fdf4", label: "Year Level",   value: student?.year_level ? `Year ${student.year_level}` : "—" },
-    { Icon: Building2,    iconColor: "#0891b2", iconBg: "#ecfeff", label: "School",       value: student?.schoolDetail?.name ?? student?.school ?? "—" },
-    { Icon: Target,       iconColor: "#dc2626", iconBg: "#fef2f2", label: "Target Exam",  value: student?.target_exam ?? "—" },
+    {
+      Icon: Mail,
+      iconColor: "#2563eb", iconBg: "#eff6ff",
+      label: "Email",
+      value: profile?.email ?? "—",
+    },
+    {
+      Icon: Hash,
+      iconColor: "#7c3aed", iconBg: "#f5f3ff",
+      label: "Student ID",
+      value: student?.student_id ?? "—",
+    },
+    {
+      Icon: GraduationCap,
+      iconColor: "#d97706", iconBg: "#fffbeb",
+      label: "Program",
+      value: programDisplay,
+    },
+    {
+      Icon: BookOpen,
+      iconColor: "#059669", iconBg: "#f0fdf4",
+      label: "Year Level",
+      value: student?.year_level ? `Year ${student.year_level}` : "—",
+    },
+    {
+      Icon: Building2,
+      iconColor: "#0891b2", iconBg: "#ecfeff",
+      label: "School",
+      value: schoolDisplay,
+    },
+    {
+      Icon: Target,
+      iconColor: "#dc2626", iconBg: "#fef2f2",
+      label: "Target Exam",
+      value: student?.target_exam ?? "—",
+    },
   ];
 
+  /* ══════════════════════════════════════
+     RENDER
+  ══════════════════════════════════════ */
   return (
     <motion.div
       className={styles.page}
@@ -249,7 +430,9 @@ export default function ProfilePage() {
       >
         <div>
           <h1 className={styles.title}>My Profile</h1>
-          <p className={styles.subtitle}>Your personal information and exam performance summary.</p>
+          <p className={styles.subtitle}>
+            Your personal information and exam performance summary.
+          </p>
         </div>
         <button
           className={styles.editBtn}
@@ -267,12 +450,18 @@ export default function ProfilePage() {
         initial="hidden"
         animate="visible"
       >
-        {/* Avatar */}
-        <motion.div className={styles.avatarWrap} variants={avatarVariants} initial="hidden" animate="visible">
+        <motion.div
+          className={styles.avatarWrap}
+          variants={avatarVariants}
+          initial="hidden"
+          animate="visible"
+        >
           {showAvatar ? (
-            <img
+            <Image
               src={profile!.avatar_url!}
               alt={displayName}
+              width={80}
+              height={80}
               className={styles.avatar}
               onError={() => setImgError(true)}
             />
@@ -284,14 +473,13 @@ export default function ProfilePage() {
           <span className={styles.onlineDot} />
         </motion.div>
 
-        {/* Name + badges */}
         <div className={styles.heroInfo}>
           <h2 className={styles.heroName}>{displayName}</h2>
           <p className={styles.heroEmail}>{profile?.email}</p>
           <div className={styles.heroBadges}>
-            {student?.program?.code && (
+            {program?.code && (
               <span className={`${styles.heroBadge} ${styles.badgeProgram}`}>
-                <School size={10} /> {student.program.code}
+                <School size={10} /> {program.code}
               </span>
             )}
             {student?.year_level && (
@@ -337,13 +525,24 @@ export default function ProfilePage() {
             animate="visible"
           >
             {INFO_ROWS.map((row) => (
-              <motion.div key={row.label} className={styles.infoRow} variants={fadeUp}>
-                <div className={styles.infoIconWrap} style={{ background: row.iconBg }}>
+              <motion.div
+                key={row.label}
+                className={styles.infoRow}
+                variants={fadeUp}
+              >
+                <div
+                  className={styles.infoIconWrap}
+                  style={{ background: row.iconBg }}
+                >
                   <row.Icon size={14} color={row.iconColor} strokeWidth={2} />
                 </div>
                 <div>
                   <div className={styles.infoLabel}>{row.label}</div>
-                  <div className={`${styles.infoValue} ${row.value === "—" ? styles.infoValueMuted : ""}`}>
+                  <div
+                    className={`${styles.infoValue} ${
+                      row.value === "—" ? styles.infoValueMuted : ""
+                    }`}
+                  >
                     {row.value}
                   </div>
                 </div>
@@ -370,11 +569,22 @@ export default function ProfilePage() {
             animate="visible"
           >
             {STAT_MINI.map((s) => (
-              <motion.div key={s.label} className={styles.statMini} variants={statCardVariants}>
-                <div className={styles.statMiniIcon} style={{ background: s.iconBg }}>
+              <motion.div
+                key={s.label}
+                className={styles.statMini}
+                variants={statCardVariants}
+              >
+                <div
+                  className={styles.statMiniIcon}
+                  style={{ background: s.iconBg }}
+                >
                   <s.Icon size={16} color={s.iconColor} strokeWidth={2} />
                 </div>
-                <div className={`${styles.statMiniValue} ${s.empty ? styles.statMiniValueEmpty : ""}`}>
+                <div
+                  className={`${styles.statMiniValue} ${
+                    s.empty ? styles.statMiniValueEmpty : ""
+                  }`}
+                >
                   {s.value}
                 </div>
                 <div className={styles.statMiniLabel}>{s.label}</div>
@@ -382,16 +592,20 @@ export default function ProfilePage() {
             ))}
           </motion.div>
 
-          {/* Pass rate progress bar */}
+          {/* Pass-rate progress bar */}
           {totalExams > 0 && (
             <div className={styles.progressSection}>
               <div className={styles.progressLabel}>
                 <span className={styles.progressLabelText}>Pass Rate</span>
-                <span className={styles.progressLabelPct}>{passRate ?? 0}%</span>
+                <span className={styles.progressLabelPct}>
+                  {passRate ?? 0}%
+                </span>
               </div>
               <div className={styles.progressTrack}>
                 <div
-                  className={`${styles.progressFill} ${getPassRateFillClass(passRate ?? 0)}`}
+                  className={`${styles.progressFill} ${getPassRateFillClass(
+                    passRate ?? 0
+                  )}`}
                   style={{ width: animate ? `${passRate ?? 0}%` : "0%" }}
                 />
               </div>
@@ -430,7 +644,8 @@ export default function ProfilePage() {
               </div>
               <p className={styles.emptyTitle}>No exam records yet</p>
               <p className={styles.emptyText}>
-                Complete a mock or practice exam and your results will appear here.
+                Complete a mock or practice exam and your results will appear
+                here.
               </p>
             </motion.div>
           ) : (
@@ -455,23 +670,39 @@ export default function ProfilePage() {
                       animate="visible"
                     >
                       <td style={{ maxWidth: 220 }}>
-                        <span style={{
-                          fontWeight: 600, color: "#111827", fontSize: "0.82rem",
-                          display: "block", overflow: "hidden",
-                          textOverflow: "ellipsis", whiteSpace: "nowrap",
-                        }}>
-                          {s.exams?.title ?? "Unknown Exam"}
+                        <span
+                          style={{
+                            fontWeight:   600,
+                            color:        "#111827",
+                            fontSize:     "0.82rem",
+                            display:      "block",
+                            overflow:     "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace:   "nowrap",
+                          }}
+                        >
+                          {s.exam_title}
                         </span>
                       </td>
+
                       <td>
-                        <span style={{ fontSize: "0.75rem", color: "#9ca3af", fontWeight: 500 }}>
-                          {s.exams?.exam_categories?.name ?? "—"}
+                        <span
+                          style={{
+                            fontSize:   "0.75rem",
+                            color:      "#9ca3af",
+                            fontWeight: 500,
+                          }}
+                        >
+                          {s.category_name}
                         </span>
                       </td>
+
                       <td>
                         {s.percentage !== null ? (
-                          <span className={styles.scoreVal}
-                            style={{ color: getScoreColor(s.percentage) }}>
+                          <span
+                            className={styles.scoreVal}
+                            style={{ color: getScoreColor(s.percentage) }}
+                          >
                             {Math.round(s.percentage)}
                             <span className={styles.scoreTotal}>%</span>
                           </span>
@@ -479,24 +710,36 @@ export default function ProfilePage() {
                           <span className={styles.scoreTotal}>—</span>
                         )}
                       </td>
+
                       <td>
                         {s.passed === true ? (
                           <span className={`${styles.badge} ${styles.badgePassed}`}>
                             <CheckCircle2 size={10} /> Passed
                           </span>
                         ) : s.passed === false ? (
-                          <span className={`${styles.badge} ${styles.badgeFailed}`}>Failed</span>
+                          <span className={`${styles.badge} ${styles.badgeFailed}`}>
+                            Failed
+                          </span>
                         ) : (
-                          <span className={styles.badge} style={{
-                            background: "#f0f5fa", color: "#64748b", border: "1px solid #e2e8f0",
-                          }}>
+                          <span
+                            className={styles.badge}
+                            style={{
+                              background: "#f0f5fa",
+                              color:      "#64748b",
+                              border:     "1px solid #e2e8f0",
+                            }}
+                          >
                             Pending
                           </span>
                         )}
                       </td>
+
                       <td>
                         <span className={styles.dateVal}>
-                          <Calendar size={10} style={{ marginRight: 3, verticalAlign: "middle" }} />
+                          <Calendar
+                            size={10}
+                            style={{ marginRight: 3, verticalAlign: "middle" }}
+                          />
                           {formatDate(s.submitted_at)}
                         </span>
                       </td>
@@ -508,7 +751,6 @@ export default function ProfilePage() {
           )}
         </AnimatePresence>
       </motion.div>
-
     </motion.div>
   );
 }
