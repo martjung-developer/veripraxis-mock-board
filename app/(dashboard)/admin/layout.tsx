@@ -5,7 +5,7 @@ import AdminTopbar  from "@/components/dashboard/admin/AdminTopbar";
 import styles from "./layout.module.css";
 
 export const metadata: Metadata = {
-  title:       "VeriPraxis — Admin Panel",
+  title:       "Admin Panel",
   description: "Faculty & admin dashboard for managing exams, students, and programs.",
 };
 
