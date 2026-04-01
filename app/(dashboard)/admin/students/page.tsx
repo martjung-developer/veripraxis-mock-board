@@ -1,4 +1,4 @@
-import styles from './users.module.css'
+import styles from './students.module.css'
 
 export default function AdminUsersPage() {
   return (

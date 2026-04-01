@@ -1,0 +1,291 @@
+/* components/dashboard/admin/AdminSidebar.module.css */
+
+.sidebar {
+  width: 240px;
+  min-height: 100vh;
+  background: #0f172a;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 50;
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.sidebarCollapsed {
+  width: 64px;
+}
+
+/* ── Logo area ── */
+.logoArea {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 1.25rem 1rem 1.25rem 1.125rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  min-height: 64px;
+  flex-shrink: 0;
+}
+
+.logoImg {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  flex-shrink: 0;
+  border-radius: 6px;
+}
+
+.logoTextWrap {
+  overflow: hidden;
+  white-space: nowrap;
+  transition: opacity 0.2s, width 0.25s;
+}
+
+.logoName {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #f1f5f9;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif;
+}
+
+.logoRole {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #475569;
+  margin-top: 1px;
+}
+
+/* ── Section label ── */
+.sectionLabel {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: #334155;
+  padding: 1.1rem 1.125rem 0.4rem;
+  white-space: nowrap;
+  overflow: hidden;
+  font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif;
+  transition: opacity 0.2s;
+}
+
+/* ── Nav ── */
+.nav {
+  flex: 1;
+  padding: 0.5rem 0.625rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+}
+
+.nav::-webkit-scrollbar { display: none; }
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.575rem 0.75rem;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  text-decoration: none;
+  position: relative;
+  white-space: nowrap;
+  font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif;
+}
+
+.navItem:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.navItemActive {
+  background: rgba(59, 130, 246, 0.15) !important;
+}
+
+.navItemActive::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 60%;
+  background: #3b82f6;
+  border-radius: 0 3px 3px 0;
+}
+
+.navIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.navLabel {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #94a3b8;
+  letter-spacing: -0.01em;
+  transition: color 0.15s, opacity 0.2s;
+  overflow: hidden;
+}
+
+.navItem:hover .navLabel {
+  color: #e2e8f0;
+}
+
+.navItemActive .navLabel {
+  color: #93c5fd !important;
+}
+
+/* Badge (for notifications/counts) */
+.navBadge {
+  margin-left: auto;
+  background: #3b82f6;
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 0.1rem 0.45rem;
+  border-radius: 99px;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+  transition: opacity 0.2s;
+}
+
+/* ── Divider ── */
+.divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 0.4rem 0.625rem;
+}
+
+/* ── Bottom user panel ── */
+.userPanel {
+  padding: 0.75rem 0.625rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  flex-shrink: 0;
+}
+
+.userCard {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.6rem 0.625rem;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.userCard:hover { background: rgba(255, 255, 255, 0.06); }
+
+.userAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #1e40af, #3b82f6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #bfdbfe;
+  flex-shrink: 0;
+  letter-spacing: -0.02em;
+  font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif;
+}
+
+.userName {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif;
+}
+
+.userRole {
+  font-size: 0.62rem;
+  color: #475569;
+  font-weight: 500;
+  margin-top: 1px;
+}
+
+.userChevron {
+  margin-left: auto;
+  color: #334155;
+  flex-shrink: 0;
+}
+
+/* ── Collapse toggle ── */
+.collapseBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.55rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #475569;
+  transition: background 0.15s, color 0.15s;
+  margin-bottom: 0.5rem;
+  font-family: inherit;
+}
+
+.collapseBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+}
+
+.collapseBtnLabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  overflow: hidden;
+  white-space: nowrap;
+  font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif;
+}
+
+/* ── Collapsed-state overrides ── */
+.sidebarCollapsed .logoTextWrap,
+.sidebarCollapsed .navLabel,
+.sidebarCollapsed .navBadge,
+.sidebarCollapsed .sectionLabel,
+.sidebarCollapsed .userCard > *:not(.userAvatar),
+.sidebarCollapsed .collapseBtnLabel {
+  opacity: 0;
+  width: 0;
+  pointer-events: none;
+}
+
+.sidebarCollapsed .navItem {
+  justify-content: center;
+  padding: 0.575rem 0;
+}
+
+.sidebarCollapsed .navItemActive::before {
+  display: none;
+}
+
+.sidebarCollapsed .userCard {
+  justify-content: center;
+}
+
+.sidebarCollapsed .logoArea {
+  justify-content: center;
+}

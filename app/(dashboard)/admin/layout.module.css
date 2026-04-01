@@ -1,0 +1,40 @@
+/* app/(dashboard)/admin/layout.module.css */
+
+.shell {
+  display: flex;
+  min-height: 100vh;
+  background: #f8fafc;
+  font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif;
+}
+
+/* body shifts right by sidebar width */
+.body {
+  margin-left: 240px;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.content {
+  flex: 1;
+  padding: 2rem 2rem 3rem;
+  min-height: calc(100vh - 64px);
+  background: #f8fafc;
+}
+
+/* When sidebar is collapsed the body margin must shrink.
+   We use a CSS custom property set by JS, OR the simplest
+   approach: a data attribute on the shell.             */
+.shell[data-collapsed="true"] .body {
+  margin-left: 64px;
+}
+
+@media (max-width: 1024px) {
+  .body { margin-left: 64px; }
+}
+
+@media (max-width: 640px) {
+  .content { padding: 1.25rem 1rem 2.5rem; }
+}
