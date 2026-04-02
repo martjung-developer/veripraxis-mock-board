@@ -30,6 +30,12 @@ const ROLE_ICONS: Record<SignupRole, React.ElementType> = {
   faculty: BookOpen,
 }
 
+/* ── Role → dashboard route mapping ── */
+const ROLE_DASHBOARDS: Record<SignupRole, string> = {
+  student: '/student/dashboard',
+  faculty: '/admin/dashboard',
+}
+
 const GRADUATION_CAP_SVG = `
   <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"
     viewBox="0 0 24 24" fill="none"
@@ -66,15 +72,17 @@ export default function SignupPage() {
     )
     setLoading(false)
     if (!result.success) { setError(result.error); return }
-    router.push(result.redirectTo)
+    // Use window.location so server-set cookies are picked up correctly
+    window.location.href = result.redirectTo
   }
 
   async function handleSignup(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
     setLoading(true)
-    const fd     = new FormData(e.currentTarget)
-    const role   = fd.get('role') as SignupRole
+    const fd   = new FormData(e.currentTarget)
+    const role = fd.get('role') as SignupRole
+
     const result = await signUp(
       fd.get('fullName') as string,
       fd.get('email')    as string,
@@ -99,11 +107,13 @@ export default function SignupPage() {
           </div>
           <h2 style="font-size: 1.4rem; font-weight: 800; color: #0f172a; margin: 0 0 10px; letter-spacing: -0.02em;">Welcome to VeriPraxis!</h2>
           <p style="font-size: 0.925rem; color: #64748b; margin: 0 0 6px; line-height: 1.5;">Your account has been created successfully.</p>
-          <p style="font-size: 0.875rem; font-weight: 600; background: linear-gradient(135deg, #3b82f6, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0;">Let's ace your board exam</p>
+          <p style="font-size: 0.875rem; font-weight: 600; background: linear-gradient(135deg, #3b82f6, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0;">
+            ${role === 'faculty' ? "Let's get your admin panel ready 🏫" : "Let's ace your board exam 🚀"}
+          </p>
         </div>
       `,
       showConfirmButton: true,
-      confirmButtonText: 'Go to Dashboard →',
+      confirmButtonText: role === 'faculty' ? 'Go to Admin Panel →' : 'Go to Dashboard →',
       confirmButtonColor: '#4f46e5',
       background: '#ffffff',
       customClass: { popup: 'swal-popup-custom', confirmButton: 'swal-btn-custom' },
@@ -114,8 +124,8 @@ export default function SignupPage() {
       hideClass: { popup: 'swal-fade-out' },
     })
 
-    const destination = role === 'student' ? '/student/dashboard' : result.redirectTo
-    router.push(destination)
+    // Redirect based on role — faculty goes to admin panel
+    window.location.href = ROLE_DASHBOARDS[role] ?? result.redirectTo
   }
 
   async function handleGoogle() {
@@ -125,10 +135,9 @@ export default function SignupPage() {
   }
 
   return (
-    // ── Page entrance fade-up ──
     <motion.div className={styles.authPage} {...authPage}>
 
-      {/* ── SWEET ALERT CUSTOM STYLES ── */}
+      {/* ── SweetAlert2 custom styles ── */}
       <style>{`
         .swal-popup-custom { border-radius: 20px !important; box-shadow: 0 25px 60px rgba(0,0,0,0.15) !important; border: 1px solid rgba(99,102,241,0.12) !important; }
         .swal-btn-custom { border-radius: 10px !important; font-weight: 600 !important; font-size: 0.9rem !important; padding: 10px 28px !important; letter-spacing: 0.01em !important; box-shadow: 0 4px 14px rgba(79,70,229,0.4) !important; transition: all 0.2s ease !important; }
@@ -139,10 +148,10 @@ export default function SignupPage() {
         @keyframes swalFadeOut { from { opacity: 1; transform: scale(1);    } to { opacity: 0; transform: scale(0.95); } }
       `}</style>
 
-      {/* ── LEGAL MODAL ── */}
+      {/* ── Legal modal ── */}
       <LegalModal open={legalOpen} onClose={() => setLegalOpen(null)} />
 
-      {/* ── LEFT — FORM PANEL ── */}
+      {/* ── LEFT — Form panel ── */}
       <AnimatePresence mode="wait" initial={false}>
         <motion.div key={`form-${mode}`} className={styles.formPanel} {...formSwap}>
           <div className={styles.formInner}>
@@ -176,7 +185,6 @@ export default function SignupPage() {
               />
             </div>
 
-            {/* ── Error banner spring-shake ── */}
             <AnimatePresence>
               {error && (
                 <motion.div className={styles.errorBanner} {...errorBanner}>
@@ -204,7 +212,7 @@ export default function SignupPage() {
         </motion.div>
       </AnimatePresence>
 
-      {/* ── RIGHT — PHOTO PANEL ── */}
+      {/* ── RIGHT — Photo panel ── */}
       <AnimatePresence mode="wait" initial={false}>
         <motion.div key={`photo-${mode}`} className={styles.photoPannel} {...photoPanel}>
           <Image
@@ -255,7 +263,9 @@ export default function SignupPage() {
   )
 }
 
-/* ── Shared sub-components ── */
+/* ─────────────────────────────────────────
+   SHARED SUB-COMPONENTS  (unchanged from original)
+───────────────────────────────────────── */
 
 function GoogleButton({ onClick }: { onClick: () => void }) {
   return (

@@ -1,8 +1,11 @@
 /* components/dashboard/admin/AdminSidebar.module.css */
 
+/* ═══════════════════════════════════════
+   SHELL — flex column, full height
+═══════════════════════════════════════ */
 .sidebar {
   width: 240px;
-  min-height: 100vh;
+  height: 100vh;              /* fill viewport */
   background: #0f172a;
   display: flex;
   flex-direction: column;
@@ -11,55 +14,85 @@
   left: 0;
   z-index: 50;
   transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
+  overflow: hidden;           /* clip — scroll is on .nav only */
 }
 
 .sidebarCollapsed {
   width: 64px;
 }
 
-/* ── Logo area ── */
+/* ═══════════════════════════════════════
+   LOGO / HAMBURGER  — fixed top, no shrink
+═══════════════════════════════════════ */
 .logoArea {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
-  padding: 1.25rem 1rem 1.25rem 1.125rem;
+  gap: 0.6rem;
+  padding: 0 0.75rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-  min-height: 64px;
+  height: 64px;
+  flex-shrink: 0;             /* never squish */
+}
+
+.menuToggle {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  border: none;
+  background: rgba(255, 255, 255, 0.07);
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
   flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.menuToggle:hover {
+  background: rgba(255, 255, 255, 0.13);
+  color: #e2e8f0;
+}
+
+.logoImgWrap {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
 }
 
 .logoImg {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   object-fit: contain;
-  flex-shrink: 0;
   border-radius: 6px;
+  flex-shrink: 0;
 }
 
-.logoTextWrap {
-  overflow: hidden;
-  white-space: nowrap;
-  transition: opacity 0.2s, width 0.25s;
+/* ═══════════════════════════════════════
+   NAV — scrollable middle section
+═══════════════════════════════════════ */
+.nav {
+  flex: 1;                    /* take all remaining space */
+  min-height: 0;              /* required for flex child to scroll */
+  padding: 0.5rem 0.625rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  overflow-y: auto;           /* scroll when content overflows */
+  overflow-x: hidden;
+
+  /* Thin custom scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
 }
 
-.logoName {
-  font-size: 0.95rem;
-  font-weight: 800;
-  color: #f1f5f9;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
-  font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif;
+.nav::-webkit-scrollbar         { width: 4px; }
+.nav::-webkit-scrollbar-track   { background: transparent; }
+.nav::-webkit-scrollbar-thumb   {
+  background: rgba(255,255,255,0.1);
+  border-radius: 99px;
 }
-
-.logoRole {
-  font-size: 0.62rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #475569;
-  margin-top: 1px;
-}
+.nav::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
 
 /* ── Section label ── */
 .sectionLabel {
@@ -75,20 +108,7 @@
   transition: opacity 0.2s;
 }
 
-/* ── Nav ── */
-.nav {
-  flex: 1;
-  padding: 0.5rem 0.625rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-width: none;
-}
-
-.nav::-webkit-scrollbar { display: none; }
-
+/* ── Nav item ── */
 .navItem {
   display: flex;
   align-items: center;
@@ -96,16 +116,14 @@
   padding: 0.575rem 0.75rem;
   border-radius: 9px;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s;
   text-decoration: none;
   position: relative;
   white-space: nowrap;
   font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif;
 }
 
-.navItem:hover {
-  background: rgba(255, 255, 255, 0.06);
-}
+.navItem:hover { background: rgba(255, 255, 255, 0.06); }
 
 .navItemActive {
   background: rgba(59, 130, 246, 0.15) !important;
@@ -131,7 +149,6 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: background 0.15s;
 }
 
 .navLabel {
@@ -143,15 +160,9 @@
   overflow: hidden;
 }
 
-.navItem:hover .navLabel {
-  color: #e2e8f0;
-}
+.navItem:hover .navLabel        { color: #e2e8f0; }
+.navItemActive .navLabel        { color: #93c5fd !important; }
 
-.navItemActive .navLabel {
-  color: #93c5fd !important;
-}
-
-/* Badge (for notifications/counts) */
 .navBadge {
   margin-left: auto;
   background: #3b82f6;
@@ -165,20 +176,25 @@
   transition: opacity 0.2s;
 }
 
-/* ── Divider ── */
 .divider {
   height: 1px;
   background: rgba(255, 255, 255, 0.06);
   margin: 0.4rem 0.625rem;
 }
 
-/* ── Bottom user panel ── */
+/* ═══════════════════════════════════════
+   USER PANEL + LOGOUT — sticky bottom
+═══════════════════════════════════════ */
 .userPanel {
+  flex-shrink: 0;             /* never squish */
   padding: 0.75rem 0.625rem;
   border-top: 1px solid rgba(255, 255, 255, 0.07);
-  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
 }
 
+/* Faculty name card */
 .userCard {
   display: flex;
   align-items: center;
@@ -196,16 +212,22 @@
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: linear-gradient(135deg, #1e40af, #3b82f6);
+  background: linear-gradient(135deg, #065f46, #059669);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 0.72rem;
   font-weight: 800;
-  color: #bfdbfe;
+  color: #a7f3d0;
   flex-shrink: 0;
   letter-spacing: -0.02em;
   font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif;
+}
+
+.userInfo {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .userName {
@@ -215,6 +237,9 @@
   letter-spacing: -0.01em;
   line-height: 1.2;
   font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .userRole {
@@ -230,44 +255,55 @@
   flex-shrink: 0;
 }
 
-/* ── Collapse toggle ── */
-.collapseBtn {
+/* Logout button */
+.logoutBtn {
   width: 100%;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.55rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: none;
-  border-radius: 8px;
+  gap: 0.65rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 9px;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.06);
+  color: #f87171;
   cursor: pointer;
-  color: #475569;
-  transition: background 0.15s, color 0.15s;
-  margin-bottom: 0.5rem;
-  font-family: inherit;
+  font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
-.collapseBtn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #94a3b8;
+.logoutBtn:hover {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #fca5a5;
 }
 
-.collapseBtnLabel {
-  font-size: 0.72rem;
+.logoutBtnLoading {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.logoutIcon {
+  flex-shrink: 0;
+}
+
+.logoutLabel {
+  font-size: 0.8rem;
   font-weight: 600;
   overflow: hidden;
-  white-space: nowrap;
-  font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif;
+  transition: opacity 0.2s, width 0.2s;
 }
 
-/* ── Collapsed-state overrides ── */
-.sidebarCollapsed .logoTextWrap,
+/* ═══════════════════════════════════════
+   COLLAPSED STATE OVERRIDES
+═══════════════════════════════════════ */
+.sidebarCollapsed .sectionLabel,
 .sidebarCollapsed .navLabel,
 .sidebarCollapsed .navBadge,
-.sidebarCollapsed .sectionLabel,
-.sidebarCollapsed .userCard > *:not(.userAvatar),
-.sidebarCollapsed .collapseBtnLabel {
+.sidebarCollapsed .userInfo,
+.sidebarCollapsed .userChevron,
+.sidebarCollapsed .logoutLabel {
   opacity: 0;
   width: 0;
   pointer-events: none;
@@ -278,14 +314,13 @@
   padding: 0.575rem 0;
 }
 
-.sidebarCollapsed .navItemActive::before {
-  display: none;
-}
+.sidebarCollapsed .navItemActive::before { display: none; }
 
-.sidebarCollapsed .userCard {
-  justify-content: center;
-}
+.sidebarCollapsed .userCard  { justify-content: center; }
+.sidebarCollapsed .logoArea  { justify-content: center; }
 
-.sidebarCollapsed .logoArea {
+.sidebarCollapsed .logoutBtn {
   justify-content: center;
+  padding: 0.6rem 0;
+  border-color: rgba(239, 68, 68, 0.2);
 }

@@ -2,24 +2,30 @@
 'use server'
 
 import type { AuthError } from '@supabase/supabase-js'
-import { redirect }       from 'next/navigation'
+import { redirect } from 'next/navigation'
 
-import { createClient }                  from '@/lib/supabase/server'
-import type { Database }                 from '@/lib/types/database'
-import type { SignupRole, UserRole }      from '@/lib/types/auth'
-import { getDashboardByRole }            from '@/lib/types/auth'
+import { createClient } from '@/lib/supabase/server'
+import type { SignupRole, UserRole } from '@/lib/types/auth'
+import { getDashboardByRole } from '@/lib/types/auth'
 
 export type AuthResult =
-  | { success: true;  redirectTo: string }
+  | { success: true; redirectTo: string }
   | { success: false; error: string }
 
+function normalizeRole(role: UserRole): UserRole {
+  if (role === 'faculty') return 'admin'
+  return role
+}
+
 export async function signUp(
-  fullName:   string,
-  email:      string,
-  password:   string,
+  fullName: string,
+  email: string,
+  password: string,
   signupRole: SignupRole,
 ): Promise<AuthResult> {
   const supabase = await createClient()
+
+  const normalizedRole = normalizeRole(signupRole as UserRole)
 
   const { error } = await supabase.auth.signUp({
     email,
@@ -27,17 +33,21 @@ export async function signUp(
     options: {
       data: {
         full_name: fullName,
-        role:      signupRole,
+        role: normalizedRole, 
       },
     },
   })
 
   if (error) return { success: false, error: formatError(error) }
-  return { success: true, redirectTo: getDashboardByRole(signupRole) }
+
+  return {
+    success: true,
+    redirectTo: getDashboardByRole(normalizedRole),
+  }
 }
 
 export async function signIn(
-  email:    string,
+  email: string,
   password: string,
 ): Promise<AuthResult> {
   const supabase = await createClient()
@@ -49,13 +59,16 @@ export async function signIn(
 
   if (error) return { success: false, error: formatError(error) }
 
-  const role       = (data.user?.user_metadata?.role ?? 'student') as UserRole
-  const redirectTo = getDashboardByRole(role)
+  const rawRole = (data.user?.user_metadata?.role ?? 'student') as UserRole
+  const role = normalizeRole(rawRole)
 
-  return { success: true, redirectTo }
+  return {
+    success: true,
+    redirectTo: getDashboardByRole(role),
+  }
 }
 
-// signOut runs server-side — use Next.js redirect(), NOT window.location
+// ✅ Server-side logout redirect
 export async function signOut(): Promise<void> {
   const supabase = await createClient()
   await supabase.auth.signOut()
@@ -71,6 +84,7 @@ export async function resendVerification(email: string): Promise<AuthResult> {
   })
 
   if (error) return { success: false, error: formatError(error) }
+
   return { success: true, redirectTo: '/verify-email' }
 }
 
@@ -88,21 +102,24 @@ export async function verifyOtp(
 
   if (error) return { success: false, error: formatError(error) }
 
-  const role = (data.user?.user_metadata?.role ?? 'student') as UserRole
+  const rawRole = (data.user?.user_metadata?.role ?? 'student') as UserRole
+  const role = normalizeRole(rawRole)
 
-  if ((role === 'student' || role === 'faculty') && data.user) {
+  // ✅ Only students get student record
+  if (role === 'student' && data.user) {
     await supabase
-  .from('students')
-  .insert({ id: data.user.id } as any)
-  .throwOnError()
+      .from('students')
+      .insert({ id: data.user.id } as any)
+      .throwOnError()
   }
 
-  return { success: true, redirectTo: getDashboardByRole(role) }
+  return {
+    success: true,
+    redirectTo: getDashboardByRole(role),
+  }
 }
 
-// signInWithGoogle needs window.location so it must stay client-side.
-// Move this function to a separate file: lib/auth/client-actions.ts (no 'use server')
-// and import createBrowserClient from @supabase/ssr there.
+// ── Error formatter ─────────────────────────────────────
 
 function formatError(error: AuthError): string {
   switch (error.message) {

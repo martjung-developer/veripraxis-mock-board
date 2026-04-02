@@ -1,4 +1,5 @@
 // lib/types/auth.ts
+
 export type UserRole = 'student' | 'admin' | 'faculty'
 
 export interface Profile {
@@ -26,34 +27,53 @@ export interface AuthUser {
   profile: Profile | null
 }
 
-// ── Role helpers ──────────────────────────────────────────────────────────────
+// ── Role helpers ─────────────────────────────────────────
 
-export const isStudent        = (role: UserRole) => role === 'student'
-export const isFaculty        = (role: UserRole) => role === 'faculty'
-export const isAdmin          = (role: UserRole) => role === 'admin'
-export const canTakeExams     = (role: UserRole) => role === 'student' || role === 'faculty'
-export const canManageContent = (role: UserRole) => role === 'faculty' || role === 'admin'
+// ✅ Treat faculty as admin (since you said they are the same)
+export const isStudent = (role: UserRole) => role === 'student'
+export const isFaculty = (role: UserRole) => role === 'faculty'
+export const isAdmin   = (role: UserRole) => role === 'admin' || role === 'faculty'
 
+// Permissions
+export const canTakeExams = (role: UserRole) =>
+  role === 'student'
+
+export const canManageContent = (role: UserRole) =>
+  role === 'admin' || role === 'faculty'
+
+// ✅ FIXED: Correct dashboard routing
 export function getDashboardByRole(role: UserRole): string {
   switch (role) {
-    case 'admin':   return '/faculty/dashboard' 
-    case 'faculty': return '/faculty/dashboard'
-    case 'student': return '/student/dashboard'
+    case 'admin':
+    case 'faculty': // 🔥 both go to admin dashboard
+      return '/admin/dashboard'
+
+    case 'student':
+      return '/student/dashboard'
+
+    default:
+      return '/login'
   }
 }
 
-// Signup form shows only Student and Faculty
+// ── Signup roles (UI only) ───────────────────────────────
+
+// Keep faculty (so existing system doesn’t break)
 export type SignupRole = Extract<UserRole, 'student' | 'faculty'>
 
-export const SIGNUP_ROLES: { value: SignupRole; label: string; description: string }[] = [
+export const SIGNUP_ROLES: {
+  value: SignupRole
+  label: string
+  description: string
+}[] = [
   {
-    value:       'student',
-    label:       'Student',
+    value: 'student',
+    label: 'Student',
     description: 'Taking mock board exams to prepare for PRC licensure',
   },
   {
-    value:       'faculty',
-    label:       'Faculty',
+    value: 'faculty',
+    label: 'Admin',
     description: 'Managing question banks and review materials',
   },
 ]
