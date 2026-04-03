@@ -124,8 +124,7 @@ export default function SignupPage() {
       hideClass: { popup: 'swal-fade-out' },
     })
 
-    // Redirect based on role — faculty goes to admin panel
-    window.location.href = ROLE_DASHBOARDS[role] ?? result.redirectTo
+    window.location.href = result.redirectTo;
   }
 
   async function handleGoogle() {

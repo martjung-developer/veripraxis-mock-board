@@ -1,31 +1,32 @@
-// lib/auth/actions.ts
+// app/lib/auth/actions.ts
 'use server'
 
 import type { AuthError } from '@supabase/supabase-js'
-import { redirect } from 'next/navigation'
-
-import { createClient } from '@/lib/supabase/server'
+import { redirect }       from 'next/navigation'
+import { createClient }   from '@/lib/supabase/server'
 import type { SignupRole, UserRole } from '@/lib/types/auth'
-import { getDashboardByRole } from '@/lib/types/auth'
+import { getDashboardByRole }        from '@/lib/types/auth'
 
 export type AuthResult =
-  | { success: true; redirectTo: string }
+  | { success: true;  redirectTo: string }
   | { success: false; error: string }
 
-function normalizeRole(role: UserRole): UserRole {
+// faculty (UI label) → admin (DB value)
+function normalizeRole(role: string): UserRole {
   if (role === 'faculty') return 'admin'
-  return role
+  if (role === 'student') return 'student'
+  if (role === 'admin')   return 'admin'
+  return 'student'   // safe default
 }
 
 export async function signUp(
-  fullName: string,
-  email: string,
-  password: string,
+  fullName:   string,
+  email:      string,
+  password:   string,
   signupRole: SignupRole,
 ): Promise<AuthResult> {
-  const supabase = await createClient()
-
-  const normalizedRole = normalizeRole(signupRole as UserRole)
+  const supabase       = await createClient()
+  const normalizedRole = normalizeRole(signupRole)
 
   const { error } = await supabase.auth.signUp({
     email,
@@ -33,21 +34,18 @@ export async function signUp(
     options: {
       data: {
         full_name: fullName,
-        role: normalizedRole, 
+        role:      normalizedRole,   // always 'student' or 'admin'
       },
     },
   })
 
   if (error) return { success: false, error: formatError(error) }
 
-  return {
-    success: true,
-    redirectTo: getDashboardByRole(normalizedRole),
-  }
+  return { success: true, redirectTo: getDashboardByRole(normalizedRole) }
 }
 
 export async function signIn(
-  email: string,
+  email:    string,
   password: string,
 ): Promise<AuthResult> {
   const supabase = await createClient()
@@ -59,16 +57,13 @@ export async function signIn(
 
   if (error) return { success: false, error: formatError(error) }
 
-  const rawRole = (data.user?.user_metadata?.role ?? 'student') as UserRole
-  const role = normalizeRole(rawRole)
+  const rawRole = (data.user?.user_metadata?.role ?? 'student') as string
+  const role    = normalizeRole(rawRole)
 
-  return {
-    success: true,
-    redirectTo: getDashboardByRole(role),
-  }
+  return { success: true, redirectTo: getDashboardByRole(role) }
 }
 
-// ✅ Server-side logout redirect
+// ✅ Server action: signs out server-side then redirects
 export async function signOut(): Promise<void> {
   const supabase = await createClient()
   await supabase.auth.signOut()
@@ -77,14 +72,8 @@ export async function signOut(): Promise<void> {
 
 export async function resendVerification(email: string): Promise<AuthResult> {
   const supabase = await createClient()
-
-  const { error } = await supabase.auth.resend({
-    type: 'signup',
-    email,
-  })
-
+  const { error } = await supabase.auth.resend({ type: 'signup', email })
   if (error) return { success: false, error: formatError(error) }
-
   return { success: true, redirectTo: '/verify-email' }
 }
 
@@ -95,17 +84,14 @@ export async function verifyOtp(
   const supabase = await createClient()
 
   const { data, error } = await supabase.auth.verifyOtp({
-    email,
-    token,
-    type: 'signup',
+    email, token, type: 'signup',
   })
 
   if (error) return { success: false, error: formatError(error) }
 
-  const rawRole = (data.user?.user_metadata?.role ?? 'student') as UserRole
-  const role = normalizeRole(rawRole)
+  const role = normalizeRole(data.user?.user_metadata?.role ?? 'student')
 
-  // ✅ Only students get student record
+  // Only students get a row in the students table
   if (role === 'student' && data.user) {
     await supabase
       .from('students')
@@ -113,13 +99,8 @@ export async function verifyOtp(
       .throwOnError()
   }
 
-  return {
-    success: true,
-    redirectTo: getDashboardByRole(role),
-  }
+  return { success: true, redirectTo: getDashboardByRole(role) }
 }
-
-// ── Error formatter ─────────────────────────────────────
 
 function formatError(error: AuthError): string {
   switch (error.message) {

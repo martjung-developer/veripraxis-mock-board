@@ -97,7 +97,7 @@ export default function LoginPage() {
       padding: '2rem',
     })
 
-    router.push(result.redirectTo)
+    window.location.href = result.redirectTo;
   }
 
   async function handleGoogle() {

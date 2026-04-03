@@ -1,5 +1,6 @@
 // lib/types/auth.ts
 
+// Keep faculty in the type since your DB CHECK constraint still has it
 export type UserRole = 'student' | 'admin' | 'faculty'
 
 export interface Profile {
@@ -29,51 +30,36 @@ export interface AuthUser {
 
 // ── Role helpers ─────────────────────────────────────────
 
-// ✅ Treat faculty as admin (since you said they are the same)
-export const isStudent = (role: UserRole) => role === 'student'
-export const isFaculty = (role: UserRole) => role === 'faculty'
 export const isAdmin   = (role: UserRole) => role === 'admin' || role === 'faculty'
+export const isStudent = (role: UserRole) => role === 'student'
 
-// Permissions
-export const canTakeExams = (role: UserRole) =>
-  role === 'student'
+export const canTakeExams      = (role: UserRole) => role === 'student'
+export const canManageContent  = (role: UserRole) => isAdmin(role)
 
-export const canManageContent = (role: UserRole) =>
-  role === 'admin' || role === 'faculty'
-
-// ✅ FIXED: Correct dashboard routing
+// ONLY two dashboard destinations
 export function getDashboardByRole(role: UserRole): string {
-  switch (role) {
-    case 'admin':
-    case 'faculty': // 🔥 both go to admin dashboard
-      return '/admin/dashboard'
-
-    case 'student':
-      return '/student/dashboard'
-
-    default:
-      return '/login'
-  }
+  if (role === 'student') return '/student/dashboard'
+  return '/admin/dashboard'   // covers both 'admin' and 'faculty'
 }
 
 // ── Signup roles (UI only) ───────────────────────────────
+// Faculty is the signup label, but stored as 'admin' in DB
 
-// Keep faculty (so existing system doesn’t break)
-export type SignupRole = Extract<UserRole, 'student' | 'faculty'>
+export type SignupRole = 'student' | 'faculty'  // 'faculty' = what user picks in UI
 
 export const SIGNUP_ROLES: {
-  value: SignupRole
-  label: string
+  value:       SignupRole
+  label:       string
   description: string
 }[] = [
   {
-    value: 'student',
-    label: 'Student',
+    value:       'student',
+    label:       'Student',
     description: 'Taking mock board exams to prepare for PRC licensure',
   },
   {
-    value: 'faculty',
-    label: 'Admin',
+    value:       'faculty',
+    label:       'Admin',
     description: 'Managing question banks and review materials',
   },
 ]

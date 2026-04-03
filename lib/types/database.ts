@@ -29,7 +29,7 @@ export type SubmissionStatus = 'in_progress' | 'submitted' | 'graded'
 export type StoragePurpose = 'exam_questions' | 'reviewer' | 'profile_image' | 'other'
 
 // Matches the USER-DEFINED question_type enum in `questions`
-export type QuestionType = 'multiple_choice' | 'true_false' | 'short_answer' | 'essay'
+export type QuestionType = 'multiple_choice' | 'true_false' | 'short_answer' | 'essay' | 'matching' | 'fill_blank'
 
 // ── Convenience / App-Level Types ─────────────────────────────────────────────
 
@@ -49,7 +49,7 @@ export type AppUser = StudentProfile | StaffProfile
 // ── MCQ option shape stored in questions.options (jsonb) ──────────────────────
 export interface QuestionOption {
   label: string   // e.g. "A", "B", "C", "D"
-  text:  string   // Option display text
+  text:  string   
 }
 
 export interface Database {
@@ -255,7 +255,12 @@ export interface Database {
       // Managed by faculty or admin.
       // FK → exams(id), profiles(id)
       // options shape for multiple_choice: QuestionOption[]
-      // correct_answer: for MC stores the label ("A"); for true_false "true"/"false"
+      // correct_answer usage:
+      // - multiple_choice → option label ("A", "B", etc.)
+      // - true_false      → "true" | "false"
+      // - matching        → JSON string or custom format (define in app)
+      // - fill_blank      → exact text answer
+      // - essay           → null (manual grading)
       questions: {
         Row: {
           id:             string
