@@ -496,6 +496,66 @@ export interface Database {
         }
       }
 
+      exam_assignments: {
+  Row: {
+    id: string
+    exam_id: string | null
+    student_id: string | null
+    program_id: string | null
+    assigned_by: string | null
+    assigned_at: string
+    deadline: string | null
+    is_active: boolean
+  }
+  Insert: {
+    id?: string
+    exam_id?: string | null
+    student_id?: string | null
+    program_id?: string | null
+    assigned_by?: string | null
+    assigned_at?: string
+    deadline?: string | null
+    is_active?: boolean
+  }
+  Update: {
+    exam_id?: string | null
+    student_id?: string | null
+    program_id?: string | null
+    assigned_by?: string | null
+    assigned_at?: string
+    deadline?: string | null
+    is_active?: boolean
+  }
+}
+
+notifications: {
+  Row: {
+    id: string
+    user_id: string | null
+    title: string | null
+    message: string | null
+    type: string | null
+    is_read: boolean
+    created_at: string
+  }
+  Insert: {
+    id?: string
+    user_id?: string | null
+    title?: string | null
+    message?: string | null
+    type?: string | null
+    is_read?: boolean
+    created_at?: string
+  }
+  Update: {
+    user_id?: string | null
+    title?: string | null
+    message?: string | null
+    type?: string | null
+    is_read?: boolean
+  }
+}
+
     }
 
     Views:     Record<string, never>
