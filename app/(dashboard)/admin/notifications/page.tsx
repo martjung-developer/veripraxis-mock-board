@@ -2,24 +2,53 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { Database } from "@/lib/types/database";
 import {
   Bell, Send, Trash2, CheckCheck, User, Users,
-  Clock, ChevronDown, X, Loader2, Filter, AlertTriangle,
+  Clock, ChevronDown, X, Loader2, AlertTriangle,
 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { Database } from "@/lib/types/database";
 import styles from "./notifications.module.css";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type Notification = Database["public"]["Tables"]["notifications"]["Row"];
 type NotificationInsert = Database["public"]["Tables"]["notifications"]["Insert"];
 type NotificationUpdate = Database["public"]["Tables"]["notifications"]["Update"];
-type Profile      = Database["public"]["Tables"]["profiles"]["Row"];
-type NotifType    = "exam" | "result" | "general";
+type NotifType = "exam" | "result" | "general";
+
+// Normalised shape used throughout the component
+type StudentWithProfile = {
+  id: string;
+  full_name: string | null;
+  email: string;
+  students: { id: string } | null;
+};
+
+// Raw shapes returned by Supabase joined queries.
+// We use these explicit types to avoid TS errors from Supabase's inferred
+// join types, which can conflict with our manual normalisation logic.
+type RawProfileRow = {
+  id: string;
+  full_name: string | null;
+  email: string;
+  students: { id: string } | { id: string }[] | null;
+};
+
+type RawStudentRow = {
+  id: string;
+  profiles: {
+    id: string;
+    full_name: string | null;
+    email: string;
+  } | {
+    id: string;
+    full_name: string | null;
+    email: string;
+  }[] | null;
+};
 
 const TYPE_OPTIONS: NotifType[] = ["exam", "result", "general"];
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
 function formatDate(iso: string) {
   return new Date(iso).toLocaleString("en-PH", {
     month: "short", day: "numeric", year: "numeric",
@@ -27,28 +56,25 @@ function formatDate(iso: string) {
   });
 }
 
+// ── Type Badge ─────────────────────────────────────────────────────────────────
 function TypeBadge({ type }: { type: string | null }) {
   const t = (type ?? "general") as NotifType;
   const cls =
-    t === "exam"    ? styles.typeBadgeExam    :
-    t === "result"  ? styles.typeBadgeResult  :
-                      styles.typeBadgeGeneral;
-  return (
-    <span className={`${styles.typeBadge} ${cls}`}>
-      {t}
-    </span>
-  );
+    t === "exam"   ? styles.typeBadgeExam   :
+    t === "result" ? styles.typeBadgeResult :
+                     styles.typeBadgeGeneral;
+  return <span className={`${styles.typeBadge} ${cls}`}>{t}</span>;
 }
 
 // ── Skeleton Row ───────────────────────────────────────────────────────────────
 function SkeletonRow() {
   return (
     <div className={styles.skeletonItem}>
-      <div className={styles.skeleton} style={{ width: 8, height: 8, borderRadius: "50%", marginTop: 6, flexShrink: 0 }} />
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
-        <div className={styles.skeleton} style={{ width: "45%", height: 13 }} />
-        <div className={styles.skeleton} style={{ width: "75%", height: 11 }} />
-        <div className={styles.skeleton} style={{ width: "25%", height: 10 }} />
+      <div className={styles.skeleton} style={{ width: 7, height: 7, borderRadius: "50%", marginTop: 5, flexShrink: 0 }} />
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 7 }}>
+        <div className={styles.skeleton} style={{ width: "40%", height: 12 }} />
+        <div className={styles.skeleton} style={{ width: "70%", height: 11 }} />
+        <div className={styles.skeleton} style={{ width: "22%", height: 10 }} />
       </div>
     </div>
   );
@@ -57,14 +83,14 @@ function SkeletonRow() {
 // ── Main Page ──────────────────────────────────────────────────────────────────
 export default function AdminNotificationsPage() {
   const supabase = createClient();
-  const notificationsTable = (supabase as any).from("notifications");
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [students,      setStudents]      = useState<Profile[]>([]);
+  const [students,      setStudents]      = useState<StudentWithProfile[]>([]);
   const [loading,       setLoading]       = useState(true);
   const [sending,       setSending]       = useState(false);
   const [filterType,    setFilterType]    = useState<"all" | NotifType>("all");
   const [showForm,      setShowForm]      = useState(false);
+  const [fetchError,    setFetchError]    = useState<string>("");
 
   // Form
   const [formTitle,   setFormTitle]   = useState("");
@@ -75,51 +101,120 @@ export default function AdminNotificationsPage() {
   const [multiIds,    setMultiIds]    = useState<string[]>([]);
   const [formError,   setFormError]   = useState("");
 
-  // ── Data fetching ─────────────────────────────────────────────────────────────
+  // ── Fetch notifications ───────────────────────────────────────────────────────
   const fetchNotifications = useCallback(async () => {
-    const { data } = await notificationsTable
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("notifications")
       .select("*")
       .order("created_at", { ascending: false });
-    setNotifications(data ?? []);
-  }, [notificationsTable]);
 
+    if (error) {
+      console.error("[fetchNotifications]", error.message);
+    }
+    setNotifications(data ?? []);
+    setLoading(false);
+  }, [supabase]);
+
+  // ── Fetch students ────────────────────────────────────────────────────────────
+  // Uses a LEFT JOIN (no !inner) so we catch all role='student' profiles even
+  // if their `students` row was never inserted (e.g. a DB trigger that failed).
   const fetchStudents = useCallback(async () => {
-    const { data } = await supabase
+    setFetchError("");
+
+    // PRIMARY: profiles → students left join
+    // Cast via `unknown` so our explicit RawProfileRow type is accepted without
+    // fighting Supabase's overly-narrow inferred return type for joined selects.
+    const { data: rawData, error } = await supabase
       .from("profiles")
-      .select("id, full_name, email, role, avatar_url, created_at, updated_at")
+      .select("id, full_name, email, students(id)")
       .eq("role", "student")
       .order("full_name");
-    setStudents(data ?? []);
+
+    const data = rawData as unknown as RawProfileRow[] | null;
+
+    if (!error && data && data.length > 0) {
+      const normalised: StudentWithProfile[] = data.map((p) => ({
+        id:        p.id,
+        full_name: p.full_name,
+        email:     p.email,
+        // Supabase can return the related row as an array OR object depending on
+        // the relationship cardinality it detects — handle both safely.
+        students: Array.isArray(p.students)
+          ? (p.students[0] ?? null)
+          : (p.students ?? null),
+      }));
+      setStudents(normalised);
+      return;
+    }
+
+    if (error) {
+      console.error("[fetchStudents] profiles+students join failed:", error.message);
+    }
+
+    // FALLBACK: query students table directly, then join profiles.
+    // This still works even when RLS on `profiles` blocks the primary query.
+    const { data: rawFallback, error: fallbackError } = await supabase
+      .from("students")
+      .select("id, profiles(id, full_name, email)")
+      .order("id");
+
+    const fallback = rawFallback as unknown as RawStudentRow[] | null;
+
+    if (fallbackError) {
+      console.error("[fetchStudents] fallback also failed:", fallbackError.message);
+      setFetchError(
+        "Could not load students. Check RLS policies on `profiles` and `students` tables."
+      );
+      return;
+    }
+
+    const fallbackNormalised: StudentWithProfile[] = (fallback ?? [])
+      .filter((s) => s.profiles !== null)
+      .map((s) => {
+        // profiles can be array or object depending on Supabase version
+        const profile = Array.isArray(s.profiles) ? s.profiles[0] : s.profiles;
+        return {
+          id:        profile?.id        ?? s.id,
+          full_name: profile?.full_name ?? null,
+          email:     profile?.email     ?? "—",
+          students:  { id: s.id },
+        };
+      });
+
+    setStudents(fallbackNormalised);
   }, [supabase]);
 
   useEffect(() => {
-    void (async () => {
-      setLoading(true);
-      await Promise.all([fetchNotifications(), fetchStudents()]);
-      setLoading(false);
-    })();
+    const timer = window.setTimeout(() => {
+      void fetchNotifications();
+      void fetchStudents();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [fetchNotifications, fetchStudents]);
 
   // ── Derived ───────────────────────────────────────────────────────────────────
-  const filtered     = filterType === "all" ? notifications : notifications.filter((n) => n.type === filterType);
-  const unreadCount  = notifications.filter((n) => !n.is_read).length;
-  const countFor     = (t: NotifType) => notifications.filter((n) => n.type === t).length;
+  const filtered    = filterType === "all" ? notifications : notifications.filter((n) => n.type === filterType);
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
+  const countFor    = (t: NotifType) => notifications.filter((n) => n.type === t).length;
 
   // ── Actions ───────────────────────────────────────────────────────────────────
   async function handleMarkRead(id: string) {
-    await notificationsTable.update({ is_read: true }).eq("id", id);
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
+    const patch: NotificationUpdate = { is_read: true };
+    await supabase.from("notifications").update(patch).eq("id", id);
+    setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, is_read: true } : n));
   }
 
   async function handleMarkAllRead() {
     const ids = notifications.filter((n) => !n.is_read).map((n) => n.id);
     if (!ids.length) return;
-    await notificationsTable.update({ is_read: true }).in("id", ids);
+    const patch: NotificationUpdate = { is_read: true };
+    await supabase.from("notifications").update(patch).in("id", ids);
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
   }
 
   async function handleDelete(id: string) {
-    await notificationsTable.delete().eq("id", id);
+    await supabase.from("notifications").delete().eq("id", id);
     setNotifications((prev) => prev.filter((n) => n.id !== id));
   }
 
@@ -132,8 +227,13 @@ export default function AdminNotificationsPage() {
     }
 
     let recipientIds: string[] = [];
+
     if (targetMode === "all") {
       recipientIds = students.map((s) => s.id);
+      if (!recipientIds.length) {
+        setFormError("No enrolled students found to notify.");
+        return;
+      }
     } else if (targetMode === "single") {
       if (!singleId) { setFormError("Please select a student."); return; }
       recipientIds = [singleId];
@@ -144,23 +244,24 @@ export default function AdminNotificationsPage() {
 
     setSending(true);
 
-    const rows = recipientIds.map((uid) => ({
+    const rows: NotificationInsert[] = recipientIds.map((uid) => ({
       user_id: uid,
       title:   formTitle.trim(),
       message: formMessage.trim(),
       type:    formType,
       is_read: false,
-    })) as NotificationInsert[];
+    }));
 
-    const { error } = await notificationsTable.insert(rows);
+    const { error } = await supabase.from("notifications").insert(rows);
     setSending(false);
 
     if (error) { setFormError(error.message); return; }
 
+    // Reset form
     setFormTitle(""); setFormMessage(""); setFormType("general");
     setTargetMode("single"); setSingleId(""); setMultiIds([]);
     setShowForm(false);
-    fetchNotifications();
+    void fetchNotifications();
   }
 
   function toggleMultiId(id: string) {
@@ -168,13 +269,12 @@ export default function AdminNotificationsPage() {
   }
 
   function resetForm() {
-    setShowForm(false);
-    setFormError("");
+    setShowForm(false); setFormError("");
     setFormTitle(""); setFormMessage(""); setFormType("general");
     setTargetMode("single"); setSingleId(""); setMultiIds([]);
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <div className={styles.page}>
 
@@ -182,12 +282,13 @@ export default function AdminNotificationsPage() {
       <div className={styles.header}>
         <div className={styles.headerLeft}>
           <div className={styles.headerIcon}>
-            <Bell size={22} color="#fff" />
+            <Bell size={20} color="#fff" />
           </div>
           <div>
             <h1 className={styles.heading}>Notifications</h1>
             <p className={styles.headingSub}>
-              {unreadCount > 0 ? `${unreadCount} unread` : "All caught up"} · {notifications.length} total
+              {unreadCount > 0 ? `${unreadCount} unread · ` : "All caught up · "}
+              {notifications.length} total
             </p>
           </div>
         </div>
@@ -195,7 +296,7 @@ export default function AdminNotificationsPage() {
         <div className={styles.headerActions}>
           {unreadCount > 0 && (
             <>
-              <span className={styles.unreadBadge}>
+              <span className={styles.unreadPill}>
                 <span className={styles.unreadDot} />
                 {unreadCount} unread
               </span>
@@ -204,7 +305,7 @@ export default function AdminNotificationsPage() {
               </button>
             </>
           )}
-          <button className={styles.btnPrimary} onClick={() => setShowForm(!showForm)}>
+          <button className={styles.btnPrimary} onClick={() => setShowForm((v) => !v)}>
             <Send size={14} /> {showForm ? "Cancel" : "Send Notification"}
           </button>
         </div>
@@ -215,11 +316,11 @@ export default function AdminNotificationsPage() {
         <div className={styles.formPanel}>
           <div className={styles.formHeader}>
             <span className={styles.formTitle}>
-              <span className={styles.formTitleIcon}><Send size={14} color="#fff" /></span>
+              <span className={styles.formTitleIcon}><Send size={13} color="#fff" /></span>
               Send Notification
             </span>
-            <button className={styles.btnIcon} onClick={resetForm} title="Close">
-              <X size={15} />
+            <button className={styles.btnIconClose} onClick={resetForm} title="Close">
+              <X size={14} />
             </button>
           </div>
 
@@ -245,10 +346,12 @@ export default function AdminNotificationsPage() {
                   onChange={(e) => setFormType(e.target.value as NotifType)}
                 >
                   {TYPE_OPTIONS.map((t) => (
-                    <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                    <option key={t} value={t}>
+                      {t.charAt(0).toUpperCase() + t.slice(1)}
+                    </option>
                   ))}
                 </select>
-                <ChevronDown size={14} className={styles.selectChevron} />
+                <ChevronDown size={13} className={styles.selectChevron} />
               </div>
             </div>
 
@@ -277,11 +380,24 @@ export default function AdminNotificationsPage() {
                     {mode === "single"   && <User size={12} />}
                     {mode === "multiple" && <Users size={12} />}
                     {mode === "all"      && <Bell size={12} />}
-                    {mode === "single" ? "Single Student" : mode === "multiple" ? "Multiple Students" : `All Students (${students.length})`}
+                    {mode === "single"
+                      ? "Single Student"
+                      : mode === "multiple"
+                      ? "Multiple Students"
+                      : `All Students (${students.length})`}
                   </button>
                 ))}
               </div>
             </div>
+
+            {/* Fetch error warning */}
+            {fetchError && (
+              <div className={styles.formGroupFull}>
+                <p className={styles.formError}>
+                  <AlertTriangle size={12} /> {fetchError}
+                </p>
+              </div>
+            )}
 
             {/* Single picker */}
             {targetMode === "single" && (
@@ -295,11 +411,19 @@ export default function AdminNotificationsPage() {
                   >
                     <option value="">— Choose a student —</option>
                     {students.map((s) => (
-                      <option key={s.id} value={s.id}>{s.full_name ?? s.email}</option>
+                      <option key={s.id} value={s.id}>
+                        {s.full_name ?? s.email}
+                      </option>
                     ))}
                   </select>
-                  <ChevronDown size={14} className={styles.selectChevron} />
+                  <ChevronDown size={13} className={styles.selectChevron} />
                 </div>
+                {students.length === 0 && !fetchError && (
+                  <p className={styles.noStudents}>
+                    No enrolled students found. Ensure the student account has
+                    role=&apos;student&apos; in the profiles table.
+                  </p>
+                )}
               </div>
             )}
 
@@ -307,23 +431,28 @@ export default function AdminNotificationsPage() {
             {targetMode === "multiple" && (
               <div className={styles.formGroupFull}>
                 <label className={styles.formLabel}>
-                  Select Students {multiIds.length > 0 && `(${multiIds.length} selected)`}
+                  Select Students{multiIds.length > 0 ? ` (${multiIds.length} selected)` : ""}
                 </label>
                 <div className={styles.studentList}>
                   {students.length === 0 ? (
-                    <p className={styles.noStudents}>No students found.</p>
-                  ) : students.map((s) => (
-                    <label key={s.id} className={styles.studentRow}>
-                      <input
-                        type="checkbox"
-                        className={styles.studentCheckbox}
-                        checked={multiIds.includes(s.id)}
-                        onChange={() => toggleMultiId(s.id)}
-                      />
-                      <span className={styles.studentName}>{s.full_name ?? "—"}</span>
-                      <span className={styles.studentEmail}>{s.email}</span>
-                    </label>
-                  ))}
+                    <p className={styles.noStudents}>
+                      No enrolled students found. Ensure the student account has
+                      role=&apos;student&apos; in the profiles table.
+                    </p>
+                  ) : (
+                    students.map((s) => (
+                      <label key={s.id} className={styles.studentRow}>
+                        <input
+                          type="checkbox"
+                          className={styles.studentCheckbox}
+                          checked={multiIds.includes(s.id)}
+                          onChange={() => toggleMultiId(s.id)}
+                        />
+                        <span className={styles.studentName}>{s.full_name ?? "—"}</span>
+                        <span className={styles.studentEmail}>{s.email}</span>
+                      </label>
+                    ))
+                  )}
                 </div>
               </div>
             )}
@@ -333,15 +462,17 @@ export default function AdminNotificationsPage() {
               <div className={styles.formGroupFull}>
                 <div className={styles.broadcastAlert}>
                   <AlertTriangle size={15} className={styles.broadcastAlertIcon} />
-                  This will send a notification to all <strong>&nbsp;{students.length}&nbsp;</strong> enrolled students.
+                  This will send a notification to all{" "}
+                  <strong>&nbsp;{students.length}&nbsp;</strong> enrolled students.
                 </div>
               </div>
             )}
 
+            {/* Form Error */}
             {formError && (
               <div className={styles.formGroupFull}>
                 <p className={styles.formError}>
-                  <AlertTriangle size={13} /> {formError}
+                  <AlertTriangle size={12} /> {formError}
                 </p>
               </div>
             )}
@@ -363,8 +494,7 @@ export default function AdminNotificationsPage() {
 
       {/* ── Filter Bar ── */}
       <div className={styles.filterBar}>
-        <Filter size={13} color="var(--n-text-muted)" />
-        <span className={styles.filterLabel}>Filter</span>
+        <span className={styles.filterBarLabel}>Filter</span>
 
         <button
           className={`${styles.filterChip} ${filterType === "all" ? styles.filterChipActive : ""}`}
@@ -390,11 +520,13 @@ export default function AdminNotificationsPage() {
         ))}
       </div>
 
-      {/* ── List ── */}
+      {/* ── Notification List ── */}
       <div className={styles.card}>
         <div className={styles.cardHead}>
           <span className={styles.cardTitle}>
-            <span className={styles.cardTitleIcon}><Bell size={14} color="#fff" /></span>
+            <span className={styles.cardTitleIcon}>
+              <Bell size={14} color="var(--notif-text-sub)" />
+            </span>
             All Notifications
           </span>
           <span className={styles.cardMeta}>
@@ -408,9 +540,13 @@ export default function AdminNotificationsPage() {
           </div>
         ) : filtered.length === 0 ? (
           <div className={styles.empty}>
-            <div className={styles.emptyIcon}><Bell size={22} color="var(--n-text-muted)" /></div>
+            <div className={styles.emptyIcon}>
+              <Bell size={20} color="var(--notif-text-muted)" />
+            </div>
             <p className={styles.emptyTitle}>No notifications yet</p>
-            <p className={styles.emptySub}>Use the Send Notification button above to reach your students.</p>
+            <p className={styles.emptySub}>
+              Use the Send Notification button above to reach your students.
+            </p>
           </div>
         ) : (
           <div className={styles.notifList}>
