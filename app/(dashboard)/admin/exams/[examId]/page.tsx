@@ -1,3 +1,4 @@
+// app/(dashboard)/admin/exams/[examId]/page.tsx
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -9,6 +10,7 @@ import {
   XCircle, ChevronRight, FileText, Award
 } from 'lucide-react'
 import s from './detail.module.css'
+import { createClient } from '@/lib/supabase/client'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface Exam {
@@ -28,42 +30,129 @@ interface Exam {
   updated_at: string
 }
 
-// ── Dummy fetch ───────────────────────────────────────────────────────────────
-async function fetchExam(id: string): Promise<Exam> {
-  await new Promise(r => setTimeout(r, 600))
-  return {
-    id,
-    title: 'Fundamentals of Nursing Practice',
-    description: 'Comprehensive mock exam covering core nursing competencies, patient safety, pharmacology basics, and clinical decision-making aligned with the Philippine Nursing Board Exam standards.',
-    category: { id: 'cat-1', name: 'Nursing' },
-    duration_minutes: 90,
-    total_points: 100,
-    passing_score: 75,
-    is_published: true,
-    question_count: 50,
-    assigned_count: 42,
-    submission_count: 38,
-    avg_score: 78.4,
-    created_at: new Date(Date.now() - 86400000 * 14).toISOString(),
-    updated_at: new Date(Date.now() - 86400000 * 2).toISOString(),
-  }
+// ── Supabase raw shapes ───────────────────────────────────────────────────────
+type CategoryShape = { id: string; name: string; icon: string | null }
+
+type ExamRaw = {
+  id: string
+  title: string
+  description: string | null
+  duration_minutes: number
+  total_points: number
+  passing_score: number
+  is_published: boolean
+  created_at: string
+  updated_at: string
+  exam_categories: CategoryShape | CategoryShape[] | null
+}
+
+function unwrapCategory(raw: CategoryShape | CategoryShape[] | null): CategoryShape | null {
+  if (!raw) return null
+  if (Array.isArray(raw)) return raw[0] ?? null
+  return raw
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function ExamDetailPage() {
   const { examId } = useParams<{ examId: string }>()
-  const [exam, setExam] = useState<Exam | null>(null)
+  const [exam,    setExam]    = useState<Exam | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState<string | null>(null)
 
   useEffect(() => {
-    fetchExam(examId).then(e => { setExam(e); setLoading(false) })
+    if (!examId) return
+    let cancelled = false
+
+    async function fetchExam() {
+      setLoading(true)
+      const supabase = createClient()
+
+      // 1. Fetch exam with category
+      const { data: examData, error: examErr } = await supabase
+        .from('exams')
+        .select(`
+          id, title, description,
+          duration_minutes, total_points, passing_score,
+          is_published, created_at, updated_at,
+          exam_categories ( id, name, icon )
+        `)
+        .eq('id', examId)
+        .single()
+
+      if (examErr || !examData) {
+        if (!cancelled) setError('Exam not found.')
+        setLoading(false)
+        return
+      }
+
+      const raw = examData as unknown as ExamRaw
+      const cat = unwrapCategory(raw.exam_categories)
+
+      // 2. Question count
+      const { count: qCount } = await supabase
+        .from('questions')
+        .select('id', { count: 'exact', head: true })
+        .eq('exam_id', examId)
+
+      // 3. Assignment count (active rows for this exam)
+      const { count: aCount } = await supabase
+        .from('exam_assignments')
+        .select('id', { count: 'exact', head: true })
+        .eq('exam_id', examId)
+        .eq('is_active', true)
+
+      // 4. Submission count
+      const { count: subCount } = await supabase
+        .from('submissions')
+        .select('id', { count: 'exact', head: true })
+        .eq('exam_id', examId)
+
+      // 5. Average score from graded submissions
+      const { data: scoreRows } = await supabase
+        .from('submissions')
+        .select('percentage')
+        .eq('exam_id', examId)
+        .eq('status', 'graded')
+        .not('percentage', 'is', null)
+
+      const percentages = (scoreRows ?? [])
+        .map((r: { percentage: number | null }) => r.percentage)
+        .filter((p): p is number => p !== null)
+
+      const avgScore = percentages.length
+        ? percentages.reduce((a, b) => a + b, 0) / percentages.length
+        : null
+
+      if (!cancelled) {
+        setExam({
+          id:               raw.id,
+          title:            raw.title,
+          description:      raw.description,
+          category:         cat ? { id: cat.id, name: cat.name } : null,
+          duration_minutes: raw.duration_minutes,
+          total_points:     raw.total_points,
+          passing_score:    raw.passing_score,
+          is_published:     raw.is_published,
+          question_count:   qCount   ?? 0,
+          assigned_count:   aCount   ?? 0,
+          submission_count: subCount ?? 0,
+          avg_score:        avgScore,
+          created_at:       raw.created_at,
+          updated_at:       raw.updated_at,
+        })
+        setLoading(false)
+      }
+    }
+
+    fetchExam()
+    return () => { cancelled = true }
   }, [examId])
 
   const subpages = [
-    { href: `/admin/exams/${examId}/questions`,    icon: HelpCircle,   label: 'Questions',    desc: 'Manage exam questions',          count: exam?.question_count,   color: 'blue' },
-    { href: `/admin/exams/${examId}/assignments`,  icon: Users,        label: 'Assignments',  desc: 'View assigned students',         count: exam?.assigned_count,   color: 'violet' },
-    { href: `/admin/exams/${examId}/submissions`,  icon: ClipboardList,label: 'Submissions',  desc: 'View student submissions',       count: exam?.submission_count, color: 'amber' },
-    { href: `/admin/exams/${examId}/results`,      icon: BarChart2,    label: 'Results',      desc: 'Graded scores and performance',  count: null,                   color: 'green' },
+    { href: `/admin/exams/${examId}/questions`,   icon: HelpCircle,    label: 'Questions',   desc: 'Manage exam questions',         count: exam?.question_count,   color: 'blue'   },
+    { href: `/admin/exams/${examId}/assignments`, icon: Users,         label: 'Assignments', desc: 'View assigned students',        count: exam?.assigned_count,   color: 'violet' },
+    { href: `/admin/exams/${examId}/submissions`, icon: ClipboardList, label: 'Submissions', desc: 'View student submissions',      count: exam?.submission_count, color: 'amber'  },
+    { href: `/admin/exams/${examId}/results`,     icon: BarChart2,     label: 'Results',     desc: 'Graded scores and performance', count: null,                   color: 'green'  },
   ]
 
   if (loading) return (
@@ -76,9 +165,13 @@ export default function ExamDetailPage() {
     </div>
   )
 
-  if (!exam) return <div className={s.page}><p>Exam not found.</p></div>
+  if (error || !exam) return (
+    <div className={s.page}><p>{error ?? 'Exam not found.'}</p></div>
+  )
 
-  const fmt = (iso: string) => new Date(iso).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
+  const fmt = (iso: string) => new Date(iso).toLocaleDateString('en-PH', {
+    year: 'numeric', month: 'short', day: 'numeric'
+  })
 
   return (
     <div className={s.page}>
@@ -90,7 +183,7 @@ export default function ExamDetailPage() {
             <div className={s.headerIcon}><BookOpen size={20} color="#fff" /></div>
             <div>
               <div className={s.headerMeta}>
-                <span className={s.categoryBadge}>{exam.category?.name}</span>
+                <span className={s.categoryBadge}>{exam.category?.name ?? '—'}</span>
                 {exam.is_published
                   ? <span className={s.badgePublished}><CheckCircle size={11} /> Published</span>
                   : <span className={s.badgeDraft}><XCircle size={11} /> Draft</span>}
@@ -106,15 +199,15 @@ export default function ExamDetailPage() {
         </div>
       </div>
 
-      {/* Stats Row */}
+      {/* Stats */}
       <div className={s.statsGrid}>
         {[
-          { icon: Clock,    label: 'Duration',       value: `${exam.duration_minutes} min`,           color: 'blue' },
-          { icon: HelpCircle, label: 'Questions',    value: exam.question_count,                       color: 'violet' },
-          { icon: Target,   label: 'Passing Score',  value: `${exam.passing_score}%`,                  color: 'amber' },
-          { icon: Users,    label: 'Assigned',       value: exam.assigned_count,                       color: 'green' },
-          { icon: FileText, label: 'Submissions',    value: exam.submission_count,                     color: 'blue' },
-          { icon: Award,    label: 'Avg Score',      value: exam.avg_score != null ? `${exam.avg_score.toFixed(1)}%` : '—', color: 'violet' },
+          { icon: Clock,      label: 'Duration',      value: `${exam.duration_minutes} min`,                              color: 'blue'   },
+          { icon: HelpCircle, label: 'Questions',      value: exam.question_count,                                         color: 'violet' },
+          { icon: Target,     label: 'Passing Score',  value: `${exam.passing_score}%`,                                    color: 'amber'  },
+          { icon: Users,      label: 'Assigned',       value: exam.assigned_count,                                         color: 'green'  },
+          { icon: FileText,   label: 'Submissions',    value: exam.submission_count,                                       color: 'blue'   },
+          { icon: Award,      label: 'Avg Score',      value: exam.avg_score != null ? `${exam.avg_score.toFixed(1)}%` : '—', color: 'violet' },
         ].map(stat => (
           <div key={stat.label} className={`${s.statCard} ${s[`stat_${stat.color}`]}`}>
             <div className={s.statIcon}><stat.icon size={16} /></div>
@@ -126,9 +219,8 @@ export default function ExamDetailPage() {
         ))}
       </div>
 
-      {/* Details + Subpages */}
+      {/* Details + Nav */}
       <div className={s.layout}>
-        {/* Description Card */}
         <div className={s.mainCol}>
           <div className={s.card}>
             <div className={s.cardHeader}>
@@ -165,7 +257,6 @@ export default function ExamDetailPage() {
           </div>
         </div>
 
-        {/* Sub-page Navigation */}
         <div className={s.sideCol}>
           <div className={s.card}>
             <div className={s.cardHeader}>

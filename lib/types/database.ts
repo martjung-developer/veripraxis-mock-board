@@ -6,6 +6,9 @@
 //   'faculty' — creates/manages exams, questions, and study materials; no `students` row
 //   'admin'   — full platform access; no `students` row
 //
+// Supported degree programs (seeded in the `programs` table — fetched from DB, never hardcoded):
+//   BSPsych, BSID, BLIS, BSArch, BSEd-MATH, BSEd-SCI, BSEd-ENG, BEEd, BSEd-FIL
+//
 // Regenerate anytime:
 //   pnpm dlx supabase@latest gen types typescript --project-id YOUR_PROJECT_ID \
 //     > lib/types/database.ts
@@ -31,6 +34,17 @@ export type StoragePurpose = 'exam_questions' | 'reviewer' | 'profile_image' | '
 // Matches the USER-DEFINED question_type enum in `questions`
 export type QuestionType = 'multiple_choice' | 'true_false' | 'short_answer' | 'essay' | 'matching' | 'fill_blank'
 
+// Exam type — distinguishes timed board-style exams from self-paced reviewer sets.
+// Stored in exams.exam_type. Run the migration SQL to add this column if missing.
+export type ExamType = 'mock' | 'practice'
+
+// UI display metadata for ExamType — used in badges, filter selects, and form labels.
+// Import this in page/component files instead of inlining the strings.
+export const EXAM_TYPE_META: Record<ExamType, { label: string; description: string }> = {
+  mock:     { label: 'Mock Exam',     description: 'Timed, board-style exam that simulates the actual licensure exam.'   },
+  practice: { label: 'Practice Exam', description: 'Self-paced reviewer set for studying individual topics or subjects.' },
+}
+
 // ── Convenience / App-Level Types ─────────────────────────────────────────────
 
 /** Full profile row joined with student details (only valid when role === 'student') */
@@ -49,7 +63,7 @@ export type AppUser = StudentProfile | StaffProfile
 // ── MCQ option shape stored in questions.options (jsonb) ──────────────────────
 export interface QuestionOption {
   label: string   // e.g. "A", "B", "C", "D"
-  text:  string   
+  text:  string
 }
 
 export interface Database {
@@ -148,16 +162,30 @@ export interface Database {
       }
 
       // ── programs ──────────────────────────────────────────────────────────────
+      // Seeded with the 9 supported degree programs this platform serves.
+      // Always fetch from DB — never hardcode program lists in components.
       // FK → schools(id)
+      //
+      // Seed data (run once):
+      //   INSERT INTO programs (code, name, full_name, degree_type, major) VALUES
+      //     ('BSPsych',   'Psychology',               'Bachelor of Science in Psychology',                    'Bachelor', null),
+      //     ('BSID',      'Interior Design',           'Bachelor of Science in Interior Design',               'Bachelor', null),
+      //     ('BLIS',      'Library & Info Science',    'Bachelor of Library and Information Science',          'Bachelor', null),
+      //     ('BSArch',    'Architecture',              'Bachelor of Science in Architecture',                  'Bachelor', null),
+      //     ('BSEd-MATH', 'Secondary Ed - Math',       'Bachelor of Secondary Education',                     'Bachelor', 'Mathematics'),
+      //     ('BSEd-SCI',  'Secondary Ed - Science',    'Bachelor of Secondary Education',                     'Bachelor', 'Science'),
+      //     ('BSEd-ENG',  'Secondary Ed - English',    'Bachelor of Secondary Education',                     'Bachelor', 'English'),
+      //     ('BEEd',      'Elementary Education',      'Bachelor of Elementary Education',                    'Bachelor', null),
+      //     ('BSEd-FIL',  'Secondary Ed - Filipino',   'Bachelor of Secondary Education',                     'Bachelor', 'Filipino');
       programs: {
         Row: {
           id:          string
           school_id:   string | null   // FK → schools.id
-          code:        string          // unique e.g. "BSN"
-          name:        string          // e.g. "Nursing"
-          full_name:   string          // e.g. "Bachelor of Science in Nursing"
+          code:        string          // e.g. "BSPsych", "BEEd", "BSEd-MATH"
+          name:        string          // short display name e.g. "Psychology"
+          full_name:   string          // e.g. "Bachelor of Science in Psychology"
           degree_type: string          // e.g. "Bachelor", "Master", "Doctorate"
-          major:       string | null
+          major:       string | null   // e.g. "Mathematics" for BSEd-MATH; null for non-major programs
           years:       number | null   // default 4
           description: string | null
           created_at:  string
@@ -211,15 +239,31 @@ export interface Database {
 
       // ── exams ─────────────────────────────────────────────────────────────────
       // Created by faculty or admin.
-      // FK → exam_categories(id), profiles(id)
+      // FK → exam_categories(id), programs(id), profiles(id)
+      //
+      // exam_type:
+      //   'mock'     — timed board-style exam; shown as "Mock Exam" badge in UI
+      //   'practice' — self-paced reviewer set; shown as "Practice Exam" badge in UI
+      //   Default is 'mock'. Add column via migration if not present:
+      //     ALTER TABLE exams
+      //       ADD COLUMN IF NOT EXISTS exam_type text NOT NULL DEFAULT 'mock'
+      //       CHECK (exam_type = ANY (ARRAY['mock','practice']));
+      //
+      // program_id:
+      //   FK → programs.id. Links the exam to one of the 9 supported programs.
+      //   Nullable — leave null for exams not tied to a specific program.
+      //   Add column via migration if not present:
+      //     ALTER TABLE exams ADD COLUMN IF NOT EXISTS program_id uuid REFERENCES programs(id);
       exams: {
         Row: {
           id:               string
           title:            string
           description:      string | null
           category_id:      string | null   // FK → exam_categories.id
+          program_id:       string | null   // FK → programs.id; null = not program-specific
+          exam_type:        ExamType        // 'mock' | 'practice'
           duration_minutes: number
-          passing_score:    number          // percentage or raw score threshold
+          passing_score:    number          // percentage threshold e.g. 75
           total_points:     number
           is_published:     boolean         // default false
           created_by:       string | null   // FK → profiles.id (faculty/admin)
@@ -231,6 +275,8 @@ export interface Database {
           title:             string
           description?:      string | null
           category_id?:      string | null
+          program_id?:       string | null
+          exam_type?:        ExamType        // defaults to 'mock' if omitted
           duration_minutes:  number
           passing_score:     number
           total_points:      number
@@ -243,6 +289,8 @@ export interface Database {
           title?:            string
           description?:      string | null
           category_id?:      string | null
+          program_id?:       string | null
+          exam_type?:        ExamType
           duration_minutes?: number
           passing_score?:    number
           total_points?:     number
@@ -268,9 +316,9 @@ export interface Database {
           question_text:  string
           question_type:  QuestionType
           points:         number          // default 1
-          options:        Json | null     // QuestionOption[] for MC/TF; null for essay
+          options:        Json | null     // QuestionOption[] for MC; null for essay
           correct_answer: string | null   // null for essay (manually graded)
-          explanation:    string | null   // shown after submission
+          explanation:    string | null   // shown after submission; encodes difficulty via [EASY/MEDIUM/HARD] prefix
           order_number:   number | null
           created_by:     string | null   // FK → profiles.id (faculty/admin)
           created_at:     string
@@ -350,7 +398,7 @@ export interface Database {
           answer_text:   string | null   // student's raw answer
           is_correct:    boolean | null  // null until graded (essays)
           points_earned: number | null   // null until graded
-          graded_by:     string | null   // FK → profiles.id (faculty/admin); null if auto-graded
+          graded_by:     string | null   // FK → profiles.id; null if auto-graded
           feedback:      string | null   // per-answer faculty feedback
           created_at:    string
         }
@@ -496,65 +544,70 @@ export interface Database {
         }
       }
 
+      // ── exam_assignments ──────────────────────────────────────────────────────
+      // Assigns exams to individual students or entire programs.
+      // FK → exams(id), students(id), programs(id), profiles(id)
       exam_assignments: {
-  Row: {
-    id: string
-    exam_id: string | null
-    student_id: string | null
-    program_id: string | null
-    assigned_by: string | null
-    assigned_at: string
-    deadline: string | null
-    is_active: boolean
-  }
-  Insert: {
-    id?: string
-    exam_id?: string | null
-    student_id?: string | null
-    program_id?: string | null
-    assigned_by?: string | null
-    assigned_at?: string
-    deadline?: string | null
-    is_active?: boolean
-  }
-  Update: {
-    exam_id?: string | null
-    student_id?: string | null
-    program_id?: string | null
-    assigned_by?: string | null
-    assigned_at?: string
-    deadline?: string | null
-    is_active?: boolean
-  }
-}
+        Row: {
+          id:          string
+          exam_id:     string | null
+          student_id:  string | null
+          program_id:  string | null
+          assigned_by: string | null
+          assigned_at: string
+          deadline:    string | null
+          is_active:   boolean
+        }
+        Insert: {
+          id?:          string
+          exam_id?:     string | null
+          student_id?:  string | null
+          program_id?:  string | null
+          assigned_by?: string | null
+          assigned_at?: string
+          deadline?:    string | null
+          is_active?:   boolean
+        }
+        Update: {
+          exam_id?:     string | null
+          student_id?:  string | null
+          program_id?:  string | null
+          assigned_by?: string | null
+          assigned_at?: string
+          deadline?:    string | null
+          is_active?:   boolean
+        }
+      }
 
-notifications: {
-  Row: {
-    id: string
-    user_id: string | null
-    title: string | null
-    message: string | null
-    type: string | null
-    is_read: boolean
-    created_at: string
-  }
-  Insert: {
-    id?: string
-    user_id?: string | null
-    title?: string | null
-    message?: string | null
-    type?: string | null
-    is_read?: boolean
-    created_at?: string
-  }
-  Update: {
-    user_id?: string | null
-    title?: string | null
-    message?: string | null
-    type?: string | null
-    is_read?: boolean
-  }
-}
+      // ── notifications ─────────────────────────────────────────────────────────
+      // FK → profiles(id) via user_id
+      notifications: {
+        Row: {
+          id:         string
+          user_id:    string | null
+          title:      string | null
+          message:    string | null
+          type:       string | null
+          is_read:    boolean
+          created_at: string
+        }
+        Insert: {
+          id?:         string
+          user_id?:    string | null
+          title?:      string | null
+          message?:    string | null
+          type?:       string | null
+          is_read?:    boolean
+          created_at?: string
+        }
+        Update: {
+          user_id?:  string | null
+          title?:    string | null
+          message?:  string | null
+          type?:     string | null
+          is_read?:  boolean
+        }
+      }
 
     }
 

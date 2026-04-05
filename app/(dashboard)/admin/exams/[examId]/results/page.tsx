@@ -2,14 +2,16 @@
 
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import {
   BarChart2, ArrowLeft, Download, Search, X, Filter,
-  ChevronLeft, ChevronRight, CheckCircle, XCircle, Award, Users, TrendingUp
+  ChevronLeft, ChevronRight, CheckCircle, XCircle, Award, Users, TrendingUp,
+  AlertCircle
 } from 'lucide-react'
 import s from './results.module.css'
+import { createClient } from '@/lib/supabase/client'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface Result {
@@ -22,39 +24,42 @@ interface Result {
   time_spent_seconds: number
 }
 
-// ── Dummy data ────────────────────────────────────────────────────────────────
-const NAMES = [
-  'Maria Santos', 'Juan dela Cruz', 'Ana Reyes', 'Carlo Mendoza', 'Liza Villanueva',
-  'Ramon Garcia', 'Rosa Cruz', 'Miguel Torres', 'Elena Bautista', 'Jose Ramos',
-  'Carla Pascual', 'Paolo Dela Rosa', 'Diana Castillo', 'Renzo Aquino', 'Sophia Navarro',
-  'Ivan Mercado', 'Fatima Yusof', 'Benedict Orozco', 'Stella Manalo', 'Gio Hernandez',
-]
+// ── Supabase raw shape ─────────────────────────────────────────────────────────
+type ResultRaw = {
+  id: string
+  student_id: string | null
+  score: number | null
+  percentage: number | null
+  passed: boolean | null
+  submitted_at: string | null
+  time_spent_seconds: number | null
+  profiles: {
+    id: string
+    full_name: string | null
+    email: string
+  } | {
+    id: string
+    full_name: string | null
+    email: string
+  }[] | null
+  students: {
+    student_id: string | null
+  } | {
+    student_id: string | null
+  }[] | null
+}
 
-function generateDummyResults(examId: string): Result[] {
-  return NAMES.map((name, i) => {
-    const pct = Math.floor(45 + Math.random() * 55)
-    return {
-      id: `res-${examId}-${i + 1}`,
-      student: {
-        id: `stu-${i + 1}`,
-        full_name: name,
-        email: name.toLowerCase().replace(/ /g, '.') + '@school.edu.ph',
-        student_id: `2024-${String(1001 + i).padStart(5, '0')}`,
-      },
-      score: Math.floor(pct),
-      percentage: pct,
-      passed: pct >= 75,
-      submitted_at: new Date(Date.now() - i * 3600000 * 6).toISOString(),
-      time_spent_seconds: Math.floor(2000 + Math.random() * 3600),
-    }
-  }).sort((a, b) => b.percentage - a.percentage)
+function unwrapSingle<T>(raw: T | T[] | null): T | null {
+  if (!raw) return null
+  if (Array.isArray(raw)) return raw[0] ?? null
+  return raw
 }
 
 const PAGE_SIZE = 10
 
-function fmtTime(s: number) {
-  const m = Math.floor(s / 60)
-  return `${m}m ${s % 60}s`
+function fmtTime(secs: number): string {
+  const m = Math.floor(secs / 60)
+  return `${m}m ${secs % 60}s`
 }
 
 // ── CSV Export ────────────────────────────────────────────────────────────────
@@ -66,15 +71,15 @@ function exportCSV(results: Result[]) {
     r.student.email,
     r.student.student_id ?? '',
     r.score,
-    `${r.percentage}%`,
+    `${r.percentage.toFixed(1)}%`,
     r.passed ? 'PASSED' : 'FAILED',
     fmtTime(r.time_spent_seconds),
     new Date(r.submitted_at).toLocaleString('en-PH'),
   ])
   const csv = [headers, ...rows].map(row => row.map(c => `"${c}"`).join(',')).join('\n')
   const blob = new Blob([csv], { type: 'text/csv' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
   a.href = url; a.download = 'exam-results.csv'; a.click()
   URL.revokeObjectURL(url)
 }
@@ -82,36 +87,95 @@ function exportCSV(results: Result[]) {
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function ResultsPage() {
   const { examId } = useParams<{ examId: string }>()
-  const [results, setResults] = useState<Result[]>([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [passFilter, setPassFilter] = useState<'all' | 'passed' | 'failed'>('all')
-  const [page, setPage] = useState(1)
+  const [results,     setResults]     = useState<Result[]>([])
+  const [loading,     setLoading]     = useState(true)
+  const [error,       setError]       = useState<string | null>(null)
+  const [search,      setSearch]      = useState('')
+  const [passFilter,  setPassFilter]  = useState<'all' | 'passed' | 'failed'>('all')
+  const [page,        setPage]        = useState(1)
 
-  useEffect(() => {
-    const t = setTimeout(() => { setResults(generateDummyResults(examId)); setLoading(false) }, 700)
-    return () => clearTimeout(t)
+  // ── Fetch ──────────────────────────────────────────────────────────────────
+  const fetchResults = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    const supabase = createClient()
+
+    // Fetch graded submissions joined with profiles and students (for student_id number)
+    const { data, error: fetchErr } = await supabase
+      .from('submissions')
+      .select(`
+        id, student_id,
+        score, percentage, passed,
+        submitted_at, time_spent_seconds,
+        profiles:student_id ( id, full_name, email ),
+        students:student_id ( student_id )
+      `)
+      .eq('exam_id', examId)
+      .eq('status', 'graded')
+      .not('percentage', 'is', null)
+      .order('percentage', { ascending: false })
+
+    if (fetchErr) {
+      setError('Could not load results.')
+      setLoading(false)
+      return
+    }
+
+    const rows = (data ?? []) as unknown as ResultRaw[]
+
+    const mapped: Result[] = rows
+      .filter(r => r.percentage != null && r.submitted_at != null)
+      .map(r => {
+        const profile = unwrapSingle(r.profiles)
+        const student = unwrapSingle(r.students)
+        return {
+          id:                 r.id,
+          student: {
+            id:         profile?.id         ?? r.student_id ?? '',
+            full_name:  profile?.full_name  ?? 'Unknown Student',
+            email:      profile?.email      ?? '',
+            student_id: student?.student_id ?? null,
+          },
+          score:              r.score      ?? 0,
+          percentage:         r.percentage ?? 0,
+          passed:             r.passed     ?? false,
+          submitted_at:       r.submitted_at!,
+          time_spent_seconds: r.time_spent_seconds ?? 0,
+        }
+      })
+
+    setResults(mapped)
+    setLoading(false)
   }, [examId])
 
+  useEffect(() => { fetchResults() }, [fetchResults])
+
+  // ── Filter + Paginate ──────────────────────────────────────────────────────
   const filtered = results.filter(r => {
-    const matchSearch = !search || r.student.full_name.toLowerCase().includes(search.toLowerCase()) || r.student.email.toLowerCase().includes(search.toLowerCase())
-    const matchPass = passFilter === 'all' || (passFilter === 'passed' ? r.passed : !r.passed)
+    const matchSearch = !search
+      || r.student.full_name.toLowerCase().includes(search.toLowerCase())
+      || r.student.email.toLowerCase().includes(search.toLowerCase())
+    const matchPass = passFilter === 'all'
+      || (passFilter === 'passed' ? r.passed : !r.passed)
     return matchSearch && matchPass
   })
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   // Aggregate stats
-  const passing = results.filter(r => r.passed).length
-  const failing = results.length - passing
-  const avgPct = results.length ? (results.reduce((s, r) => s + r.percentage, 0) / results.length).toFixed(1) : '—'
+  const passing   = results.filter(r => r.passed).length
+  const failing   = results.length - passing
+  const avgPct    = results.length
+    ? (results.reduce((acc, r) => acc + r.percentage, 0) / results.length).toFixed(1)
+    : '—'
   const highScore = results.length ? Math.max(...results.map(r => r.percentage)) : null
-  const passRate = results.length ? Math.round((passing / results.length) * 100) : 0
+  const passRate  = results.length ? Math.round((passing / results.length) * 100) : 0
 
   const initials = (name: string) => name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
-  const fmt = (iso: string) => new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
+  const fmt      = (iso: string)  => new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
 
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className={s.page}>
       {/* Header */}
@@ -130,6 +194,8 @@ export default function ResultsPage() {
           </button>
         </div>
       </div>
+
+      {error && <div className={s.errorBanner ?? ''}><AlertCircle size={14} />{error}</div>}
 
       {/* Summary Cards */}
       <div className={s.summaryGrid}>
@@ -150,12 +216,12 @@ export default function ResultsPage() {
         </div>
         <div className={s.summaryCard}>
           <div className={`${s.summaryIcon} ${s.summaryIcon_amber}`}><TrendingUp size={16} /></div>
-          <div className={s.summaryValue}>{avgPct}%</div>
+          <div className={s.summaryValue}>{avgPct}{avgPct !== '—' ? '%' : ''}</div>
           <div className={s.summaryLabel}>Avg Score</div>
         </div>
         <div className={s.summaryCard}>
           <div className={`${s.summaryIcon} ${s.summaryIcon_violet}`}><Award size={16} /></div>
-          <div className={s.summaryValue}>{highScore != null ? `${highScore}%` : '—'}</div>
+          <div className={s.summaryValue}>{highScore != null ? `${highScore.toFixed(1)}%` : '—'}</div>
           <div className={s.summaryLabel}>Highest Score</div>
         </div>
         <div className={s.summaryCard}>
@@ -179,7 +245,7 @@ export default function ResultsPage() {
         <div className={s.filterGroup}>
           <Filter size={13} className={s.filterIcon} />
           <select className={s.filterSelect} value={passFilter}
-            onChange={e => { setPassFilter(e.target.value as any); setPage(1) }}>
+            onChange={e => { setPassFilter(e.target.value as 'all' | 'passed' | 'failed'); setPage(1) }}>
             <option value="all">All Results</option>
             <option value="passed">Passed Only</option>
             <option value="failed">Failed Only</option>
@@ -204,58 +270,62 @@ export default function ResultsPage() {
               </tr>
             </thead>
             <tbody>
-              {loading ? Array.from({ length: PAGE_SIZE }).map((_, i) => (
-                <tr key={i} className={s.skeletonRow}>
-                  <td><div className={`${s.skeleton} ${s.skelText}`} style={{ width: 24 }} /></td>
-                  <td><div className={s.skelCell}><div className={`${s.skeleton} ${s.skelAvatar}`} /><div><div className={`${s.skeleton} ${s.skelText}`} style={{ width: 130 }} /><div className={`${s.skeleton} ${s.skelText}`} style={{ width: 100, marginTop: 5 }} /></div></div></td>
-                  {[70,55,60,70,50,60].map((w,j) => <td key={j}><div className={`${s.skeleton} ${s.skelText}`} style={{ width: w }} /></td>)}
-                </tr>
-              )) : paginated.length === 0 ? (
+              {loading ? (
+                Array.from({ length: PAGE_SIZE }).map((_, i) => (
+                  <tr key={i} className={s.skeletonRow}>
+                    <td><div className={`${s.skeleton} ${s.skelText}`} style={{ width: 24 }} /></td>
+                    <td><div className={s.skelCell}><div className={`${s.skeleton} ${s.skelAvatar}`} /><div><div className={`${s.skeleton} ${s.skelText}`} style={{ width: 130 }} /><div className={`${s.skeleton} ${s.skelText}`} style={{ width: 100, marginTop: 5 }} /></div></div></td>
+                    {[70, 55, 60, 70, 50, 60].map((w, j) => <td key={j}><div className={`${s.skeleton} ${s.skelText}`} style={{ width: w }} /></td>)}
+                  </tr>
+                ))
+              ) : paginated.length === 0 ? (
                 <tr><td colSpan={8}>
                   <div className={s.emptyState}>
                     <div className={s.emptyIcon}><BarChart2 size={22} color="var(--text-muted)" /></div>
-                    <p className={s.emptyTitle}>No results found</p>
-                    <p className={s.emptySub}>Graded submissions will appear here.</p>
+                    <p className={s.emptyTitle}>No results yet</p>
+                    <p className={s.emptySub}>Graded submissions will appear here once students complete the exam.</p>
                   </div>
                 </td></tr>
-              ) : paginated.map((r, i) => {
-                const rank = (page - 1) * PAGE_SIZE + i + 1
-                return (
-                  <tr key={r.id} className={s.tableRow}>
-                    <td>
-                      <span className={`${s.rankBadge} ${rank === 1 ? s.rankGold : rank === 2 ? s.rankSilver : rank === 3 ? s.rankBronze : s.rankDefault}`}>
-                        {rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank}
-                      </span>
-                    </td>
-                    <td>
-                      <div className={s.studentCell}>
-                        <div className={s.avatar}><span className={s.avatarInitials}>{initials(r.student.full_name)}</span></div>
-                        <div>
-                          <div className={s.studentName}>{r.student.full_name}</div>
-                          <div className={s.studentEmail}>{r.student.email}</div>
+              ) : (
+                paginated.map((r, i) => {
+                  const rank = (page - 1) * PAGE_SIZE + i + 1
+                  return (
+                    <tr key={r.id} className={s.tableRow}>
+                      <td>
+                        <span className={`${s.rankBadge} ${rank === 1 ? s.rankGold : rank === 2 ? s.rankSilver : rank === 3 ? s.rankBronze : s.rankDefault}`}>
+                          {rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank}
+                        </span>
+                      </td>
+                      <td>
+                        <div className={s.studentCell}>
+                          <div className={s.avatar}><span className={s.avatarInitials}>{initials(r.student.full_name)}</span></div>
+                          <div>
+                            <div className={s.studentName}>{r.student.full_name}</div>
+                            <div className={s.studentEmail}>{r.student.email}</div>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td><span className={s.idChip}>{r.student.student_id ?? '—'}</span></td>
-                    <td><span className={s.scoreRaw}>{r.score} pts</span></td>
-                    <td>
-                      <div className={s.percentCell}>
-                        <span className={s.percentValue}>{r.percentage}%</span>
-                        <div className={s.miniBar}>
-                          <div className={`${s.miniBarFill} ${r.passed ? s.miniBarPass : s.miniBarFail}`} style={{ width: `${r.percentage}%` }} />
+                      </td>
+                      <td><span className={s.idChip}>{r.student.student_id ?? '—'}</span></td>
+                      <td><span className={s.scoreRaw}>{r.score} pts</span></td>
+                      <td>
+                        <div className={s.percentCell}>
+                          <span className={s.percentValue}>{r.percentage.toFixed(1)}%</span>
+                          <div className={s.miniBar}>
+                            <div className={`${s.miniBarFill} ${r.passed ? s.miniBarPass : s.miniBarFail}`} style={{ width: `${r.percentage}%` }} />
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td>
-                      {r.passed
-                        ? <span className={s.badgePass}><CheckCircle size={11} /> Passed</span>
-                        : <span className={s.badgeFail}><XCircle size={11} /> Failed</span>}
-                    </td>
-                    <td><span className={s.timeCell}>{fmtTime(r.time_spent_seconds)}</span></td>
-                    <td><span className={s.dateCell}>{fmt(r.submitted_at)}</span></td>
-                  </tr>
-                )
-              })}
+                      </td>
+                      <td>
+                        {r.passed
+                          ? <span className={s.badgePass}><CheckCircle size={11} /> Passed</span>
+                          : <span className={s.badgeFail}><XCircle size={11} /> Failed</span>}
+                      </td>
+                      <td><span className={s.timeCell}>{fmtTime(r.time_spent_seconds)}</span></td>
+                      <td><span className={s.dateCell}>{fmt(r.submitted_at)}</span></td>
+                    </tr>
+                  )
+                })
+              )}
             </tbody>
           </table>
         </div>

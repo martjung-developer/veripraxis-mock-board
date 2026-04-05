@@ -35,7 +35,7 @@ const NAV_SECTIONS = [
     label: "Academic",
     items: [
       { href: "/admin/programs",       icon: GraduationCap,   label: "Programs",        iconColor: "#ec4899", iconBg: "rgba(236,72,153,0.15)"  },
-      { href: "/admin/reviewers",      icon: FolderOpen,      label: "Study Materials", iconColor: "#14b8a6", iconBg: "rgba(20,184,166,0.15)"  },
+      { href: "/admin/study-materials",      icon: FolderOpen,      label: "Study Materials", iconColor: "#14b8a6", iconBg: "rgba(20,184,166,0.15)"  },
     ],
   },
   {

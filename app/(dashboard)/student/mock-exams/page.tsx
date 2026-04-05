@@ -1,124 +1,73 @@
 // app/(dashboard)/student/mock-exams/page.tsx
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   BookOpen, Clock, Lock, PlayCircle, GraduationCap,
   Search, ChevronLeft, ChevronRight, X,
 } from 'lucide-react'
 import styles from './mock-exams.module.css'
+import { createClient } from '@/lib/supabase/client'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
 type ExamStatus = 'available' | 'coming_soon'
 
 interface MockExam {
-  id: string
-  program: string
+  id:        string
+  title:     string
   shortCode: string
-  category: string
-  status: ExamStatus
+  category:  string
+  status:    ExamStatus
   questions?: number
-  duration?: string
-  subject?: string
+  duration?:  string
 }
 
-// ── Programs ───────────────────────────────────────────────────────────────
+// ── Supabase raw shapes ────────────────────────────────────────────────────
 
-const MOCK_EXAMS: MockExam[] = [
-  // ── Available ──
-  {
-    id: '1',
-    program: 'Bachelor of Library and Information Science',
-    shortCode: 'BLIS',
-    category: 'Social Sciences',
-    status: 'available',
-    questions: 300,
-    duration: '10 hrs',
-    subject: 'Librarians Licensure Exam (LLE)',
-  },
-  {
-    id: '2',
-    program: 'Bachelor of Science in Architecture',
-    shortCode: 'BSArch',
-    category: 'Architecture & Design',
-    status: 'available',
-    questions: 300,
-    duration: '16 hrs',
-    subject: 'Licensure Examination for Architects (LEA)',
-  },
-  {
-    id: '3',
-    program: 'Bachelor of Science in Secondary Education – English',
-    shortCode: 'BSEd-ENG',
-    category: 'Education',
-    status: 'available',
-    questions: 300,
-    duration: '8 hrs',
-    subject: 'Licensure Examination for Teachers (LET)',
-  },
+type CategoryShape = { id: string; name: string; icon: string | null }
+type ProgramShape  = { id: string; code: string; name: string } | null
 
-  // ── Coming Soon ──
-  {
-    id: '4',
-    program: 'Bachelor of Science in Psychology',
-    shortCode: 'BSPsych',
-    category: 'Social Sciences',
-    status: 'coming_soon',
-  },
-  {
-    id: '5',
-    program: 'Bachelor of Science in Elementary Education',
-    shortCode: 'BEEd',
-    category: 'Education',
-    status: 'coming_soon',
-  },
-  {
-    id: '6',
-    program: 'Bachelor of Science in Secondary Education – Filipino',
-    shortCode: 'BSEd-FIL',
-    category: 'Education',
-    status: 'coming_soon',
-  },
-  {
-    id: '7',
-    program: 'Bachelor of Science in Secondary Education – Mathematics',
-    shortCode: 'BSEd-MATH',
-    category: 'Education',
-    status: 'coming_soon',
-  },
-  {
-    id: '8',
-    program: 'Bachelor of Science in Secondary Education – Science',
-    shortCode: 'BSEd-SCI',
-    category: 'Education',
-    status: 'coming_soon',
-  },
-  {
-    id: '9',
-    program: 'Bachelor of Science in Interior Design',
-    shortCode: 'BSID',
-    category: 'Architecture & Design',
-    status: 'coming_soon',
-  },
-]
+type ExamRaw = {
+  id:               string
+  title:            string
+  duration_minutes: number
+  is_published:     boolean
+  exam_type:        string | null
+  exam_categories:  CategoryShape | CategoryShape[] | null
+  programs:         ProgramShape  | ProgramShape[]  | null
+}
 
-const CATEGORIES = [
-  'All Categories',
-  ...Array.from(new Set(MOCK_EXAMS.map((e) => e.category))).sort(),
-]
+function unwrapCategory(raw: CategoryShape | CategoryShape[] | null): CategoryShape | null {
+  if (!raw) return null
+  if (Array.isArray(raw)) return raw[0] ?? null
+  return raw
+}
 
+function unwrapProgram(raw: ProgramShape | ProgramShape[] | null): ProgramShape {
+  if (!raw) return null
+  if (Array.isArray(raw)) return raw[0] ?? null
+  return raw
+}
+
+function formatDuration(minutes: number): string {
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  if (h === 0) return `${m} min`
+  if (m === 0) return `${h} hr${h > 1 ? 's' : ''}`
+  return `${h} hr${h > 1 ? 's' : ''} ${m} min`
+}
+
+// ── Constants ──────────────────────────────────────────────────────────────
+
+const ALL_CATEGORIES = 'All Categories'
 const PAGE_SIZE = 12
 
 // ── Sub-components ─────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: ExamStatus }) {
   return (
-    <span
-      className={`${styles.badge} ${
-        status === 'available' ? styles.badgeAvailable : styles.badgeComingSoon
-      }`}
-    >
+    <span className={`${styles.badge} ${status === 'available' ? styles.badgeAvailable : styles.badgeComingSoon}`}>
       {status === 'available' ? 'Available' : 'Coming Soon'}
     </span>
   )
@@ -126,58 +75,40 @@ function StatusBadge({ status }: { status: ExamStatus }) {
 
 function ExamCard({ exam }: { exam: MockExam }) {
   const isAvailable = exam.status === 'available'
-
   return (
     <div className={`${styles.examCard} ${isAvailable ? styles.examCardAvailable : ''}`}>
-      <div
-        className={`${styles.cardAccent} ${
-          isAvailable ? styles.cardAccentAvailable : styles.cardAccentSoon
-        }`}
-      />
-
+      <div className={`${styles.cardAccent} ${isAvailable ? styles.cardAccentAvailable : styles.cardAccentSoon}`} />
       <div className={styles.cardTop}>
-        <div
-          className={`${styles.cardIconWrap} ${
-            isAvailable ? styles.cardIconAvailable : styles.cardIconSoon
-          }`}
-        >
+        <div className={`${styles.cardIconWrap} ${isAvailable ? styles.cardIconAvailable : styles.cardIconSoon}`}>
           <GraduationCap size={20} strokeWidth={1.75} />
         </div>
         <StatusBadge status={exam.status} />
       </div>
-
       <div className={styles.cardBody}>
         <p className={styles.shortCode}>{exam.shortCode}</p>
-        <h3 className={styles.programName}>{exam.program}</h3>
-        {isAvailable && exam.subject && (
-          <p className={styles.subjectLabel}>{exam.subject}</p>
-        )}
+        <h3 className={styles.programName}>{exam.title}</h3>
         <span className={styles.categoryTag}>{exam.category}</span>
       </div>
-
       {isAvailable && (
         <div className={styles.cardMeta}>
           <span className={styles.metaItem}>
             <BookOpen size={13} strokeWidth={2} />
-            {exam.questions} items
+            {exam.questions ?? '—'} items
           </span>
           <span className={styles.metaItem}>
             <Clock size={13} strokeWidth={2} />
-            {exam.duration}
+            {exam.duration ?? '—'}
           </span>
         </div>
       )}
-
       <div className={styles.cardFooter}>
         {isAvailable ? (
           <button className={styles.startBtn}>
-            <PlayCircle size={15} strokeWidth={2} />
-            Start Exam
+            <PlayCircle size={15} strokeWidth={2} /> Start Exam
           </button>
         ) : (
           <button className={styles.disabledBtn} disabled>
-            <Lock size={13} strokeWidth={2} />
-            Waiting for Admin Assignment
+            <Lock size={13} strokeWidth={2} /> Waiting for Admin Assignment
           </button>
         )}
       </div>
@@ -188,42 +119,162 @@ function ExamCard({ exam }: { exam: MockExam }) {
 // ── Page ───────────────────────────────────────────────────────────────────
 
 export default function MockExamsPage() {
+  const [allExams, setAllExams] = useState<MockExam[]>([])
+  const [loading,  setLoading]  = useState(true)
+  const [error,    setError]    = useState<string | null>(null)
   const [search,   setSearch]   = useState('')
-  const [category, setCategory] = useState('All Categories')
+  const [category, setCategory] = useState(ALL_CATEGORIES)
   const [page,     setPage]     = useState(1)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function fetchExams() {
+      setLoading(true)
+      setError(null)
+      const supabase = createClient()
+
+      // ── 1. Auth ────────────────────────────────────────────────────────
+      const { data: { user }, error: authErr } = await supabase.auth.getUser()
+      if (authErr || !user) {
+        if (!cancelled) setError('You must be logged in to view exams.')
+        setLoading(false)
+        return
+      }
+
+      // ── 2. Student profile → program_id ───────────────────────────────
+      const { data: student, error: stuErr } = await supabase
+        .from('students')
+        .select('id, program_id')
+        .eq('id', user.id)
+        .single()
+
+      if (stuErr || !student) {
+        if (!cancelled) setError('Could not load your student profile.')
+        setLoading(false)
+        return
+      }
+
+      const studentId: string        = student.id
+      const programId: string | null = student.program_id ?? null
+
+      // ── 3. Assigned exam IDs for this student ─────────────────────────
+      const orFilter = programId
+        ? `student_id.eq.${studentId},program_id.eq.${programId}`
+        : `student_id.eq.${studentId}`
+
+      const { data: assignments, error: asnErr } = await supabase
+        .from('exam_assignments')
+        .select('exam_id')
+        .eq('is_active', true)
+        .or(orFilter)
+
+      if (asnErr) {
+        if (!cancelled) setError('Could not load exam assignments.')
+        setLoading(false)
+        return
+      }
+
+      const assignedIds = new Set<string>(
+        (assignments ?? [])
+          .map((a: { exam_id: string | null }) => a.exam_id)
+          .filter((id): id is string => id !== null)
+      )
+
+      // ── 4. Published MOCK exams only (exam_type = 'mock') ─────────────
+      const { data: examData, error: examErr } = await supabase
+        .from('exams')
+        .select(`
+          id,
+          title,
+          duration_minutes,
+          is_published,
+          exam_type,
+          exam_categories ( id, name, icon ),
+          programs ( id, code, name )
+        `)
+        .eq('is_published', true)
+        .eq('exam_type', 'mock')
+        .order('created_at', { ascending: false })
+
+      if (examErr) {
+        if (!cancelled) setError('Could not load exams.')
+        setLoading(false)
+        return
+      }
+
+      const exams = (examData ?? []) as unknown as ExamRaw[]
+
+      // ── 5. Question counts (batch) ─────────────────────────────────────
+      const examIds = exams.map(e => e.id)
+      const qCountMap: Record<string, number> = {}
+      if (examIds.length > 0) {
+        const { data: qRows } = await supabase
+          .from('questions')
+          .select('exam_id')
+          .in('exam_id', examIds)
+        ;(qRows ?? []).forEach((q: { exam_id: string | null }) => {
+          if (q.exam_id) qCountMap[q.exam_id] = (qCountMap[q.exam_id] ?? 0) + 1
+        })
+      }
+
+      // ── 6. Map → MockExam ──────────────────────────────────────────────
+      const mapped: MockExam[] = exams.map(exam => {
+        const cat  = unwrapCategory(exam.exam_categories)
+        const prog = unwrapProgram(exam.programs)
+        return {
+          id:        exam.id,
+          title:     exam.title,
+          // Use program code as the short code if linked, otherwise derive from category
+          shortCode: prog?.code ?? (cat?.name?.match(/\b([A-Z])/g)?.join('') ?? 'EXAM'),
+          category:  cat?.name ?? 'Uncategorized',
+          status:    assignedIds.has(exam.id) ? 'available' : 'coming_soon',
+          questions: qCountMap[exam.id],
+          duration:  formatDuration(exam.duration_minutes),
+        }
+      })
+
+      if (!cancelled) { setAllExams(mapped); setLoading(false) }
+    }
+
+    fetchExams()
+    return () => { cancelled = true }
+  }, [])
+
+  // ── Derived ────────────────────────────────────────────────────────────
+  const categories = useMemo(() => {
+    const unique = Array.from(new Set(allExams.map(e => e.category))).sort()
+    return [ALL_CATEGORIES, ...unique]
+  }, [allExams])
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim()
-    return MOCK_EXAMS.filter((e) => {
-      const matchCat = category === 'All Categories' || e.category === category
-      const matchQ   = !q || e.program.toLowerCase().includes(q) || e.shortCode.toLowerCase().includes(q)
+    return allExams.filter(e => {
+      const matchCat = category === ALL_CATEGORIES || e.category === category
+      const matchQ   = !q || e.title.toLowerCase().includes(q) || e.shortCode.toLowerCase().includes(q)
       return matchCat && matchQ
     })
-  }, [search, category])
+  }, [allExams, search, category])
 
   const totalPages     = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const safePage       = Math.min(page, totalPages)
   const paginated      = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
-  const availableCount = MOCK_EXAMS.filter((e) => e.status === 'available').length
+  const availableCount = allExams.filter(e => e.status === 'available').length
 
-  // Smart page number list
   const pageNums: (number | '…')[] = []
   if (totalPages <= 7) {
     for (let i = 1; i <= totalPages; i++) pageNums.push(i)
   } else {
     pageNums.push(1)
     if (safePage > 3) pageNums.push('…')
-    const start = Math.max(2, safePage - 1)
-    const end   = Math.min(totalPages - 1, safePage + 1)
-    for (let i = start; i <= end; i++) pageNums.push(i)
+    for (let i = Math.max(2, safePage - 1); i <= Math.min(totalPages - 1, safePage + 1); i++) pageNums.push(i)
     if (safePage < totalPages - 2) pageNums.push('…')
     pageNums.push(totalPages)
   }
 
+  // ── Render ─────────────────────────────────────────────────────────────
   return (
     <div className={styles.page}>
-
-      {/* ── Header ── */}
       <div className={styles.header}>
         <div>
           <h1 className={styles.title}>Mock Exams</h1>
@@ -235,23 +286,18 @@ export default function MockExamsPage() {
         </span>
       </div>
 
-      {/* ── Search + Filter ── */}
       <div className={styles.filterRow}>
         <div className={styles.searchWrap}>
           <Search size={15} strokeWidth={2.2} className={styles.searchIcon} />
           <input
             className={styles.searchInput}
             type="text"
-            placeholder="Search by program or code…"
+            placeholder="Search by exam title or code…"
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+            onChange={e => { setSearch(e.target.value); setPage(1) }}
           />
           {search && (
-            <button
-              className={styles.searchClear}
-              onClick={() => setSearch('')}
-              aria-label="Clear search"
-            >
+            <button className={styles.searchClear} onClick={() => setSearch('')} aria-label="Clear search">
               <X size={13} strokeWidth={2.5} />
             </button>
           )}
@@ -260,82 +306,60 @@ export default function MockExamsPage() {
         <select
           className={styles.categorySelect}
           value={category}
-          onChange={(e) => { setCategory(e.target.value); setPage(1) }}
+          onChange={e => { setCategory(e.target.value); setPage(1) }}
         >
-          {CATEGORIES.map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
+          {categories.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
 
         <p className={styles.resultCount}>
-          <strong>{filtered.length}</strong> program{filtered.length !== 1 ? 's' : ''} found
+          <strong>{filtered.length}</strong> exam{filtered.length !== 1 ? 's' : ''} found
         </p>
       </div>
 
-      {/* ── Grid ── */}
-      {paginated.length > 0 ? (
+      {loading ? (
+        <div className={styles.emptyState}>
+          <p className={styles.emptyTitle}>Loading exams…</p>
+        </div>
+      ) : error ? (
+        <div className={styles.emptyState}>
+          <p className={styles.emptyTitle}>Something went wrong</p>
+          <p className={styles.emptyText}>{error}</p>
+        </div>
+      ) : paginated.length > 0 ? (
         <div className={styles.grid}>
-          {paginated.map((exam) => (
-            <ExamCard key={exam.id} exam={exam} />
-          ))}
+          {paginated.map(exam => <ExamCard key={exam.id} exam={exam} />)}
         </div>
       ) : (
         <div className={styles.emptyState}>
           <Search size={40} strokeWidth={1.4} color="#cbd5e1" />
-          <p className={styles.emptyTitle}>No programs found</p>
+          <p className={styles.emptyTitle}>No mock exams found</p>
           <p className={styles.emptyText}>Try adjusting your search or category filter.</p>
-          <button
-            className={styles.emptyBtn}
-            onClick={() => { setSearch(''); setCategory('All Categories') }}
-          >
+          <button className={styles.emptyBtn} onClick={() => { setSearch(''); setCategory(ALL_CATEGORIES) }}>
             Clear Filters
           </button>
         </div>
       )}
 
-      {/* ── Pagination (only shown if > PAGE_SIZE results) ── */}
-      {totalPages > 1 && (
+      {!loading && !error && totalPages > 1 && (
         <div className={styles.pagination}>
           <span className={styles.pageInfo}>
             Page {safePage} of {totalPages} &nbsp;·&nbsp; {filtered.length} total
           </span>
-
           <div className={styles.pageControls}>
-            <button
-              className={styles.pageBtn}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={safePage === 1}
-              aria-label="Previous page"
-            >
+            <button className={styles.pageBtn} onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1} aria-label="Previous page">
               <ChevronLeft size={15} strokeWidth={2.5} />
             </button>
-
             {pageNums.map((n, i) =>
-              n === '…' ? (
-                <span key={`ellipsis-${i}`} className={styles.pageEllipsis}>…</span>
-              ) : (
-                <button
-                  key={n}
-                  className={`${styles.pageNum} ${safePage === n ? styles.pageNumActive : ''}`}
-                  onClick={() => setPage(n as number)}
-                >
-                  {n}
-                </button>
-              )
+              n === '…'
+                ? <span key={`e-${i}`} className={styles.pageEllipsis}>…</span>
+                : <button key={n} className={`${styles.pageNum} ${safePage === n ? styles.pageNumActive : ''}`} onClick={() => setPage(n as number)}>{n}</button>
             )}
-
-            <button
-              className={styles.pageBtn}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={safePage === totalPages}
-              aria-label="Next page"
-            >
+            <button className={styles.pageBtn} onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages} aria-label="Next page">
               <ChevronRight size={15} strokeWidth={2.5} />
             </button>
           </div>
         </div>
       )}
-
     </div>
   )
 }
