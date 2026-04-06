@@ -11,7 +11,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { QuestionType } from '@/lib/types/database'
 import { motion, AnimatePresence } from 'framer-motion'
-import { pageVariants, modalVariants, childVariants } from '@/animations/admin/questionnaires'
+import { pageVariants, modalVariants, childVariants } from '@/animations/admin/questionnaires/questionnaires'
 import styles from './questionnaires.module.css'
 
 // ── Types ──────────────────────────────────────────────────────────────────────

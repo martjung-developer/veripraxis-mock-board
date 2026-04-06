@@ -20,7 +20,7 @@ const NAV_SECTIONS = [
     label: "Overview",
     items: [
       { href: "/admin/dashboard",      icon: LayoutDashboard, label: "Dashboard",       iconColor: "#3b82f6", iconBg: "rgba(59,130,246,0.15)"  },
-      { href: "/admin/notifications",  icon: Bell,            label: "Notifications",   iconColor: "#f59e0b", iconBg: "rgba(245,158,11,0.15)", badge: 3 },
+      { href: "/admin/notifications",  icon: Bell,            label: "Notifications",   iconColor: "#f59e0b", iconBg: "rgba(245,158,11,0.15)", badge: 1 },
     ],
   },
   {

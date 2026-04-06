@@ -1,178 +1,219 @@
 // app/(dashboard)/student/study-materials/page.tsx
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
-  FileText, Video, File, Search, Inbox,
+  FileText, Video, StickyNote, Search, Inbox,
   ChevronLeft, ChevronRight, X, BookOpen,
+  ExternalLink, Loader2, AlertTriangle, RefreshCw,
 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 import styles from './study-materials.module.css'
 
-// ── Types ─────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-type MaterialType = 'PDF' | 'Video' | 'Notes'
+type MaterialType = 'document' | 'video' | 'notes'
 
-interface Material {
-  id: number
-  title: string
-  program: string
-  shortCode: string
-  category: string
-  type: MaterialType
-  description: string
+interface StudyMaterial {
+  id:            string
+  title:         string
+  description:   string | null
+  type:          MaterialType
+  file_url:      string | null
+  notes_content: string | null
+  category:      string | null
+  created_at:    string
+  program_id:    string | null
+  program_code:  string | null
+  program_name:  string | null
 }
 
-// ── Data — 10 materials across the 9 supported programs ───────────────
-
-const MATERIALS: Material[] = [
-  {
-    id: 1,
-    title: 'Intro to Library Science',
-    program: 'Bachelor of Library and Information Science',
-    shortCode: 'BLIS',
-    category: 'Social Sciences',
-    type: 'PDF',
-    description: 'Covers the fundamentals of library systems, cataloging, and reference services.',
-  },
-  {
-    id: 2,
-    title: 'Core Concepts in Psychology',
-    program: 'Bachelor of Science in Psychology',
-    shortCode: 'BSPsych',
-    category: 'Social Sciences',
-    type: 'Notes',
-    description: 'An overview of cognitive, developmental, and behavioral psychology theories.',
-  },
-  {
-    id: 3,
-    title: 'Child Development Video Series',
-    program: 'Bachelor of Science in Elementary Education',
-    shortCode: 'BEEd',
-    category: 'Education',
-    type: 'Video',
-    description: 'Visual walkthrough of learning stages and child development milestones.',
-  },
-  {
-    id: 4,
-    title: 'Filipino Grammar & Retorika',
-    program: 'Bachelor of Science in Secondary Education – Filipino',
-    shortCode: 'BSEd-FIL',
-    category: 'Education',
-    type: 'PDF',
-    description: 'Advanced grammar rules, idyoma, and rhetorical devices in Filipino.',
-  },
-  {
-    id: 5,
-    title: 'Secondary Math Lesson Plans',
-    program: 'Bachelor of Science in Secondary Education – Mathematics',
-    shortCode: 'BSEd-MATH',
-    category: 'Education',
-    type: 'Notes',
-    description: 'Ready-to-use lesson plans covering algebra, geometry, and trigonometry.',
-  },
-  {
-    id: 6,
-    title: 'English Literature Review',
-    program: 'Bachelor of Science in Secondary Education – English',
-    shortCode: 'BSEd-ENG',
-    category: 'Education',
-    type: 'PDF',
-    description: 'Summary of classic and contemporary literature taught at the secondary level.',
-  },
-  {
-    id: 7,
-    title: 'Science Lab Experiments',
-    program: 'Bachelor of Science in Secondary Education – Science',
-    shortCode: 'BSEd-SCI',
-    category: 'Education',
-    type: 'Video',
-    description: 'Demonstration videos for biology, chemistry, and physics lab activities.',
-  },
-  {
-    id: 8,
-    title: 'Architecture Design Fundamentals',
-    program: 'Bachelor of Science in Architecture',
-    shortCode: 'BSArch',
-    category: 'Architecture & Design',
-    type: 'PDF',
-    description: 'Key principles of architectural design, structures, and building technology.',
-  },
-  {
-    id: 9,
-    title: 'Interior Design: Color & Space',
-    program: 'Bachelor of Science in Interior Design',
-    shortCode: 'BSID',
-    category: 'Architecture & Design',
-    type: 'Notes',
-    description: 'Color theory, space planning, and materials selection for interior environments.',
-  },
-  {
-    id: 10,
-    title: 'Library Cataloging Systems',
-    program: 'Bachelor of Library and Information Science',
-    shortCode: 'BLIS',
-    category: 'Social Sciences',
-    type: 'Video',
-    description: 'Step-by-step tutorial on Dewey Decimal and Library of Congress classification.',
-  },
-]
-
-// ── Constants ─────────────────────────────────────────────────────────
-
-const CATEGORIES = [
-  'All Categories',
-  ...Array.from(new Set(MATERIALS.map((m) => m.category))).sort(),
-]
-
-const TYPES: ('All Types' | MaterialType)[] = ['All Types', 'PDF', 'Video', 'Notes']
+// ── Constants ─────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 6
 
-// ── Helpers ───────────────────────────────────────────────────────────
+const TYPE_META: Record<MaterialType, { label: string; accentClass: string; iconColorClass: string }> = {
+  document: { label: 'Document', accentClass: styles.accentPdf,   iconColorClass: styles.iconPdf   },
+  video:    { label: 'Video',    accentClass: styles.accentVideo, iconColorClass: styles.iconVideo },
+  notes:    { label: 'Notes',    accentClass: styles.accentNotes, iconColorClass: styles.iconNotes },
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function typeIcon(type: MaterialType) {
-  if (type === 'PDF')   return <FileText size={18} strokeWidth={1.75} />
-  if (type === 'Video') return <Video    size={18} strokeWidth={1.75} />
-  return                       <File     size={18} strokeWidth={1.75} />
+  if (type === 'document') return <FileText   size={18} strokeWidth={1.75} />
+  if (type === 'video')    return <Video      size={18} strokeWidth={1.75} />
+  return                          <StickyNote size={18} strokeWidth={1.75} />
 }
 
-function typeAccent(type: MaterialType) {
-  if (type === 'PDF')   return styles.accentPdf
-  if (type === 'Video') return styles.accentVideo
-  return                       styles.accentNotes
+function extractYouTubeId(url: string): string | null {
+  const match = url.match(
+    /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([a-zA-Z0-9_-]{11})/
+  )
+  return match ? match[1] : null
 }
 
-function typeIcon_color(type: MaterialType) {
-  if (type === 'PDF')   return styles.iconPdf
-  if (type === 'Video') return styles.iconVideo
-  return                       styles.iconNotes
+// ── Preview Modal ─────────────────────────────────────────────────────────────
+
+function PreviewModal({
+  item,
+  onClose,
+}: {
+  item: StudyMaterial
+  onClose: () => void
+}) {
+  const meta = TYPE_META[item.type]
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    // Prevent background scroll while modal is open
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = ''
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [onClose])
+
+  return (
+    <div
+      className={styles.modalOverlay}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={item.title}
+    >
+      <div className={styles.modal}>
+
+        {/* Accent bar */}
+        <div className={`${styles.modalAccent} ${meta.accentClass}`} />
+
+        {/* Header */}
+        <div className={styles.modalHeader}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.4rem', flexWrap: 'wrap' }}>
+              <span className={`${styles.typeBadge} ${meta.accentClass}`}>{meta.label}</span>
+              {item.program_code && (
+                <span className={styles.categoryTag}>{item.program_code}</span>
+              )}
+              {item.category && (
+                <span className={styles.categoryTag}>{item.category}</span>
+              )}
+            </div>
+            <h2 className={styles.modalTitle}>{item.title}</h2>
+            {item.description && (
+              <p className={styles.modalDesc}>{item.description}</p>
+            )}
+          </div>
+          <button className={styles.modalClose} onClick={onClose} aria-label="Close">
+            <X size={14} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className={styles.modalBody}>
+
+          {/* Video embed */}
+          {item.type === 'video' && item.file_url && (() => {
+            const ytId = extractYouTubeId(item.file_url)
+            return ytId ? (
+              <div className={styles.videoWrap}>
+                <iframe
+                  src={`https://www.youtube.com/embed/${ytId}`}
+                  title={item.title}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            ) : (
+              <a
+                href={item.file_url}
+                target="_blank"
+                rel="noreferrer"
+                className={styles.openBtn}
+              >
+                <ExternalLink size={14} /> Open Video
+              </a>
+            )
+          })()}
+
+          {/* Document */}
+          {item.type === 'document' && item.file_url && (
+            <>
+              <p className={styles.docHint}>
+                Click below to open or download this document.
+              </p>
+              <div>
+                <a
+                  href={item.file_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={styles.openBtn}
+                >
+                  <ExternalLink size={14} /> Open Document
+                </a>
+              </div>
+            </>
+          )}
+
+          {/* Notes */}
+          {item.type === 'notes' && item.notes_content && (
+            <div className={styles.notesContent}>
+              {item.notes_content}
+            </div>
+          )}
+
+        </div>
+
+        {/* Footer */}
+        <div className={styles.modalFooter}>
+          <button className={styles.closeBtn} onClick={onClose}>Close</button>
+        </div>
+
+      </div>
+    </div>
+  )
 }
 
-// ── Card ──────────────────────────────────────────────────────────────
+// ── Card ──────────────────────────────────────────────────────────────────────
 
-function MaterialCard({ item }: { item: Material }) {
+function MaterialCard({
+  item,
+  onView,
+}: {
+  item: StudyMaterial
+  onView: (item: StudyMaterial) => void
+}) {
+  const meta = TYPE_META[item.type]
+
   return (
     <div className={styles.card}>
-      <div className={`${styles.cardAccent} ${typeAccent(item.type)}`} />
+      <div className={`${styles.cardAccent} ${meta.accentClass}`} />
 
       <div className={styles.cardTop}>
-        <div className={`${styles.cardIconWrap} ${typeIcon_color(item.type)}`}>
+        <div className={`${styles.cardIconWrap} ${meta.iconColorClass}`}>
           {typeIcon(item.type)}
         </div>
-        <span className={`${styles.typeBadge} ${typeAccent(item.type)}`}>
-          {item.type}
+        <span className={`${styles.typeBadge} ${meta.accentClass}`}>
+          {meta.label}
         </span>
       </div>
 
       <div className={styles.cardBody}>
-        <p className={styles.shortCode}>{item.shortCode}</p>
+        {item.program_code && (
+          <p className={styles.shortCode}>{item.program_code}</p>
+        )}
         <h3 className={styles.cardTitle}>{item.title}</h3>
-        <p className={styles.cardDesc}>{item.description}</p>
-        <span className={styles.categoryTag}>{item.category}</span>
+        {item.description && (
+          <p className={styles.cardDesc}>{item.description}</p>
+        )}
+        {item.category && (
+          <span className={styles.categoryTag}>{item.category}</span>
+        )}
       </div>
 
       <div className={styles.cardFooter}>
-        <button className={styles.viewBtn}>
+        <button className={styles.viewBtn} onClick={() => onView(item)}>
           <BookOpen size={14} strokeWidth={2} />
           View Material
         </button>
@@ -181,58 +222,159 @@ function MaterialCard({ item }: { item: Material }) {
   )
 }
 
-// ── Page ──────────────────────────────────────────────────────────────
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function StudyMaterialsPage() {
-  const [search,   setSearch]   = useState('')
-  const [category, setCategory] = useState('All Categories')
-  const [type,     setType]     = useState<'All Types' | MaterialType>('All Types')
-  const [page,     setPage]     = useState(1)
+  const supabase = useMemo(() => createClient(), [])
+
+  const [materials, setMaterials] = useState<StudyMaterial[]>([])
+  const [loading,   setLoading]   = useState(true)
+  const [error,     setError]     = useState<string | null>(null)
+
+  const [search,    setSearch]    = useState('')
+  const [filterCat, setFilterCat] = useState('All Categories')
+  const [filterType, setFilterType] = useState<'All Types' | MaterialType>('All Types')
+  const [page,      setPage]      = useState(1)
+
+  const [preview,   setPreview]   = useState<StudyMaterial | null>(null)
+
+  // ── Fetch ──────────────────────────────────────────────────────────────────
+  const fetchMaterials = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+
+    const { data, error: fetchErr } = await supabase
+      .from('published_study_materials')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (fetchErr) {
+      // Fallback to direct join if view doesn't exist yet
+      const { data: fallback, error: fallbackErr } = await supabase
+        .from('study_materials')
+        .select(`
+          id, title, description, type, file_url, notes_content,
+          category, created_at, program_id,
+          programs:program_id ( id, code, name )
+        `)
+        .eq('is_published', true)
+        .order('created_at', { ascending: false })
+
+      if (fallbackErr) {
+        setError('Could not load study materials. Please try again.')
+        setLoading(false)
+        return
+      }
+
+      const normalised: StudyMaterial[] = (fallback ?? []).map((row: any) => ({
+        id:            row.id,
+        title:         row.title,
+        description:   row.description,
+        type:          row.type as MaterialType,
+        file_url:      row.file_url,
+        notes_content: row.notes_content,
+        category:      row.category,
+        created_at:    row.created_at,
+        program_id:    row.program_id,
+        program_code:  row.programs?.code ?? null,
+        program_name:  row.programs?.name ?? null,
+      }))
+
+      setMaterials(normalised)
+      setLoading(false)
+      return
+    }
+
+    setMaterials((data ?? []) as StudyMaterial[])
+    setLoading(false)
+  }, [supabase])
+
+  useEffect(() => { fetchMaterials() }, [fetchMaterials])
+
+  // ── Derived ────────────────────────────────────────────────────────────────
+
+  const categories = useMemo(() => {
+    const cats = Array.from(
+      new Set(materials.map((m) => m.category).filter(Boolean) as string[])
+    ).sort()
+    return ['All Categories', ...cats]
+  }, [materials])
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim()
-    return MATERIALS.filter((m) => {
-      const matchCat  = category === 'All Categories' || m.category === category
-      const matchType = type    === 'All Types'       || m.type     === type
-      const matchQ    = !q || m.title.toLowerCase().includes(q) || m.description.toLowerCase().includes(q)
+    return materials.filter((m) => {
+      const matchCat  = filterCat  === 'All Categories' || m.category  === filterCat
+      const matchType = filterType === 'All Types'      || m.type      === filterType
+      const matchQ    = !q || m.title.toLowerCase().includes(q) || (m.description ?? '').toLowerCase().includes(q)
       return matchCat && matchType && matchQ
     })
-  }, [search, category, type])
+  }, [materials, search, filterCat, filterType])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const safePage   = Math.min(page, totalPages)
   const paginated  = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
 
-  // Smart page numbers
-  const pageNums: (number | '…')[] = []
-  if (totalPages <= 7) {
-    for (let i = 1; i <= totalPages; i++) pageNums.push(i)
-  } else {
-    pageNums.push(1)
-    if (safePage > 3) pageNums.push('…')
-    const start = Math.max(2, safePage - 1)
-    const end   = Math.min(totalPages - 1, safePage + 1)
-    for (let i = start; i <= end; i++) pageNums.push(i)
-    if (safePage < totalPages - 2) pageNums.push('…')
-    pageNums.push(totalPages)
+  const pageNums: (number | '…')[] = useMemo(() => {
+    const nums: (number | '…')[] = []
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) nums.push(i)
+    } else {
+      nums.push(1)
+      if (safePage > 3) nums.push('…')
+      const start = Math.max(2, safePage - 1)
+      const end   = Math.min(totalPages - 1, safePage + 1)
+      for (let i = start; i <= end; i++) nums.push(i)
+      if (safePage < totalPages - 2) nums.push('…')
+      nums.push(totalPages)
+    }
+    return nums
+  }, [totalPages, safePage])
+
+  function clearFilters() {
+    setSearch('')
+    setFilterCat('All Categories')
+    setFilterType('All Types')
+    setPage(1)
   }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className={styles.page}>
 
-      {/* ── Header ── */}
+      {/* Header */}
       <div className={styles.header}>
         <div>
           <h1 className={styles.title}>Study Materials</h1>
           <p className={styles.subtitle}>Browse and access learning resources by program</p>
         </div>
-        <span className={styles.totalPill}>
-          <BookOpen size={13} strokeWidth={2} />
-          {MATERIALS.length} Materials
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span className={styles.totalPill}>
+            <BookOpen size={13} strokeWidth={2} />
+            {loading ? '—' : materials.length} Materials
+          </span>
+          <button
+            className={styles.refreshBtn}
+            onClick={fetchMaterials}
+            disabled={loading}
+            aria-label="Refresh"
+            title="Refresh"
+          >
+            <RefreshCw size={14} className={loading ? styles.spinning : ''} />
+          </button>
+        </div>
       </div>
 
-      {/* ── Filters ── */}
+      {/* Error */}
+      {error && (
+        <div className={styles.errorBanner}>
+          <AlertTriangle size={14} />
+          {error}
+          <button onClick={() => setError(null)} aria-label="Dismiss"><X size={12} /></button>
+        </div>
+      )}
+
+      {/* Filters */}
       <div className={styles.filterRow}>
         <div className={styles.searchWrap}>
           <Search size={15} strokeWidth={2.2} className={styles.searchIcon} />
@@ -256,49 +398,81 @@ export default function StudyMaterialsPage() {
 
         <select
           className={styles.filterSelect}
-          value={category}
-          onChange={(e) => { setCategory(e.target.value); setPage(1) }}
+          value={filterCat}
+          onChange={(e) => { setFilterCat(e.target.value); setPage(1) }}
         >
-          {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          {categories.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
 
         <select
           className={styles.filterSelect}
-          value={type}
-          onChange={(e) => { setType(e.target.value as 'All Types' | MaterialType); setPage(1) }}
+          value={filterType}
+          onChange={(e) => { setFilterType(e.target.value as 'All Types' | MaterialType); setPage(1) }}
         >
-          {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          <option value="All Types">All Types</option>
+          <option value="document">Document</option>
+          <option value="video">Video</option>
+          <option value="notes">Notes</option>
         </select>
 
         <p className={styles.resultCount}>
-          <strong>{filtered.length}</strong> result{filtered.length !== 1 ? 's' : ''}
+          {loading
+            ? <Loader2 size={13} className={styles.spinning} />
+            : <><strong>{filtered.length}</strong> result{filtered.length !== 1 ? 's' : ''}</>}
         </p>
       </div>
 
-      {/* ── Grid / Empty ── */}
-      {paginated.length > 0 ? (
+      {/* Loading skeleton */}
+      {loading && (
         <div className={styles.grid}>
-          {paginated.map((m) => <MaterialCard key={m.id} item={m} />)}
-        </div>
-      ) : (
-        <div className={styles.emptyState}>
-          <Inbox size={40} strokeWidth={1.4} color="#cbd5e1" />
-          <p className={styles.emptyTitle}>No materials found</p>
-          <p className={styles.emptyText}>Try adjusting your search or filter options.</p>
-          <button
-            className={styles.emptyBtn}
-            onClick={() => { setSearch(''); setCategory('All Categories'); setType('All Types') }}
-          >
-            Clear Filters
-          </button>
+          {Array.from({ length: PAGE_SIZE }).map((_, i) => (
+            <div key={i} className={styles.cardSkeleton}>
+              <div className={styles.skelAccent} />
+              <div className={styles.skelTop}>
+                <div className={styles.skelIcon} />
+                <div className={styles.skelBadge} />
+              </div>
+              <div className={styles.skelBody}>
+                <div className={styles.skelLine} style={{ width: '40%' }} />
+                <div className={styles.skelLine} style={{ width: '80%', height: 14 }} />
+                <div className={styles.skelLine} style={{ width: '65%' }} />
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* ── Pagination ── */}
-      {totalPages > 1 && (
+      {/* Grid / Empty */}
+      {!loading && (
+        paginated.length > 0 ? (
+          <div className={styles.grid}>
+            {paginated.map((m) => (
+              <MaterialCard key={m.id} item={m} onView={setPreview} />
+            ))}
+          </div>
+        ) : (
+          <div className={styles.emptyState}>
+            <Inbox size={40} strokeWidth={1.4} color="#cbd5e1" />
+            <p className={styles.emptyTitle}>
+              {materials.length === 0 ? 'No materials available yet' : 'No materials found'}
+            </p>
+            <p className={styles.emptyText}>
+              {materials.length === 0
+                ? 'Check back later — your faculty will upload resources here.'
+                : 'Try adjusting your search or filter options.'}
+            </p>
+            {materials.length > 0 && (
+              <button className={styles.emptyBtn} onClick={clearFilters}>Clear Filters</button>
+            )}
+          </div>
+        )
+      )}
+
+      {/* Pagination */}
+      {!loading && totalPages > 1 && (
         <div className={styles.pagination}>
           <span className={styles.pageInfo}>
-            Page {safePage} of {totalPages} &nbsp;·&nbsp; {filtered.length} total
+            Page {safePage} of {totalPages}&nbsp;·&nbsp;{filtered.length} total
           </span>
           <div className={styles.pageControls}>
             <button
@@ -334,6 +508,11 @@ export default function StudyMaterialsPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Preview modal — rendered at root level so it overlays everything */}
+      {preview && (
+        <PreviewModal item={preview} onClose={() => setPreview(null)} />
       )}
 
     </div>

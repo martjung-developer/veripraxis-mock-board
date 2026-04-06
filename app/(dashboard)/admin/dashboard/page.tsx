@@ -302,12 +302,12 @@ export default function FacultyDashboardPage() {
   ];
 
   const QUICK_ACTIONS = [
-    { Icon: Plus,         bg: "#eff6ff", color: "#2563eb", label: "Create Exam",       sub: "New mock exam",          href: "/faculty/exams/create"          },
-    { Icon: Upload,       bg: "#f0fdf4", color: "#059669", label: "Upload Questions",  sub: "Import by program",      href: "/faculty/questions/upload"       },
-    { Icon: Send,         bg: "#fffbeb", color: "#d97706", label: "Assign Exam",       sub: "Send to students",       href: "/faculty/exams/assign"           },
-    { Icon: Key,          bg: "#fef2f2", color: "#dc2626", label: "Set Answer Key",    sub: "Score an exam",          href: "/faculty/questions/answer-keys"  },
-    { Icon: PenLine,      bg: "#f5f3ff", color: "#7c3aed", label: "Grade Submissions", sub: "Review answers",         href: "/faculty/grading"                },
-    { Icon: FileText,     bg: "#ecfeff", color: "#0891b2", label: "Add Practice Exam", sub: "Upload study material",  href: "/faculty/practice-exams/create"  },
+    { Icon: Plus,         bg: "#eff6ff", color: "#2563eb", label: "Create Exam",       sub: "New mock exam",          href: "/admin/exams/create"          },
+    { Icon: Upload,       bg: "#f0fdf4", color: "#059669", label: "Upload Questions",  sub: "Import by program",      href: "/admin/questionnaires"       },
+    { Icon: Send,         bg: "#fffbeb", color: "#d97706", label: "Assign Exam",       sub: "Send to students",       href: "/admin/questionnaires"           },
+    { Icon: Key,          bg: "#fef2f2", color: "#dc2626", label: "Set Answer Key",    sub: "Score an exam",          href: "/admin/questionnaires"  },
+    { Icon: PenLine,      bg: "#f5f3ff", color: "#7c3aed", label: "Grade Submissions", sub: "Review answers",         href: "/admin/questionnaires"                },
+    { Icon: FileText,     bg: "#ecfeff", color: "#0891b2", label: "Add Practice Exam", sub: "Upload practice exam",  href: "/admin/exams/create"  },
   ];
 
   /* ════════════════════════════════════════════
