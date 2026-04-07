@@ -2,12 +2,13 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Clock, BookOpen, GraduationCap,
   Search, ChevronLeft, ChevronRight, X,
   Lock, PlayCircle,
 } from 'lucide-react'
-import styles from './mock-exams.module.css'
+import styles from './mock.module.css'
 import { createClient } from '@/lib/supabase/client'
 import { EXAM_TYPE_META } from '@/lib/types/database'
 
@@ -75,17 +76,25 @@ function StatusBadge({ status }: { status: ExamStatus }) {
   )
 }
 
-function ExamCard({ exam }: { exam: MockExam }) {
+// ── ExamCard now receives onStart so the parent controls navigation ────────
+function ExamCard({
+  exam,
+  onStart,
+}: {
+  exam:    MockExam
+  onStart: (id: string) => void
+}) {
   const isAvailable = exam.status === 'available'
+
   return (
     <div className={`${styles.examCard} ${isAvailable ? styles.examCardAvailable : ''}`}>
       <div className={`${styles.cardAccent} ${isAvailable ? styles.cardAccentAvailable : styles.cardAccentSoon}`} />
+
       <div className={styles.cardTop}>
         <div className={`${styles.cardIconWrap} ${isAvailable ? styles.cardIconAvailable : styles.cardIconSoon}`}>
           <GraduationCap size={20} strokeWidth={1.75} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.3rem' }}>
-          {/* ── Exam type badge ── */}
           <span style={{
             display: 'inline-block',
             padding: '0.18rem 0.55rem',
@@ -102,11 +111,13 @@ function ExamCard({ exam }: { exam: MockExam }) {
           <StatusBadge status={exam.status} />
         </div>
       </div>
+
       <div className={styles.cardBody}>
         <p className={styles.shortCode}>{exam.shortCode}</p>
         <h3 className={styles.programName}>{exam.title}</h3>
         <span className={styles.categoryTag}>{exam.category}</span>
       </div>
+
       {isAvailable && (
         <div className={styles.cardMeta}>
           <span className={styles.metaItem}>
@@ -119,9 +130,13 @@ function ExamCard({ exam }: { exam: MockExam }) {
           </span>
         </div>
       )}
+
       <div className={styles.cardFooter}>
         {isAvailable ? (
-          <button className={styles.startBtn}>
+          <button
+            className={styles.startBtn}
+            onClick={() => onStart(exam.id)}
+          >
             <PlayCircle size={15} strokeWidth={2} /> Start Exam
           </button>
         ) : (
@@ -137,6 +152,8 @@ function ExamCard({ exam }: { exam: MockExam }) {
 // ── Page ───────────────────────────────────────────────────────────────────
 
 export default function MockExamsPage() {
+  const router = useRouter()
+
   const [allExams, setAllExams] = useState<MockExam[]>([])
   const [loading,  setLoading]  = useState(true)
   const [error,    setError]    = useState<string | null>(null)
@@ -212,7 +229,7 @@ export default function MockExamsPage() {
           programs ( id, code, name )
         `)
         .eq('is_published', true)
-        .eq('exam_type', 'mock')          // ← only mock exams
+        .eq('exam_type', 'mock')
         .order('created_at', { ascending: false })
 
       if (examErr) {
@@ -257,6 +274,11 @@ export default function MockExamsPage() {
     fetchExams()
     return () => { cancelled = true }
   }, [])
+
+  // ── Navigation handler ─────────────────────────────────────────────────
+  function handleStartExam(examId: string) {
+    router.push(`/student/exams/${examId}`)
+  }
 
   // ── Derived ────────────────────────────────────────────────────────────
   const categories = useMemo(() => {
@@ -334,8 +356,21 @@ export default function MockExamsPage() {
       </div>
 
       {loading ? (
-        <div className={styles.emptyState}>
-          <p className={styles.emptyTitle}>Loading mock exams…</p>
+        <div className={styles.grid}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className={styles.examCard} style={{ minHeight: 260 }}>
+              <div style={{ height: 4, background: '#e4ecf3', borderRadius: '13px 13px 0 0' }} />
+              <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 10, background: '#f0f4f8', animation: 'shimmer 1.4s infinite' }} />
+                  <div style={{ width: 80, height: 20, borderRadius: 99, background: '#f0f4f8', animation: 'shimmer 1.4s infinite' }} />
+                </div>
+                <div style={{ width: '40%', height: 12, borderRadius: 6, background: '#f0f4f8', animation: 'shimmer 1.4s infinite' }} />
+                <div style={{ width: '80%', height: 16, borderRadius: 6, background: '#f0f4f8', animation: 'shimmer 1.4s infinite' }} />
+                <div style={{ width: '55%', height: 12, borderRadius: 99, background: '#f0f4f8', animation: 'shimmer 1.4s infinite' }} />
+              </div>
+            </div>
+          ))}
         </div>
       ) : error ? (
         <div className={styles.emptyState}>
@@ -344,7 +379,13 @@ export default function MockExamsPage() {
         </div>
       ) : paginated.length > 0 ? (
         <div className={styles.grid}>
-          {paginated.map(exam => <ExamCard key={exam.id} exam={exam} />)}
+          {paginated.map(exam => (
+            <ExamCard
+              key={exam.id}
+              exam={exam}
+              onStart={handleStartExam}
+            />
+          ))}
         </div>
       ) : (
         <div className={styles.emptyState}>
@@ -363,15 +404,31 @@ export default function MockExamsPage() {
             Page {safePage} of {totalPages} &nbsp;·&nbsp; {filtered.length} total
           </span>
           <div className={styles.pageControls}>
-            <button className={styles.pageBtn} onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1} aria-label="Previous page">
+            <button
+              className={styles.pageBtn}
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={safePage === 1}
+              aria-label="Previous page"
+            >
               <ChevronLeft size={15} strokeWidth={2.5} />
             </button>
             {pageNums.map((n, i) =>
               n === '…'
                 ? <span key={`e-${i}`} className={styles.pageEllipsis}>…</span>
-                : <button key={n} className={`${styles.pageNum} ${safePage === n ? styles.pageNumActive : ''}`} onClick={() => setPage(n as number)}>{n}</button>
+                : <button
+                    key={n}
+                    className={`${styles.pageNum} ${safePage === n ? styles.pageNumActive : ''}`}
+                    onClick={() => setPage(n as number)}
+                  >
+                    {n}
+                  </button>
             )}
-            <button className={styles.pageBtn} onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages} aria-label="Next page">
+            <button
+              className={styles.pageBtn}
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={safePage === totalPages}
+              aria-label="Next page"
+            >
               <ChevronRight size={15} strokeWidth={2.5} />
             </button>
           </div>

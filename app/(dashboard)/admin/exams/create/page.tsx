@@ -6,40 +6,44 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   BookOpen, ArrowLeft, Save, AlertCircle, CheckCircle, Loader2,
-  FileText, Clock, Target, Tag, AlignLeft, Hash
+  FileText, Clock, Target, Tag, AlignLeft, Hash, Layers,
 } from 'lucide-react'
 import s from './create.module.css'
 import { createClient } from '@/lib/supabase/client'
+import { EXAM_TYPE_META, type ExamType } from '@/lib/types/database'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface FormData {
-  title: string
-  description: string
-  category_id: string
+  title:            string
+  description:      string
+  category_id:      string
+  exam_type:        ExamType   // ← new field
   duration_minutes: string
-  total_points: string
-  passing_score: string
-  is_published: boolean
+  total_points:     string
+  passing_score:    string
+  is_published:     boolean
 }
 
 interface FormErrors {
-  title?: string
-  category_id?: string
+  title?:            string
+  category_id?:      string
+  exam_type?:        string
   duration_minutes?: string
-  total_points?: string
-  passing_score?: string
+  total_points?:     string
+  passing_score?:    string
 }
 
 interface Category {
-  id: string
+  id:   string
   name: string
 }
 
 // ── Validation ────────────────────────────────────────────────────────────────
 function validate(data: FormData): FormErrors {
   const err: FormErrors = {}
-  if (!data.title.trim())     err.title = 'Exam title is required.'
+  if (!data.title.trim())     err.title      = 'Exam title is required.'
   if (!data.category_id)      err.category_id = 'Please select a category.'
+  if (!data.exam_type)        err.exam_type   = 'Please select an exam type.'
   const dur = Number(data.duration_minutes)
   if (!data.duration_minutes || isNaN(dur) || dur < 1)
     err.duration_minutes = 'Enter a valid duration (min 1 minute).'
@@ -57,19 +61,20 @@ export default function CreateExamPage() {
   const router = useRouter()
 
   const [form, setForm] = useState<FormData>({
-    title: '',
-    description: '',
-    category_id: '',
+    title:            '',
+    description:      '',
+    category_id:      '',
+    exam_type:        'mock',   // ← default to mock
     duration_minutes: '60',
-    total_points: '100',
-    passing_score: '75',
-    is_published: false,
+    total_points:     '100',
+    passing_score:    '75',
+    is_published:     false,
   })
-  const [errors,     setErrors]     = useState<FormErrors>({})
-  const [submitting, setSubmitting] = useState(false)
-  const [success,    setSuccess]    = useState(false)
-  const [categories, setCategories] = useState<Category[]>([])
-  const [catLoading, setCatLoading] = useState(true)
+  const [errors,      setErrors]      = useState<FormErrors>({})
+  const [submitting,  setSubmitting]  = useState(false)
+  const [success,     setSuccess]     = useState(false)
+  const [categories,  setCategories]  = useState<Category[]>([])
+  const [catLoading,  setCatLoading]  = useState(true)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
   // Fetch live categories from exam_categories table
@@ -109,6 +114,7 @@ export default function CreateExamPage() {
         title:            form.title.trim(),
         description:      form.description.trim() || null,
         category_id:      form.category_id,
+        exam_type:        form.exam_type,           // ← persisted to DB
         duration_minutes: Number(form.duration_minutes),
         total_points:     Number(form.total_points),
         passing_score:    Number(form.passing_score),
@@ -137,7 +143,7 @@ export default function CreateExamPage() {
           <div className={s.headerIcon}><BookOpen size={20} color="#fff" /></div>
           <div>
             <h1 className={s.heading}>Create Exam</h1>
-            <p className={s.headingSub}>Fill in the details to create a new mock exam</p>
+            <p className={s.headingSub}>Fill in the details to create a new exam</p>
           </div>
         </div>
       </div>
@@ -146,7 +152,7 @@ export default function CreateExamPage() {
         <div className={s.successBanner}><CheckCircle size={15} /> Exam created successfully! Redirecting…</div>
       )}
       {submitError && (
-        <div className={s.errorBanner ?? s.successBanner} style={{ background: 'var(--danger-pale)', borderColor: '#fca5a5', color: 'var(--danger)' }}>
+        <div className={s.successBanner} style={{ background: 'var(--danger-pale)', borderColor: '#fca5a5', color: 'var(--danger)' }}>
           <AlertCircle size={15} /> {submitError}
         </div>
       )}
@@ -220,6 +226,71 @@ export default function CreateExamPage() {
                   </div>
                   {errors.category_id && <p className={s.fieldError}><AlertCircle size={11} />{errors.category_id}</p>}
                 </div>
+
+                {/* ── Exam Type ── NEW FIELD ── */}
+                <div className={s.fieldGroup}>
+                  <label className={s.label} htmlFor="examType">
+                    <Layers size={12} /> Exam Type <span className={s.required}>*</span>
+                  </label>
+
+                  {/* Visual type selector — two clickable cards */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+                    {(['mock', 'practice'] as ExamType[]).map(type => {
+                      const isSelected = form.exam_type === type
+                      const meta       = EXAM_TYPE_META[type]
+                      return (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => set('exam_type', type)}
+                          style={{
+                            padding: '0.75rem 0.9rem',
+                            border: `1.5px solid ${isSelected ? 'var(--primary, #0d2540)' : '#e2e8f0'}`,
+                            borderRadius: 10,
+                            background: isSelected ? 'rgba(13,37,64,0.05)' : '#f8fafc',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            transition: 'all 0.15s',
+                            boxShadow: isSelected ? '0 0 0 3px rgba(13,37,64,0.08)' : 'none',
+                          }}
+                        >
+                          <div style={{
+                            fontWeight: 700,
+                            fontSize: '0.82rem',
+                            color: isSelected ? 'var(--primary, #0d2540)' : '#374151',
+                            marginBottom: '0.2rem',
+                          }}>
+                            {meta.label}
+                          </div>
+                          <div style={{
+                            fontSize: '0.72rem',
+                            color: '#6b7280',
+                            lineHeight: 1.4,
+                          }}>
+                            {meta.description}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {errors.exam_type && <p className={s.fieldError}><AlertCircle size={11} />{errors.exam_type}</p>}
+
+                  {/* Fallback hidden select for screen readers / form semantics */}
+                  <select
+                    id="examType"
+                    className={s.select}
+                    value={form.exam_type}
+                    onChange={e => set('exam_type', e.target.value as ExamType)}
+                    style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', height: 0 }}
+                    aria-hidden="true"
+                    tabIndex={-1}
+                  >
+                    <option value="mock">Mock Exam</option>
+                    <option value="practice">Practice Exam</option>
+                  </select>
+                </div>
+
               </div>
             </div>
 
@@ -329,6 +400,13 @@ export default function CreateExamPage() {
               </div>
               <div className={s.cardBody}>
                 <div className={s.summaryList}>
+                  {/* Exam type row */}
+                  <div className={s.summaryRow}>
+                    <span className={s.summaryKey}>Exam Type</span>
+                    <span className={s.summaryVal}>
+                      {EXAM_TYPE_META[form.exam_type].label}
+                    </span>
+                  </div>
                   <div className={s.summaryRow}>
                     <span className={s.summaryKey}>Category</span>
                     <span className={s.summaryVal}>

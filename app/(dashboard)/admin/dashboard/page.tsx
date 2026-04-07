@@ -265,38 +265,38 @@ export default function FacultyDashboardPage() {
     {
       Icon: UserCheck,    bg: "#eff6ff", color: "#2563eb",
       label: "Students Reached",  value: String(stats.assignedStudents),
-      sub: "submitted your exams", href: "/faculty/students",
+      sub: "submitted your exams", href: "/admin/students",
       empty: stats.assignedStudents === 0,
     },
     {
       Icon: ClipboardList, bg: "#f0fdf4", color: "#059669",
       label: "Mock Exams",         value: String(stats.publishedExams),
-      sub: "published",            href: "/faculty/exams",
+      sub: "published",            href: "/admin/exams",
       empty: stats.publishedExams === 0,
     },
     {
       Icon: BookOpen,      bg: "#fffbeb", color: "#d97706",
       label: "Practice Exams",     value: String(stats.practiceExams),
-      sub: "published",            href: "/faculty/practice-exams",
+      sub: "published",            href: "/admin/practice-exams",
       empty: stats.practiceExams === 0,
     },
     {
       Icon: PenLine,       bg: "#fef2f2", color: "#dc2626",
       label: "Pending Grading",    value: String(stats.pendingGrading),
-      sub: "awaiting your review", href: "/faculty/grading",
+      sub: "awaiting your review", href: "/admin/grading",
       empty: stats.pendingGrading === 0,
       urgent: stats.pendingGrading > 0,
     },
     {
       Icon: BarChart2,     bg: "#f5f3ff", color: "#7c3aed",
       label: "Avg Score",          value: stats.avgScore !== null ? `${stats.avgScore}%` : "—",
-      sub: "across all submissions",href: "/faculty/analytics",
+      sub: "across all submissions",href: "/admin/analytics",
       empty: stats.avgScore === null,
     },
     {
       Icon: Award,         bg: "#ecfeff", color: "#0891b2",
       label: "Pass Rate",          value: stats.passRate !== null ? `${stats.passRate}%` : "—",
-      sub: `${stats.totalSubmissions} total submissions`, href: "/faculty/analytics",
+      sub: `${stats.totalSubmissions} total submissions`, href: "/admin/analytics",
       empty: stats.passRate === null,
     },
   ];
@@ -304,7 +304,7 @@ export default function FacultyDashboardPage() {
   const QUICK_ACTIONS = [
     { Icon: Plus,         bg: "#eff6ff", color: "#2563eb", label: "Create Exam",       sub: "New mock exam",          href: "/admin/exams/create"          },
     { Icon: Upload,       bg: "#f0fdf4", color: "#059669", label: "Upload Questions",  sub: "Import by program",      href: "/admin/questionnaires"       },
-    { Icon: Send,         bg: "#fffbeb", color: "#d97706", label: "Assign Exam",       sub: "Send to students",       href: "/admin/questionnaires"           },
+    { Icon: Send,         bg: "#fffbeb", color: "#d97706", label: "Assign Exam",       sub: "Send to students",       href: "/admin/exams"           },
     { Icon: Key,          bg: "#fef2f2", color: "#dc2626", label: "Set Answer Key",    sub: "Score an exam",          href: "/admin/questionnaires"  },
     { Icon: PenLine,      bg: "#f5f3ff", color: "#7c3aed", label: "Grade Submissions", sub: "Review answers",         href: "/admin/questionnaires"                },
     { Icon: FileText,     bg: "#ecfeff", color: "#0891b2", label: "Add Practice Exam", sub: "Upload practice exam",  href: "/admin/exams/create"  },
@@ -323,13 +323,13 @@ export default function FacultyDashboardPage() {
           <p className={styles.greetingSub}>Faculty overview of exams, grading, and student progress.</p>
         </div>
         <div className={styles.headerActions}>
-          <Link href="/faculty/grading" className={styles.btnSecondary}>
+          <Link href="/admin/exams" className={styles.btnSecondary}>
             <PenLine size={13} /> Grade Submissions
           </Link>
-          <Link href="/faculty/exams/assign" className={styles.btnSecondary}>
+          <Link href="/admin/exams" className={styles.btnSecondary}>
             <Send size={13} /> Assign Exam
           </Link>
-          <Link href="/faculty/exams/create" className={styles.btnPrimary}>
+          <Link href="/admin/exams/create" className={styles.btnPrimary}>
             <Plus size={13} /> Create Exam
           </Link>
         </div>
@@ -342,7 +342,7 @@ export default function FacultyDashboardPage() {
           <span className={styles.urgentText}>
             <strong>{stats.pendingGrading} submission{stats.pendingGrading > 1 ? "s" : ""}</strong> waiting for your review and grading.
           </span>
-          <Link href="/faculty/grading" className={styles.urgentLink}>
+          <Link href="/admin/exams" className={styles.urgentLink}>
             Grade now <ChevronRight size={13} />
           </Link>
         </div>
@@ -362,13 +362,13 @@ export default function FacultyDashboardPage() {
             assign mock and practice exams, and track every student&apos;s performance — all in one place.
           </p>
           <div className={styles.heroActions}>
-            <Link href="/faculty/questions/upload" className={styles.heroBtnOutline}>
+            <Link href="/admin/exams" className={styles.heroBtnOutline}>
               <Upload size={12} /> Upload Questions
             </Link>
-            <Link href="/faculty/exams/assign" className={styles.heroBtnOutline}>
+            <Link href="/admin/exams" className={styles.heroBtnOutline}>
               <Send size={12} /> Assign to Students
             </Link>
-            <Link href="/faculty/analytics" className={styles.heroBtnWhite}>
+            <Link href="/admin/analytics" className={styles.heroBtnWhite}>
               View Analytics <ArrowRight size={12} />
             </Link>
           </div>
@@ -413,7 +413,7 @@ export default function FacultyDashboardPage() {
               <span className={styles.cardTitleIcon}><PenLine size={13} color="#1e3a5f" /></span>
               Needs Grading
             </span>
-            <Link href="/faculty/grading" className={styles.viewAll}>View all →</Link>
+            <Link href="/admin/exams" className={styles.viewAll}>View all →</Link>
           </div>
 
           {loading ? (
@@ -452,7 +452,7 @@ export default function FacultyDashboardPage() {
                       <td><Badge passed={row.passed} /></td>
                       <td><span className={styles.cellTime}>{timeAgo(row.submitted_at)}</span></td>
                       <td>
-                        <Link href={`/faculty/grading/${row.id}`} className={styles.gradeBtn}>
+                        <Link href={`/admin/grading/${row.id}`} className={styles.gradeBtn}>
                           Grade <ChevronRight size={11} />
                         </Link>
                       </td>
@@ -498,7 +498,7 @@ export default function FacultyDashboardPage() {
               <span className={styles.cardTitleIcon}><Key size={13} color="#1e3a5f" /></span>
               Answer Keys Needed
             </span>
-            <Link href="/faculty/questions/answer-keys" className={styles.viewAll}>Manage →</Link>
+            <Link href="/admin/questions/answer-keys" className={styles.viewAll}>Manage →</Link>
           </div>
 
           {loading ? (
@@ -521,7 +521,7 @@ export default function FacultyDashboardPage() {
                     <div className={styles.keyMeta}>{exam.question_count} question{exam.question_count !== 1 ? "s" : ""} · {exam.total_points} pts</div>
                   </div>
                 </div>
-                <Link href={`/faculty/exams/${exam.id}/answer-key`} className={styles.keyLink}>
+                <Link href={`/admin/exams/${exam.id}/answer-key`} className={styles.keyLink}>
                   Set key <ChevronRight size={12} />
                 </Link>
               </div>
@@ -534,10 +534,10 @@ export default function FacultyDashboardPage() {
             borderTop: "1px solid var(--c-border-soft)",
             display: "flex", gap: "0.65rem",
           }}>
-            <Link href="/faculty/questions/upload" className={styles.btnPrimary} style={{ flex: 1, justifyContent: "center", fontSize: "0.76rem" }}>
+            <Link href="/admin/questionnaires" className={styles.btnPrimary} style={{ flex: 1, justifyContent: "center", fontSize: "0.76rem" }}>
               <Upload size={12} /> Upload Question Bank
             </Link>
-            <Link href="/faculty/exams/create" className={styles.btnSecondary} style={{ flex: 1, justifyContent: "center", fontSize: "0.76rem" }}>
+            <Link href="/admin/exams/create" className={styles.btnSecondary} style={{ flex: 1, justifyContent: "center", fontSize: "0.76rem" }}>
               <Plus size={12} /> New Exam
             </Link>
           </div>
@@ -619,8 +619,8 @@ export default function FacultyDashboardPage() {
             {/* Nav links */}
             <div style={{ marginTop: "1rem", display: "flex", gap: "0.6rem" }}>
               {[
-                { label: "Programs",  Icon: GraduationCap, color: "#ec4899", href: "/faculty/programs"  },
-                { label: "Analytics", Icon: BarChart2,     color: "#0891b2", href: "/faculty/analytics" },
+                { label: "Programs",  Icon: GraduationCap, color: "#ec4899", href: "/admin/programs"  },
+                { label: "Analytics", Icon: BarChart2,     color: "#0891b2", href: "/admin/analytics" },
               ].map((item) => (
                 <Link key={item.label} href={item.href} style={{
                   flex: 1, display: "flex", alignItems: "center", gap: "0.5rem",

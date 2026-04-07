@@ -1,7 +1,8 @@
-// app/(dashboard)/student/reviews/page.tsx
+// app/(dashboard)/student/reviews/page.tsx — Practice Exam page
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Clock, BookOpen, GraduationCap,
   Search, ChevronLeft, ChevronRight, X,
@@ -9,6 +10,7 @@ import {
 } from 'lucide-react'
 import styles from './reviews.module.css'
 import { createClient } from '@/lib/supabase/client'
+import { EXAM_TYPE_META } from '@/lib/types/database'
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -74,22 +76,48 @@ function StatusBadge({ status }: { status: ExamStatus }) {
   )
 }
 
-function ReviewCard({ item }: { item: Review }) {
+// ── ReviewCard now receives onStart so the parent controls navigation ─
+function ReviewCard({
+  item,
+  onStart,
+}: {
+  item:    Review
+  onStart: (id: string) => void
+}) {
   const isAvailable = item.status === 'available'
+
   return (
     <div className={`${styles.examCard} ${isAvailable ? styles.examCardAvailable : ''}`}>
       <div className={`${styles.cardAccent} ${isAvailable ? styles.cardAccentAvailable : styles.cardAccentSoon}`} />
+
       <div className={styles.cardTop}>
         <div className={`${styles.cardIconWrap} ${isAvailable ? styles.cardIconAvailable : styles.cardIconSoon}`}>
           <GraduationCap size={20} strokeWidth={1.75} />
         </div>
-        <StatusBadge status={item.status} />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.3rem' }}>
+          <span style={{
+            display: 'inline-block',
+            padding: '0.18rem 0.55rem',
+            borderRadius: '20px',
+            fontSize: '0.68rem',
+            fontWeight: 700,
+            letterSpacing: '0.03em',
+            background: 'rgba(16,185,129,0.10)',
+            color: '#047857',
+            whiteSpace: 'nowrap',
+          }}>
+            {EXAM_TYPE_META['practice'].label}
+          </span>
+          <StatusBadge status={item.status} />
+        </div>
       </div>
+
       <div className={styles.cardBody}>
         <p className={styles.shortCode}>{item.shortCode}</p>
         <h3 className={styles.programName}>{item.title}</h3>
         <span className={styles.categoryTag}>{item.category}</span>
       </div>
+
       {isAvailable && (
         <div className={styles.cardMeta}>
           <span className={styles.metaItem}>
@@ -102,9 +130,13 @@ function ReviewCard({ item }: { item: Review }) {
           </span>
         </div>
       )}
+
       <div className={styles.cardFooter}>
         {isAvailable ? (
-          <button className={styles.startBtn}>
+          <button
+            className={styles.startBtn}
+            onClick={() => onStart(item.id)}
+          >
             <PlayCircle size={15} strokeWidth={2} /> Start Review
           </button>
         ) : (
@@ -120,6 +152,8 @@ function ReviewCard({ item }: { item: Review }) {
 // ── Page ──────────────────────────────────────────────────────────────
 
 export default function ReviewsPage() {
+  const router = useRouter()
+
   const [allReviews, setAllReviews] = useState<Review[]>([])
   const [loading,    setLoading]    = useState(true)
   const [error,      setError]      = useState<string | null>(null)
@@ -160,7 +194,6 @@ export default function ReviewsPage() {
       const programId: string | null = student.program_id ?? null
 
       // ── 3. Assigned exam IDs for this student ─────────────────────────
-      // Practice exams follow the same assignment model as mock exams.
       const orFilter = programId
         ? `student_id.eq.${studentId},program_id.eq.${programId}`
         : `student_id.eq.${studentId}`
@@ -183,7 +216,7 @@ export default function ReviewsPage() {
           .filter((id): id is string => id !== null)
       )
 
-      // ── 4. Published PRACTICE exams only (exam_type = 'practice') ─────
+      // ── 4. Published PRACTICE exams only ─────────────────────────────
       const { data: examData, error: examErr } = await supabase
         .from('exams')
         .select(`
@@ -242,7 +275,12 @@ export default function ReviewsPage() {
     return () => { cancelled = true }
   }, [])
 
-  // ── Derived ────────────────────────────────────────────────────────
+  // ── Navigation handler ─────────────────────────────────────────────────
+  function handleStartReview(examId: string) {
+    router.push(`/student/reviews/${examId}`)
+  }
+
+  // ── Derived ────────────────────────────────────────────────────────────
   const categories = useMemo(() => {
     const unique = Array.from(new Set(allReviews.map(r => r.category))).sort()
     return [ALL_CATEGORIES, ...unique]
@@ -273,13 +311,13 @@ export default function ReviewsPage() {
     pageNums.push(totalPages)
   }
 
-  // ── Render ─────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────────────
   return (
     <div className={styles.page}>
       <div className={styles.header}>
         <div>
           <h1 className={styles.title}>Reviewers</h1>
-          <p className={styles.subtitle}>Practice exams to improve your skills</p>
+          <p className={styles.subtitle}>Self-paced practice exams to sharpen your skills</p>
         </div>
         <span className={styles.availablePill}>
           <span className={styles.dot} />
@@ -317,8 +355,21 @@ export default function ReviewsPage() {
       </div>
 
       {loading ? (
-        <div className={styles.emptyState}>
-          <p className={styles.emptyTitle}>Loading practice exams…</p>
+        <div className={styles.grid}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className={styles.examCard} style={{ minHeight: 260 }}>
+              <div style={{ height: 4, background: '#e4ecf3', borderRadius: '13px 13px 0 0' }} />
+              <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 10, background: '#f0f4f8' }} />
+                  <div style={{ width: 80, height: 20, borderRadius: 99, background: '#f0f4f8' }} />
+                </div>
+                <div style={{ width: '40%', height: 12, borderRadius: 6, background: '#f0f4f8' }} />
+                <div style={{ width: '80%', height: 16, borderRadius: 6, background: '#f0f4f8' }} />
+                <div style={{ width: '55%', height: 12, borderRadius: 99, background: '#f0f4f8' }} />
+              </div>
+            </div>
+          ))}
         </div>
       ) : error ? (
         <div className={styles.emptyState}>
@@ -327,14 +378,23 @@ export default function ReviewsPage() {
         </div>
       ) : paginated.length > 0 ? (
         <div className={styles.grid}>
-          {paginated.map(item => <ReviewCard key={item.id} item={item} />)}
+          {paginated.map(item => (
+            <ReviewCard
+              key={item.id}
+              item={item}
+              onStart={handleStartReview}
+            />
+          ))}
         </div>
       ) : (
         <div className={styles.emptyState}>
           <Search size={40} color="#cbd5e1" />
           <p className={styles.emptyTitle}>No reviewers found</p>
           <p className={styles.emptyText}>Try adjusting your search or filters.</p>
-          <button className={styles.emptyBtn} onClick={() => { setSearch(''); setCategory(ALL_CATEGORIES) }}>
+          <button
+            className={styles.emptyBtn}
+            onClick={() => { setSearch(''); setCategory(ALL_CATEGORIES) }}
+          >
             Clear Filters
           </button>
         </div>
@@ -342,17 +402,33 @@ export default function ReviewsPage() {
 
       {!loading && !error && totalPages > 1 && (
         <div className={styles.pagination}>
-          <span className={styles.pageInfo}>Page {safePage} of {totalPages}</span>
+          <span className={styles.pageInfo}>
+            Page {safePage} of {totalPages} &nbsp;·&nbsp; {filtered.length} total
+          </span>
           <div className={styles.pageControls}>
-            <button className={styles.pageBtn} onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1}>
+            <button
+              className={styles.pageBtn}
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={safePage === 1}
+            >
               <ChevronLeft size={15} />
             </button>
             {pageNums.map((n, i) =>
               n === '…'
                 ? <span key={`e-${i}`} className={styles.pageEllipsis}>…</span>
-                : <button key={n} className={`${styles.pageNum} ${safePage === n ? styles.pageNumActive : ''}`} onClick={() => setPage(n as number)}>{n}</button>
+                : <button
+                    key={n}
+                    className={`${styles.pageNum} ${safePage === n ? styles.pageNumActive : ''}`}
+                    onClick={() => setPage(n as number)}
+                  >
+                    {n}
+                  </button>
             )}
-            <button className={styles.pageBtn} onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}>
+            <button
+              className={styles.pageBtn}
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={safePage === totalPages}
+            >
               <ChevronRight size={15} />
             </button>
           </div>

@@ -70,9 +70,9 @@ const DashboardClient: FC<Props> = ({ firstName, greeting }) => {
       <motion.div className={styles.heroBanner} {...section}>
         <div className={styles.heroText}>
           <div className={styles.heroEyebrow}>Board Exam Prep</div>
-          <h2 className={styles.heroTitle}>Ready to ace your<br />PRC licensure exam?</h2>
+          <h2 className={styles.heroTitle}>Ready to ace your<br />Licensure Exam?</h2>
           <p className={styles.heroSub}>
-            Take mock exams, practice with reviewers, and track your progress — all in one place.
+            Take mock exams, practice with reviewers, and track your progress where it is all in one place.
           </p>
           <Link href="/student/mock-exams" className={styles.heroCta}>
             Browse Exams <ChevronRight size={14} strokeWidth={2.5} />

@@ -1,14 +1,4 @@
 // lib/types/database.ts
-// Typed to match the VeriPraxis Supabase schema.
-//
-// Role clarification:
-//   'student' — reviewee taking mock exams; always has a row in `students`
-//   'faculty' — creates/manages exams, questions, and study materials; no `students` row
-//   'admin'   — full platform access; no `students` row
-//
-// Supported degree programs (seeded in the `programs` table — fetched from DB, never hardcoded):
-//   BSPsych, BSID, BLIS, BSArch, BSEd-MATH, BSEd-SCI, BSEd-ENG, BEEd, BSEd-FIL
-//
 // Regenerate anytime:
 //   pnpm dlx supabase@latest gen types typescript --project-id YOUR_PROJECT_ID \
 //     > lib/types/database.ts
@@ -28,11 +18,31 @@ export type UserRole = 'student' | 'admin' | 'faculty'
 // Matches: CHECK (status = ANY (ARRAY['in_progress','submitted','graded']))
 export type SubmissionStatus = 'in_progress' | 'submitted' | 'graded'
 
+// ── ADDED: grading_status ─────────────────────────────────────────────────────
+// Derived at the application level (not a DB column).
+// 'complete'     — all answers have been graded (auto or manual)
+// 'needs_review' — one or more manual-type answers are still pending
+// 'ungraded'     — no answers recorded yet
+export type GradingStatus = 'complete' | 'needs_review' | 'ungraded'
+
 // Matches: CHECK (purpose = ANY (ARRAY['exam_questions','reviewer','profile_image','other']))
 export type StoragePurpose = 'exam_questions' | 'reviewer' | 'profile_image' | 'other'
 
 // Matches the USER-DEFINED question_type enum in `questions`
 export type QuestionType = 'multiple_choice' | 'true_false' | 'short_answer' | 'essay' | 'matching' | 'fill_blank'
+
+// ── AUTO-GRADED vs MANUAL question types ─────────────────────────────────────
+// Use these constants throughout the app instead of hard-coding strings.
+export const AUTO_GRADE_QUESTION_TYPES: QuestionType[] = ['multiple_choice', 'true_false', 'fill_blank']
+export const MANUAL_GRADE_QUESTION_TYPES: QuestionType[] = ['short_answer', 'essay', 'matching']
+
+export function isAutoGradedType(type: QuestionType): boolean {
+  return AUTO_GRADE_QUESTION_TYPES.includes(type)
+}
+
+export function isManualGradedType(type: QuestionType): boolean {
+  return MANUAL_GRADE_QUESTION_TYPES.includes(type)
+}
 
 // Exam type — distinguishes timed board-style exams from self-paced reviewer sets.
 // Stored in exams.exam_type. Run the migration SQL to add this column if missing.
@@ -61,9 +71,27 @@ export type StaffProfile = Database['public']['Tables']['profiles']['Row'] & {
 export type AppUser = StudentProfile | StaffProfile
 
 // ── MCQ option shape stored in questions.options (jsonb) ──────────────────────
+// Each option has a label (A, B, C, D...) and the display text.
 export interface QuestionOption {
   label: string   // e.g. "A", "B", "C", "D"
   text:  string
+}
+
+// ── Answer shape stored in answers.answer_text ────────────────────────────────
+// For MCQ: answer_text = option label ("A", "B", etc.)
+// For T/F: answer_text = "true" | "false"
+// For fill_blank, short_answer, essay: answer_text = raw student text
+// For matching: answer_text = JSON string of pairs
+
+// ── Grading result shape (app-level, not in DB) ───────────────────────────────
+export interface GradingResult {
+  answer_id:     string
+  question_id:   string
+  question_type: QuestionType
+  is_correct:    boolean | null  // null for manual-grade types not yet reviewed
+  points_earned: number
+  // FUTURE: Python AI service result for essay/short_answer
+  // ai_grade?: { score: number; feedback: string; confidence: number }
 }
 
 export interface Database {
@@ -162,21 +190,6 @@ export interface Database {
       }
 
       // ── programs ──────────────────────────────────────────────────────────────
-      // Seeded with the 9 supported degree programs this platform serves.
-      // Always fetch from DB — never hardcode program lists in components.
-      // FK → schools(id)
-      //
-      // Seed data (run once):
-      //   INSERT INTO programs (code, name, full_name, degree_type, major) VALUES
-      //     ('BSPsych',   'Psychology',               'Bachelor of Science in Psychology',                    'Bachelor', null),
-      //     ('BSID',      'Interior Design',           'Bachelor of Science in Interior Design',               'Bachelor', null),
-      //     ('BLIS',      'Library & Info Science',    'Bachelor of Library and Information Science',          'Bachelor', null),
-      //     ('BSArch',    'Architecture',              'Bachelor of Science in Architecture',                  'Bachelor', null),
-      //     ('BSEd-MATH', 'Secondary Ed - Math',       'Bachelor of Secondary Education',                     'Bachelor', 'Mathematics'),
-      //     ('BSEd-SCI',  'Secondary Ed - Science',    'Bachelor of Secondary Education',                     'Bachelor', 'Science'),
-      //     ('BSEd-ENG',  'Secondary Ed - English',    'Bachelor of Secondary Education',                     'Bachelor', 'English'),
-      //     ('BEEd',      'Elementary Education',      'Bachelor of Elementary Education',                    'Bachelor', null),
-      //     ('BSEd-FIL',  'Secondary Ed - Filipino',   'Bachelor of Secondary Education',                     'Bachelor', 'Filipino');
       programs: {
         Row: {
           id:          string
@@ -238,22 +251,6 @@ export interface Database {
       }
 
       // ── exams ─────────────────────────────────────────────────────────────────
-      // Created by faculty or admin.
-      // FK → exam_categories(id), programs(id), profiles(id)
-      //
-      // exam_type:
-      //   'mock'     — timed board-style exam; shown as "Mock Exam" badge in UI
-      //   'practice' — self-paced reviewer set; shown as "Practice Exam" badge in UI
-      //   Default is 'mock'. Add column via migration if not present:
-      //     ALTER TABLE exams
-      //       ADD COLUMN IF NOT EXISTS exam_type text NOT NULL DEFAULT 'mock'
-      //       CHECK (exam_type = ANY (ARRAY['mock','practice']));
-      //
-      // program_id:
-      //   FK → programs.id. Links the exam to one of the 9 supported programs.
-      //   Nullable — leave null for exams not tied to a specific program.
-      //   Add column via migration if not present:
-      //     ALTER TABLE exams ADD COLUMN IF NOT EXISTS program_id uuid REFERENCES programs(id);
       exams: {
         Row: {
           id:               string
@@ -276,7 +273,7 @@ export interface Database {
           description?:      string | null
           category_id?:      string | null
           program_id?:       string | null
-          exam_type?:        ExamType        // defaults to 'mock' if omitted
+          exam_type?:        ExamType
           duration_minutes:  number
           passing_score:     number
           total_points:      number
@@ -302,13 +299,20 @@ export interface Database {
       // ── questions ─────────────────────────────────────────────────────────────
       // Managed by faculty or admin.
       // FK → exams(id), profiles(id)
+      //
       // options shape for multiple_choice: QuestionOption[]
+      //
       // correct_answer usage:
-      // - multiple_choice → option label ("A", "B", etc.)
-      // - true_false      → "true" | "false"
-      // - matching        → JSON string or custom format (define in app)
-      // - fill_blank      → exact text answer
-      // - essay           → null (manual grading)
+      //   multiple_choice → option label ("A", "B", etc.)
+      //   true_false      → "true" | "false"
+      //   fill_blank      → exact text answer
+      //   matching        → JSON string of pairs (app-defined format)
+      //   essay           → NULL (manual grading only)
+      //   short_answer    → NULL (manual review required)
+      //
+      // explanation:
+      //   Shown to student after submission. Optionally prefix with
+      //   [EASY], [MEDIUM], or [HARD] to encode difficulty level.
       questions: {
         Row: {
           id:             string
@@ -316,9 +320,9 @@ export interface Database {
           question_text:  string
           question_type:  QuestionType
           points:         number          // default 1
-          options:        Json | null     // QuestionOption[] for MC; null for essay
-          correct_answer: string | null   // null for essay (manually graded)
-          explanation:    string | null   // shown after submission; encodes difficulty via [EASY/MEDIUM/HARD] prefix
+          options:        Json | null     // QuestionOption[] for MC; null for essay/tf/etc.
+          correct_answer: string | null   // null for essay and short_answer
+          explanation:    string | null
           order_number:   number | null
           created_by:     string | null   // FK → profiles.id (faculty/admin)
           created_at:     string
@@ -350,15 +354,18 @@ export interface Database {
       // ── submissions ───────────────────────────────────────────────────────────
       // One row per exam attempt by a student.
       // FK → exams(id), students(id)
+      //
+      // status flow: in_progress → submitted → graded
+      // score/percentage/passed are null until graded
       submissions: {
         Row: {
           id:                 string
           exam_id:            string | null   // FK → exams.id
-          student_id:         string | null   // FK → students.id
+          student_id:         string | null   // FK → students.id (= profiles.id for students)
           started_at:         string          // default now()
           submitted_at:       string | null   // null while in_progress
           time_spent_seconds: number | null
-          status:             SubmissionStatus // default 'in_progress'
+          status:             SubmissionStatus
           score:              number | null   // raw points earned; null until graded
           percentage:         number | null   // 0–100; null until graded
           passed:             boolean | null  // null until graded
@@ -390,13 +397,26 @@ export interface Database {
       // ── answers ───────────────────────────────────────────────────────────────
       // One row per question per submission.
       // FK → submissions(id), questions(id), profiles(id)
+      //
+      // Grading logic:
+      //   AUTO: is_correct is set immediately on submission for MCQ, T/F, fill_blank
+      //   MANUAL: is_correct remains null until a faculty member grades it
+      //           graded_by is set to the faculty member's profiles.id
+      //
+      // FUTURE: For essay/short_answer, a Python AI service will eventually
+      //         provide a preliminary score before manual review.
+      //         Placeholder in grading code:
+      //           if (question.type === 'essay') {
+      //             status = 'needs_review'
+      //             // FUTURE: sendToPythonService(answer_text)
+      //           }
       answers: {
         Row: {
           id:            string
           submission_id: string | null   // FK → submissions.id
           question_id:   string | null   // FK → questions.id
           answer_text:   string | null   // student's raw answer
-          is_correct:    boolean | null  // null until graded (essays)
+          is_correct:    boolean | null  // null until graded (essays, short_answer)
           points_earned: number | null   // null until graded
           graded_by:     string | null   // FK → profiles.id; null if auto-graded
           feedback:      string | null   // per-answer faculty feedback
@@ -426,11 +446,14 @@ export interface Database {
       // Aggregated performance stats per student × exam (or category/program).
       // Updated after every graded submission.
       // FK → students(id), exams(id), exam_categories(id), programs(id)
+      //
+      // Exam-level aggregate row: student_id IS NULL, exam_id IS NOT NULL
+      // Student-level row:        student_id IS NOT NULL, exam_id IS NOT NULL
       analytics: {
         Row: {
           id:                       string
-          student_id:               string | null   // FK → students.id
-          exam_id:                  string | null   // FK → exams.id; null = category-level rollup
+          student_id:               string | null   // FK → students.id; null = exam-level rollup
+          exam_id:                  string | null   // FK → exams.id
           category_id:              string | null   // FK → exam_categories.id
           program_id:               string | null   // FK → programs.id
           total_attempts:           number          // default 0
@@ -469,20 +492,17 @@ export interface Database {
       }
 
       // ── practice_exams ────────────────────────────────────────────────────────
-      // Study material / reviewer content uploaded by faculty or admin.
-      // Note: the SQL table is `practice_exams` (not `reviewers`).
-      // FK → exam_categories(id), profiles(id)
       practice_exams: {
         Row: {
           id:           string
           title:        string
           description:  string | null
-          category_id:  string | null   // FK → exam_categories.id
-          content:      string | null   // rich text / markdown body
-          file_url:     string | null   // link to uploaded PDF/doc
-          created_by:   string | null   // FK → profiles.id (faculty/admin)
-          is_published: boolean         // default false
-          view_count:   number          // default 0
+          category_id:  string | null
+          content:      string | null
+          file_url:     string | null
+          created_by:   string | null
+          is_published: boolean
+          view_count:   number
           created_at:   string
           updated_at:   string
         }
@@ -512,16 +532,14 @@ export interface Database {
       }
 
       // ── storage_files ─────────────────────────────────────────────────────────
-      // Metadata for files stored in Supabase Storage.
-      // FK → profiles(id)
       storage_files: {
         Row: {
           id:          string
           file_name:   string
-          file_path:   string          // storage bucket path
-          file_type:   string          // MIME type e.g. "application/pdf"
-          file_size:   number | null   // bytes
-          uploaded_by: string | null   // FK → profiles.id
+          file_path:   string
+          file_type:   string
+          file_size:   number | null
+          uploaded_by: string | null
           purpose:     StoragePurpose | null
           created_at:  string
         }
@@ -545,8 +563,6 @@ export interface Database {
       }
 
       // ── exam_assignments ──────────────────────────────────────────────────────
-      // Assigns exams to individual students or entire programs.
-      // FK → exams(id), students(id), programs(id), profiles(id)
       exam_assignments: {
         Row: {
           id:          string
@@ -580,7 +596,6 @@ export interface Database {
       }
 
       // ── notifications ─────────────────────────────────────────────────────────
-      // FK → profiles(id) via user_id
       notifications: {
         Row: {
           id:         string
