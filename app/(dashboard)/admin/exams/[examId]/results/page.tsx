@@ -8,15 +8,14 @@ import {
   BarChart2, ArrowLeft, Download, Search, X, Filter,
   ChevronLeft, ChevronRight, CheckCircle, XCircle,
   Award, Users, TrendingUp, Clock, AlertCircle, RefreshCw,
-  Activity, CheckSquare, MinusCircle, Eye,
+  Activity, CheckSquare, Send,
 } from 'lucide-react'
 import s from './results.module.css'
 import { createClient } from '@/lib/supabase/client'
-import type { QuestionType } from '@/lib/types/database'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-// Grading status: all questions graded vs. some needing manual review
-type GradingStatus = 'complete' | 'needs_review' | 'ungraded'
+// Results page shows submissions with status 'reviewed' OR 'released'
+type ResultStatus = 'reviewed' | 'released'
 
 interface Result {
   id: string
@@ -26,16 +25,15 @@ interface Result {
   passed: boolean
   submitted_at: string
   time_spent_seconds: number
-  grading_status: GradingStatus
-  pending_count: number
+  status: ResultStatus
 }
 
 interface AggregateAnalytics {
-  total_attempts:   number
-  average_score:    number | null
-  highest_score:    number | null
-  lowest_score:     number | null
-  last_attempt_at:  string | null
+  total_attempts:  number
+  average_score:   number | null
+  highest_score:   number | null
+  lowest_score:    number | null
+  last_attempt_at: string | null
 }
 
 type ResultRaw = {
@@ -46,23 +44,9 @@ type ResultRaw = {
   passed: boolean | null
   submitted_at: string | null
   time_spent_seconds: number | null
+  status: string
   profiles: { id: string; full_name: string | null; email: string } | { id: string; full_name: string | null; email: string }[] | null
   students: { student_id: string | null } | { student_id: string | null }[] | null
-}
-
-// A slim answer row just to determine grading status
-type AnswerStatusRaw = {
-  submission_id: string
-  is_correct: boolean | null
-  questions: { question_type: string } | null
-}
-
-// ── AUTO-GRADE TYPES ──────────────────────────────────────────────────────────
-// These types are automatically graded; others need manual review
-const AUTO_GRADE_TYPES: QuestionType[] = ['multiple_choice', 'true_false', 'fill_blank']
-
-function isManualType(type: string): boolean {
-  return !AUTO_GRADE_TYPES.includes(type as QuestionType)
 }
 
 function unwrap<T>(v: T | T[] | null): T | null {
@@ -83,12 +67,18 @@ const PAGE_SIZE = 10
 
 // ── CSV Export ────────────────────────────────────────────────────────────────
 function exportCSV(results: Result[]) {
-  const headers = ['Rank', 'Name', 'Email', 'Student ID', 'Score', 'Percentage', 'Status', 'Grading', 'Time', 'Submitted']
+  const headers = ['Rank', 'Name', 'Email', 'Student ID', 'Score', 'Percentage', 'Pass/Fail', 'Status', 'Time', 'Submitted']
   const rows = results.map((r, i) => [
-    i + 1, r.student.full_name, r.student.email, r.student.student_id ?? '',
-    r.score, `${r.percentage.toFixed(1)}%`, r.passed ? 'PASSED' : 'FAILED',
-    r.grading_status === 'complete' ? 'Complete' : r.grading_status === 'needs_review' ? 'Needs Review' : 'Ungraded',
-    fmtTime(r.time_spent_seconds), new Date(r.submitted_at).toLocaleString('en-PH'),
+    i + 1,
+    r.student.full_name,
+    r.student.email,
+    r.student.student_id ?? '',
+    r.score,
+    `${r.percentage.toFixed(1)}%`,
+    r.passed ? 'PASSED' : 'FAILED',
+    r.status.charAt(0).toUpperCase() + r.status.slice(1),
+    fmtTime(r.time_spent_seconds),
+    new Date(r.submitted_at).toLocaleString('en-PH'),
   ])
   const csv  = [headers, ...rows].map(row => row.map(c => `"${c}"`).join(',')).join('\n')
   const blob = new Blob([csv], { type: 'text/csv' })
@@ -101,81 +91,44 @@ function exportCSV(results: Result[]) {
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function ResultsPage() {
   const { examId } = useParams<{ examId: string }>()
+  const supabase = createClient()
 
-  const [results,    setResults]    = useState<Result[]>([])
-  const [analytics,  setAnalytics]  = useState<AggregateAnalytics | null>(null)
-  const [loading,    setLoading]    = useState(true)
-  const [error,      setError]      = useState<string | null>(null)
-  const [search,     setSearch]     = useState('')
-  const [passFilter, setPassFilter] = useState<'all' | 'passed' | 'failed'>('all')
-  const [gradingFilter, setGradingFilter] = useState<GradingStatus | 'all'>('all')
-  const [page,       setPage]       = useState(1)
+  const [results,       setResults]       = useState<Result[]>([])
+  const [analytics,     setAnalytics]     = useState<AggregateAnalytics | null>(null)
+  const [loading,       setLoading]       = useState(true)
+  const [error,         setError]         = useState<string | null>(null)
+  const [search,        setSearch]        = useState('')
+  const [passFilter,    setPassFilter]    = useState<'all' | 'passed' | 'failed'>('all')
+  const [statusFilter,  setStatusFilter]  = useState<ResultStatus | 'all'>('all')
+  const [page,          setPage]          = useState(1)
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     setLoading(true)
     setError(null)
-    const supabase = createClient()
 
-    // 1. Fetch graded submissions ranked by percentage desc
+    // Fetch submissions with status 'reviewed' OR 'released', ranked by percentage desc
     const { data, error: fetchErr } = await supabase
       .from('submissions')
       .select(`
         id, student_id, score, percentage, passed,
-        submitted_at, time_spent_seconds,
+        submitted_at, time_spent_seconds, status,
         profiles:student_id ( id, full_name, email ),
         students:student_id ( student_id )
       `)
       .eq('exam_id', examId)
-      .eq('status', 'graded')
+      .in('status', ['reviewed', 'released'])
       .not('percentage', 'is', null)
       .order('percentage', { ascending: false })
 
     if (fetchErr) { setError('Could not load results.'); setLoading(false); return }
 
     const rows = (data ?? []) as unknown as ResultRaw[]
-
-    // 2. Fetch answer grading status for all these submissions to determine grading_status
-    const submissionIds = rows.map(r => r.id)
-    let answerStatuses: AnswerStatusRaw[] = []
-
-    if (submissionIds.length > 0) {
-      const { data: ansData } = await supabase
-        .from('answers')
-        .select('submission_id, is_correct, questions:question_id ( question_type )')
-        .in('submission_id', submissionIds)
-
-      answerStatuses = (ansData ?? []) as unknown as AnswerStatusRaw[]
-    }
-
-    // Group answer statuses by submission_id
-    const answersBySubmission: Record<string, AnswerStatusRaw[]> = {}
-    for (const a of answerStatuses) {
-      if (!answersBySubmission[a.submission_id]) answersBySubmission[a.submission_id] = []
-      answersBySubmission[a.submission_id].push(a)
-    }
-
     const mapped: Result[] = rows
       .filter(r => r.percentage != null && r.submitted_at != null)
       .map(r => {
         const profile = unwrap(r.profiles)
         const student = unwrap(r.students)
-
-        // Determine grading status for this submission
-        const subAnswers = answersBySubmission[r.id] ?? []
-        const pendingAnswers = subAnswers.filter(a => {
-          const qType = a.questions?.question_type ?? ''
-          // Manual types that haven't been graded yet
-          return isManualType(qType) && a.is_correct === null
-        })
-
-        let grading_status: GradingStatus = 'complete'
-        if (subAnswers.length === 0) {
-          grading_status = 'ungraded'
-        } else if (pendingAnswers.length > 0) {
-          grading_status = 'needs_review'
-        }
-
         return {
           id:          r.id,
           student: {
@@ -189,14 +142,13 @@ export default function ResultsPage() {
           passed:             r.passed     ?? false,
           submitted_at:       r.submitted_at!,
           time_spent_seconds: r.time_spent_seconds ?? 0,
-          grading_status,
-          pending_count:      pendingAnswers.length,
+          status:             (r.status as ResultStatus),
         }
       })
 
     setResults(mapped)
 
-    // 3. Try analytics table for aggregated data
+    // Try analytics table first, fall back to computing from data
     const { data: analyticsRows } = await supabase
       .from('analytics')
       .select('total_attempts, average_score, highest_score, lowest_score, last_attempt_at')
@@ -207,14 +159,14 @@ export default function ResultsPage() {
     if (analyticsRows) {
       setAnalytics(analyticsRows as AggregateAnalytics)
     } else {
-      const percentages = mapped.map(r => r.percentage)
+      const pcts = mapped.map(r => r.percentage)
       setAnalytics(
-        percentages.length > 0
+        pcts.length > 0
           ? {
-              total_attempts:  percentages.length,
-              average_score:   percentages.reduce((a, b) => a + b, 0) / percentages.length,
-              highest_score:   Math.max(...percentages),
-              lowest_score:    Math.min(...percentages),
+              total_attempts:  pcts.length,
+              average_score:   pcts.reduce((a, b) => a + b, 0) / pcts.length,
+              highest_score:   Math.max(...pcts),
+              lowest_score:    Math.min(...pcts),
               last_attempt_at: mapped[0]?.submitted_at ?? null,
             }
           : null
@@ -222,7 +174,7 @@ export default function ResultsPage() {
     }
 
     setLoading(false)
-  }, [examId])
+  }, [examId, supabase])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -233,22 +185,22 @@ export default function ResultsPage() {
       || r.student.full_name.toLowerCase().includes(q)
       || r.student.email.toLowerCase().includes(q)
       || (r.student.student_id ?? '').toLowerCase().includes(q)
-    const matchPass    = passFilter === 'all'    || (passFilter === 'passed' ? r.passed : !r.passed)
-    const matchGrading = gradingFilter === 'all' || r.grading_status === gradingFilter
-    return matchSearch && matchPass && matchGrading
-  }), [results, search, passFilter, gradingFilter])
+    const matchPass   = passFilter   === 'all' || (passFilter   === 'passed' ? r.passed : !r.passed)
+    const matchStatus = statusFilter === 'all' || r.status === statusFilter
+    return matchSearch && matchPass && matchStatus
+  }), [results, search, passFilter, statusFilter])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
-  const passing      = results.filter(r => r.passed).length
-  const failing      = results.length - passing
-  const passRate     = results.length ? Math.round((passing / results.length) * 100) : 0
-  const needsReview  = results.filter(r => r.grading_status === 'needs_review').length
+  const passing    = results.filter(r => r.passed).length
+  const failing    = results.length - passing
+  const passRate   = results.length ? Math.round((passing / results.length) * 100) : 0
+  const released   = results.filter(r => r.status === 'released').length
+  const reviewed   = results.filter(r => r.status === 'reviewed').length
 
   const initials = (name: string) => name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
 
-  // Rank badge
   function rankBadge(rank: number) {
     if (rank === 1) return <span className={`${s.rankBadge} ${s.rankGold}`}>🥇</span>
     if (rank === 2) return <span className={`${s.rankBadge} ${s.rankSilver}`}>🥈</span>
@@ -256,29 +208,11 @@ export default function ResultsPage() {
     return <span className={`${s.rankBadge} ${s.rankDefault}`}>{rank}</span>
   }
 
-  // Grading status badge
-  function gradingBadge(status: GradingStatus, pendingCount: number) {
-    if (status === 'complete') return (
-      <span className={`${s.gradingBadge} ${s.gradingComplete}`}>
-        <CheckSquare size={11} /> Complete
-      </span>
-    )
-    if (status === 'needs_review') return (
-      <span className={`${s.gradingBadge} ${s.gradingReview}`}>
-        <MinusCircle size={11} /> {pendingCount} Pending
-      </span>
-    )
-    return (
-      <span className={`${s.gradingBadge} ${s.gradingUngraded}`}>
-        <AlertCircle size={11} /> Ungraded
-      </span>
-    )
-  }
-
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className={s.page}>
-      {/* ── Header ── */}
+
+      {/* Header */}
       <div className={s.header}>
         <Link href={`/admin/exams/${examId}`} className={s.backBtn}><ArrowLeft size={14} /> Back to Exam</Link>
         <div className={s.headerMain}>
@@ -286,7 +220,7 @@ export default function ResultsPage() {
             <div className={s.headerIcon}><BarChart2 size={20} color="#fff" /></div>
             <div>
               <h1 className={s.heading}>Results</h1>
-              <p className={s.headingSub}>Graded exam results and performance overview</p>
+              <p className={s.headingSub}>Read-only · Reviewed &amp; Released submissions</p>
             </div>
           </div>
           <div className={s.headerActions}>
@@ -311,24 +245,26 @@ export default function ResultsPage() {
         </div>
       )}
 
-      {/* ── Auto-grading notice ── */}
-      <div className={s.autoGradeNotice}>
-        <CheckCircle size={13} />
+      {/* Read-only notice */}
+      <div className={s.readOnlyNotice}>
+        <CheckSquare size={13} />
         <span>
-          <strong>Auto-grading active</strong> · Multiple Choice, True/False, and Fill-in-the-Blank are graded automatically.
-          Short Answer and Essay require manual review.
+          This page shows <strong>reviewed</strong> and <strong>released</strong> results only.
+          To grade submissions, go to the <Link href={`/admin/exams/${examId}/submissions`} className={s.readOnlyLink}>Submissions</Link> page.
         </span>
-        {needsReview > 0 && (
-          <span className={s.reviewAlert}>⚠ {needsReview} submission{needsReview !== 1 ? 's' : ''} need review</span>
+        {reviewed > 0 && (
+          <span className={s.pendingReleaseTag}>
+            ⏳ {reviewed} reviewed, not yet released
+          </span>
         )}
       </div>
 
-      {/* ── Summary Cards ── */}
+      {/* Summary Cards */}
       <div className={s.summaryGrid}>
         {[
-          { icon: Users,      color: 'blue',   value: loading ? '—' : (analytics?.total_attempts ?? results.length), label: 'Total Graded' },
-          { icon: CheckCircle,color: 'green',  value: loading ? '—' : passing,                                       label: 'Passed' },
-          { icon: XCircle,    color: 'danger', value: loading ? '—' : failing,                                       label: 'Failed' },
+          { icon: Users,       color: 'blue',   value: loading ? '—' : results.length,    label: 'Total Results' },
+          { icon: CheckCircle, color: 'green',  value: loading ? '—' : passing,           label: 'Passed' },
+          { icon: XCircle,     color: 'danger', value: loading ? '—' : failing,           label: 'Failed' },
           {
             icon: TrendingUp, color: 'amber',
             value: loading ? '—' : (analytics?.average_score != null ? `${analytics.average_score.toFixed(1)}%` : '—'),
@@ -361,16 +297,24 @@ export default function ResultsPage() {
         ))}
       </div>
 
-      {/* Last attempt note */}
-      {analytics?.last_attempt_at && (
-        <div className={s.analyticsNote}>
-          <Clock size={12} />
-          Last attempt: {fmtDate(analytics.last_attempt_at)}
-          {analytics.lowest_score != null && <> · Lowest score: {analytics.lowest_score.toFixed(1)}%</>}
+      {/* Release / Reviewed counts */}
+      <div className={s.statusPills}>
+        <div className={`${s.statusPill} ${s.statusPillReviewed}`}>
+          <CheckSquare size={12} /> {reviewed} Reviewed
         </div>
-      )}
+        <div className={`${s.statusPill} ${s.statusPillReleased}`}>
+          <Send size={12} /> {released} Released
+        </div>
+        {analytics?.last_attempt_at && (
+          <div className={s.analyticsNote}>
+            <Clock size={11} />
+            Last attempt: {fmtDate(analytics.last_attempt_at)}
+            {analytics.lowest_score != null && <> · Lowest: {analytics.lowest_score.toFixed(1)}%</>}
+          </div>
+        )}
+      </div>
 
-      {/* ── Filters ── */}
+      {/* Filters */}
       <div className={s.filterBar}>
         <div className={s.searchWrap}>
           <Search size={14} className={s.searchIcon} />
@@ -393,20 +337,17 @@ export default function ResultsPage() {
         </div>
         <div className={s.filterGroup}>
           <CheckSquare size={13} className={s.filterIcon} />
-          <select className={s.filterSelect} value={gradingFilter}
-            onChange={e => { setGradingFilter(e.target.value as GradingStatus | 'all'); setPage(1) }}>
-            <option value="all">All Grading</option>
-            <option value="complete">Complete</option>
-            <option value="needs_review">Needs Review</option>
-            <option value="ungraded">Ungraded</option>
+          <select className={s.filterSelect} value={statusFilter}
+            onChange={e => { setStatusFilter(e.target.value as ResultStatus | 'all'); setPage(1) }}>
+            <option value="all">All Status</option>
+            <option value="reviewed">Reviewed</option>
+            <option value="released">Released</option>
           </select>
         </div>
-        <p className={s.resultCount}>
-          <strong>{filtered.length}</strong> result{filtered.length !== 1 ? 's' : ''}
-        </p>
+        <p className={s.resultCount}><strong>{filtered.length}</strong> result{filtered.length !== 1 ? 's' : ''}</p>
       </div>
 
-      {/* ── Table ── */}
+      {/* Table */}
       <div className={s.tableCard}>
         <div className={s.tableWrap}>
           <table className={s.table}>
@@ -418,10 +359,9 @@ export default function ResultsPage() {
                 <th>Score</th>
                 <th>Percentage</th>
                 <th>Pass/Fail</th>
-                <th>Grading</th>
+                <th>Status</th>
                 <th>Time</th>
                 <th>Submitted</th>
-                <th>View</th>
               </tr>
             </thead>
             <tbody>
@@ -430,21 +370,24 @@ export default function ResultsPage() {
                   <tr key={i} className={s.skeletonRow}>
                     <td><div className={`${s.skeleton} ${s.skelText}`} style={{ width: 28 }} /></td>
                     <td><div className={s.skelCell}><div className={`${s.skeleton} ${s.skelAvatar}`} /><div><div className={`${s.skeleton} ${s.skelText}`} style={{ width: 130 }} /><div className={`${s.skeleton} ${s.skelText}`} style={{ width: 100, marginTop: 5 }} /></div></div></td>
-                    {[70, 55, 70, 70, 80, 50, 60, 30].map((w, j) => <td key={j}><div className={`${s.skeleton} ${s.skelText}`} style={{ width: w }} /></td>)}
+                    {[70, 55, 70, 70, 80, 60, 50].map((w, j) => <td key={j}><div className={`${s.skeleton} ${s.skelText}`} style={{ width: w }} /></td>)}
                   </tr>
                 ))
               ) : paginated.length === 0 ? (
-                <tr><td colSpan={10}>
+                <tr><td colSpan={9}>
                   <div className={s.emptyState}>
                     <div className={s.emptyIcon}><BarChart2 size={22} color="var(--text-muted)" /></div>
                     <p className={s.emptyTitle}>No results yet</p>
-                    <p className={s.emptySub}>Graded submissions will appear here once students complete the exam.</p>
+                    <p className={s.emptySub}>
+                      Grade submissions first, then release results from the{' '}
+                      <Link href={`/admin/exams/${examId}/submissions`} className={s.readOnlyLink}>Submissions</Link> page.
+                    </p>
                   </div>
                 </td></tr>
               ) : paginated.map((r, i) => {
                 const rank = (page - 1) * PAGE_SIZE + i + 1
                 return (
-                  <tr key={r.id} className={`${s.tableRow} ${r.grading_status === 'needs_review' ? s.tableRowReview : ''}`}>
+                  <tr key={r.id} className={`${s.tableRow} ${r.status === 'released' ? s.tableRowReleased : ''}`}>
                     <td>{rankBadge(rank)}</td>
                     <td>
                       <div className={s.studentCell}>
@@ -473,18 +416,13 @@ export default function ResultsPage() {
                         ? <span className={s.badgePass}><CheckCircle size={11} /> Passed</span>
                         : <span className={s.badgeFail}><XCircle size={11} /> Failed</span>}
                     </td>
-                    <td>{gradingBadge(r.grading_status, r.pending_count)}</td>
+                    <td>
+                      {r.status === 'released'
+                        ? <span className={s.statusReleased}><Send size={11} /> Released</span>
+                        : <span className={s.statusReviewed}><CheckSquare size={11} /> Reviewed</span>}
+                    </td>
                     <td><span className={s.timeCell}>{fmtTime(r.time_spent_seconds)}</span></td>
                     <td><span className={s.dateCell}>{fmtDate(r.submitted_at)}</span></td>
-                    <td>
-                      <Link
-                        href={`/admin/exams/${examId}/submissions/${r.id}`}
-                        className={s.actionView}
-                        title="View Submission"
-                      >
-                        <Eye size={13} />
-                      </Link>
-                    </td>
                   </tr>
                 )
               })}

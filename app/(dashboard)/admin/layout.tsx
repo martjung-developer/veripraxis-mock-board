@@ -8,7 +8,7 @@ import type { Metadata } from "next";
 import AdminLayoutClient from "./AdminLayoutClient";
 
 export const metadata: Metadata = {
-  title:       "VeriPraxis — Admin Panel",
+  title:       "VERIPRAXIS - Admin Panel",
   description: "Faculty & admin dashboard for managing exams, students, and programs.",
 };
 

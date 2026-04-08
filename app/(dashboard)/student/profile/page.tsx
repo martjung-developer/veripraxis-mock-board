@@ -1,3 +1,4 @@
+// app/(dashboard)/student/profile/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -34,7 +35,7 @@ import {
 import styles from "./profile.module.css";
 
 /* ══════════════════════════════════════
-   TYPES — shaped from Supabase responses
+   TYPES
 ══════════════════════════════════════ */
 interface ProfileRow {
   full_name:  string | null;
@@ -77,6 +78,7 @@ interface SubmissionRow {
   submitted_at:  string | null;
   exam_title:    string;
   category_name: string;
+  status:        string;
 }
 
 /* ══════════════════════════════════════
@@ -158,6 +160,8 @@ export default function ProfilePage() {
   const [program,     setProgram]     = useState<ProgramRow | null>(null);
   const [school,      setSchool]      = useState<SchoolRow | null>(null);
   const [submissions, setSubmissions] = useState<SubmissionRow[]>([]);
+  // Separate stats: total taken (all terminal), scores (released only)
+  const [totalTaken,  setTotalTaken]  = useState(0);
   const [loading,     setLoading]     = useState(true);
   const [imgError,    setImgError]    = useState(false);
   const [animate,     setAnimate]     = useState(false);
@@ -184,13 +188,9 @@ export default function ProfilePage() {
           .single();
 
         if (profileError) console.error("Profile fetch error:", profileError);
-
         const profileData = profileRaw as ProfileRow | null;
 
-        /* ── 3. Student ──
-           NOTE: Do NOT chain .returns<>() on .single() — the Supabase JS
-           client resolves the generic to 'never' in that combination, which
-           makes every property inaccessible. Cast the raw result instead.   */
+        /* ── 3. Student ── */
         const { data: studentRaw, error: studentError } = await supabase
           .from("students")
           .select("id, student_id, year_level, target_exam, school, program_id, school_id")
@@ -198,59 +198,61 @@ export default function ProfilePage() {
           .single();
 
         if (studentError) console.warn("No student row found:", studentError);
-
         const studentData = studentRaw as StudentRow | null;
 
         /* ── 4. Program ── */
         let programData: ProgramRow | null = null;
-
         if (studentData?.program_id != null) {
           const { data: programRaw, error: programError } = await supabase
             .from("programs")
             .select("id, name, full_name, code")
             .eq("id", studentData.program_id)
             .single();
-
-          if (programError) {
-            console.error("Program fetch error:", programError);
-          } else {
-            programData = programRaw as ProgramRow;
-          }
+          if (programError) console.error("Program fetch error:", programError);
+          else programData = programRaw as ProgramRow;
         }
 
         /* ── 5. School ── */
         let schoolData: SchoolRow | null = null;
-
         if (studentData?.school_id != null) {
           const { data: schoolRaw, error: schoolError } = await supabase
             .from("schools")
             .select("id, name")
             .eq("id", studentData.school_id)
             .single();
-
-          if (schoolError) {
-            console.error("School fetch error:", schoolError);
-          } else {
-            schoolData = schoolRaw as SchoolRow;
-          }
+          if (schoolError) console.error("School fetch error:", schoolError);
+          else schoolData = schoolRaw as SchoolRow;
         }
 
-        /* ── 6. Submissions ── */
+        /* ── 6a. Total exams taken count ────────────────────────────────────
+           Count ALL terminal submissions (submitted + graded + released).
+           This is the real "how many exams has the student attempted" number.
+           We do NOT limit this query. ── */
+        const { count: takenCount } = await supabase
+          .from("submissions")
+          .select("id", { count: "exact", head: true })
+          .eq("student_id", userId)
+          .in("status", ["submitted", "graded", "released"]);
+
+        setTotalTaken(takenCount ?? 0);
+
+        /* ── 6b. Released submissions for score stats + recent table ────────
+           Only 'released' rows have confirmed scores visible to the student.
+           Scores on 'submitted'/'graded' rows are null and must NOT be shown. ── */
         const { data: rawSubs, error: subError } = await supabase
           .from("submissions")
-          .select("percentage, passed, submitted_at, exam_id")
+          .select("percentage, passed, submitted_at, exam_id, status")
           .eq("student_id", userId)
-          .in("status", ["submitted", "graded"])
+          .eq("status", "released")   // ← released only for scores
           .order("submitted_at", { ascending: false })
           .limit(5)
-          .returns<RawSub[]>();
+          .returns<(RawSub & { status: string })[]>();
 
         if (subError) console.error("Submissions fetch error:", subError);
 
         let shapedSubmissions: SubmissionRow[] = [];
 
         if (rawSubs && rawSubs.length > 0) {
-          /* Collect unique exam IDs */
           const examIds = [
             ...new Set(rawSubs.map((s) => s.exam_id).filter(Boolean)),
           ] as string[];
@@ -266,7 +268,6 @@ export default function ProfilePage() {
             category_id: string;
           }[];
 
-          /* Collect unique category IDs */
           const categoryIds = [
             ...new Set(examsData.map((e) => e.category_id).filter(Boolean)),
           ] as string[];
@@ -281,11 +282,10 @@ export default function ProfilePage() {
             name: string;
           }[];
 
-          /* Build lookup maps */
           const examMap     = new Map(examsData.map((e) => [e.id, e]));
           const categoryMap = new Map(categoriesData.map((c) => [c.id, c]));
 
-          shapedSubmissions = rawSubs.map((s: RawSub) => {
+          shapedSubmissions = rawSubs.map((s) => {
             const exam     = examMap.get(s.exam_id ?? "");
             const category = categoryMap.get(exam?.category_id ?? "");
             return {
@@ -294,11 +294,11 @@ export default function ProfilePage() {
               submitted_at:  s.submitted_at,
               exam_title:    exam?.title    ?? "Unknown Exam",
               category_name: category?.name ?? "Uncategorised",
+              status:        s.status,
             };
           });
         }
 
-        /* ── Commit state ── */
         setProfile(profileData);
         setStudent(studentData);
         setProgram(programData);
@@ -317,8 +317,10 @@ export default function ProfilePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ── Derived stats ── */
-  const totalExams   = submissions.length;
+  /* ── Derived stats ──
+     totalTaken  = all terminal submissions (the real count)
+     scores/pass = from released submissions only (shapedSubmissions)
+  ── */
   const scores       = submissions
     .map((s) => s.percentage)
     .filter((v): v is number => v !== null);
@@ -327,8 +329,9 @@ export default function ProfilePage() {
     : null;
   const highestScore = scores.length > 0 ? Math.round(Math.max(...scores)) : null;
   const passedCount  = submissions.filter((s) => s.passed === true).length;
-  const passRate     = totalExams > 0
-    ? Math.round((passedCount / totalExams) * 100)
+  // Pass rate is based on released exams (the ones we have score data for)
+  const passRate     = submissions.length > 0
+    ? Math.round((passedCount / submissions.length) * 100)
     : null;
 
   if (loading) return <ProfileSkeleton />;
@@ -337,19 +340,20 @@ export default function ProfilePage() {
   const initials    = getInitials(profile?.full_name ?? null);
   const showAvatar  = !!profile?.avatar_url && !imgError;
 
-  /* ── Static data for render ── */
   const STAT_MINI = [
     {
       Icon: FileText,
       iconColor: "#2563eb", iconBg: "#eff6ff",
       label: "Exams Taken",
-      value: String(totalExams),
-      empty: totalExams === 0,
+      // Use the full count from the dedicated count query, not submissions.length
+      value: String(totalTaken),
+      empty: totalTaken === 0,
     },
     {
       Icon: TrendingUp,
       iconColor: "#059669", iconBg: "#f0fdf4",
       label: "Average Score",
+      // Released only — shows '—' until faculty releases at least one result
       value: averageScore !== null ? `${averageScore}%` : "—",
       empty: averageScore === null,
     },
@@ -364,6 +368,7 @@ export default function ProfilePage() {
       Icon: CheckCircle2,
       iconColor: "#dc2626", iconBg: "#fef2f2",
       label: "Pass Rate",
+      // Based on released results only
       value: passRate !== null ? `${passRate}%` : "—",
       empty: passRate === null,
     },
@@ -411,9 +416,6 @@ export default function ProfilePage() {
     },
   ];
 
-  /* ══════════════════════════════════════
-     RENDER
-  ══════════════════════════════════════ */
   return (
     <motion.div
       className={styles.page}
@@ -501,7 +503,7 @@ export default function ProfilePage() {
         </div>
       </motion.div>
 
-      {/* ── Main grid: personal info + stats ── */}
+      {/* ── Main grid ── */}
       <motion.div
         className={styles.mainGrid}
         variants={staggerContainer}
@@ -592,8 +594,8 @@ export default function ProfilePage() {
             ))}
           </motion.div>
 
-          {/* Pass-rate progress bar */}
-          {totalExams > 0 && (
+          {/* Pass-rate bar — only rendered when there are released results */}
+          {submissions.length > 0 && (
             <div className={styles.progressSection}>
               <div className={styles.progressLabel}>
                 <span className={styles.progressLabelText}>Pass Rate</span>
@@ -614,7 +616,7 @@ export default function ProfilePage() {
         </motion.div>
       </motion.div>
 
-      {/* ── Recent exams table ── */}
+      {/* ── Recent exams table (released only) ── */}
       <motion.div
         className={styles.tableCard}
         variants={fadeUp}
@@ -625,9 +627,9 @@ export default function ProfilePage() {
         <div className={styles.tableHead}>
           <span className={styles.tableHeadTitle}>
             <ClipboardList size={15} color="#1e3a5f" strokeWidth={2} />
-            Recent Exams
+            Recent Results
           </span>
-          <span className={styles.tableHeadHint}>last 5 attempts</span>
+          <span className={styles.tableHeadHint}>last 5 released exams</span>
         </div>
 
         <AnimatePresence mode="wait">
@@ -642,10 +644,10 @@ export default function ProfilePage() {
               <div className={styles.emptyIconWrap}>
                 <ClipboardList size={22} color="#94a3b8" strokeWidth={1.5} />
               </div>
-              <p className={styles.emptyTitle}>No exam records yet</p>
+              <p className={styles.emptyTitle}>No released results yet</p>
               <p className={styles.emptyText}>
                 Complete a mock or practice exam and your results will appear
-                here.
+                here once your faculty releases them.
               </p>
             </motion.div>
           ) : (
@@ -686,18 +688,13 @@ export default function ProfilePage() {
                       </td>
 
                       <td>
-                        <span
-                          style={{
-                            fontSize:   "0.75rem",
-                            color:      "#9ca3af",
-                            fontWeight: 500,
-                          }}
-                        >
+                        <span style={{ fontSize: "0.75rem", color: "#9ca3af", fontWeight: 500 }}>
                           {s.category_name}
                         </span>
                       </td>
 
                       <td>
+                        {/* Score always available here because we query released only */}
                         {s.percentage !== null ? (
                           <span
                             className={styles.scoreVal}
@@ -723,23 +720,16 @@ export default function ProfilePage() {
                         ) : (
                           <span
                             className={styles.badge}
-                            style={{
-                              background: "#f0f5fa",
-                              color:      "#64748b",
-                              border:     "1px solid #e2e8f0",
-                            }}
+                            style={{ background: "#f0f5fa", color: "#64748b", border: "1px solid #e2e8f0" }}
                           >
-                            Pending
+                            Released
                           </span>
                         )}
                       </td>
 
                       <td>
                         <span className={styles.dateVal}>
-                          <Calendar
-                            size={10}
-                            style={{ marginRight: 3, verticalAlign: "middle" }}
-                          />
+                          <Calendar size={10} style={{ marginRight: 3, verticalAlign: "middle" }} />
                           {formatDate(s.submitted_at)}
                         </span>
                       </td>

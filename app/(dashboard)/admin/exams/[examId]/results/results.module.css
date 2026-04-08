@@ -29,12 +29,14 @@
 .btnExport:disabled{opacity:.5;cursor:not-allowed}
 .errorBanner{display:flex;align-items:center;gap:8px;background:var(--danger-pale);border:1.5px solid #fca5a5;border-radius:var(--r-btn);padding:.6rem .9rem;font-size:.79rem;color:var(--danger);margin-bottom:1rem}
 
-/* ── Auto-grade notice ── */
-.autoGradeNotice{display:flex;align-items:center;gap:8px;background:var(--success-pale);border:1.5px solid #a7f3d0;border-radius:var(--r-btn);padding:.6rem 1rem;font-size:.78rem;color:var(--success);margin-bottom:1.25rem;flex-wrap:wrap}
-.reviewAlert{margin-left:auto;font-size:.74rem;font-weight:700;color:var(--warning);background:var(--warning-pale);border:1px solid #fde68a;border-radius:20px;padding:2px 10px}
+/* ── Read-only notice ── */
+.readOnlyNotice{display:flex;align-items:center;gap:8px;background:var(--primary-pale);border:1.5px solid var(--primary-tint);border-radius:var(--r-btn);padding:.6rem 1rem;font-size:.78rem;color:var(--primary);margin-bottom:1.25rem;flex-wrap:wrap}
+.readOnlyLink{color:var(--primary);font-weight:700;text-decoration:underline}
+.readOnlyLink:hover{color:var(--primary-dark)}
+.pendingReleaseTag{margin-left:auto;font-size:.73rem;font-weight:700;color:var(--warning);background:var(--warning-pale);border:1px solid #fde68a;border-radius:20px;padding:2px 10px}
 
 /* ── Summary Grid ── */
-.summaryGrid{display:grid;grid-template-columns:repeat(6,1fr);gap:.75rem;margin-bottom:1.25rem}
+.summaryGrid{display:grid;grid-template-columns:repeat(6,1fr);gap:.75rem;margin-bottom:1rem}
 .summaryCard{background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:.9rem 1rem;box-shadow:var(--shadow-card);text-align:center}
 .summaryIcon{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;margin:0 auto .5rem}
 .summaryIcon_blue  {background:var(--primary-pale);color:var(--primary);border:1px solid var(--primary-tint)}
@@ -47,8 +49,12 @@
 .progressBar{height:4px;background:var(--border);border-radius:2px;margin-top:.5rem;overflow:hidden}
 .progressFill{height:100%;background:var(--success);border-radius:2px;transition:width .6s ease}
 
-/* ── Analytics note ── */
-.analyticsNote{display:inline-flex;align-items:center;gap:6px;font-size:.73rem;color:var(--text-muted);margin-bottom:1.25rem;background:var(--surface);border:1px solid var(--border-soft);border-radius:20px;padding:.3rem .9rem}
+/* ── Status pills row ── */
+.statusPills{display:flex;align-items:center;gap:.6rem;margin-bottom:1.25rem;flex-wrap:wrap}
+.statusPill{display:inline-flex;align-items:center;gap:5px;font-size:.73rem;font-weight:700;padding:.3rem .8rem;border-radius:20px;border:1.5px solid transparent}
+.statusPillReviewed{background:var(--accent-pale);color:var(--accent);border-color:#ddd6fe}
+.statusPillReleased{background:var(--success-pale);color:var(--success);border-color:#a7f3d0}
+.analyticsNote{display:inline-flex;align-items:center;gap:5px;font-size:.71rem;color:var(--text-muted);background:var(--surface);border:1px solid var(--border-soft);border-radius:20px;padding:.25rem .8rem;margin-left:auto}
 
 /* ── Filter ── */
 .filterBar{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;margin-bottom:1.25rem}
@@ -57,7 +63,7 @@
 .searchInput{width:100%;padding:.5rem 2rem .5rem 2.1rem;border-radius:var(--r-btn);border:1.5px solid var(--border);background:var(--surface);font-family:var(--font-body);font-size:.8rem;color:var(--text);outline:none;transition:border-color .15s,box-shadow .15s;box-shadow:var(--shadow-btn);box-sizing:border-box}
 .searchInput:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-tint)}
 .searchInput::placeholder{color:var(--text-muted)}
-.searchClear{position:absolute;right:9px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);display:flex;padding:2px;border-radius:4px;transition:color .13s}
+.searchClear{position:absolute;right:9px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);display:flex;padding:2px;border-radius:4px}
 .searchClear:hover{color:var(--text)}
 .filterGroup{display:flex;align-items:center;gap:7px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-btn);padding:.35rem .75rem .35rem .6rem;box-shadow:var(--shadow-btn)}
 .filterIcon{color:var(--text-muted);flex-shrink:0}
@@ -75,8 +81,8 @@
 .table tbody tr:last-child td{border-bottom:none}
 .tableRow{transition:background .13s}
 .tableRow:hover td{background:var(--surface-soft)}
-.tableRowReview td{background:#fffbeb!important}
-.tableRowReview:hover td{background:#fef9c3!important}
+.tableRowReleased td{background:#f0fdf4}
+.tableRowReleased:hover td{background:#dcfce7}
 
 /* ── Rank ── */
 .rankBadge{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:24px;border-radius:7px;font-size:.73rem;font-weight:800;font-family:var(--font-head);padding:0 6px}
@@ -96,7 +102,7 @@
 .timeCell{font-size:.73rem;color:var(--text-muted);white-space:nowrap}
 .dateCell{font-size:.73rem;color:var(--text-muted);white-space:nowrap}
 
-/* ── Percent bar ── */
+/* ── Percent ── */
 .percentCell{display:flex;flex-direction:column;gap:3px}
 .percentValue{font-family:var(--font-head);font-size:.82rem;font-weight:800;color:var(--text)}
 .miniBar{height:4px;background:var(--border);border-radius:2px;width:80px;overflow:hidden}
@@ -108,15 +114,9 @@
 .badgePass{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:20px;font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;background:var(--success-pale);color:var(--success);border:1px solid #a7f3d0}
 .badgeFail{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:20px;font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;background:var(--danger-pale);color:var(--danger);border:1px solid #fca5a5}
 
-/* ── Grading badges ── */
-.gradingBadge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:20px;font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
-.gradingComplete {background:var(--success-pale);color:var(--success);border:1px solid #a7f3d0}
-.gradingReview   {background:var(--warning-pale);color:var(--warning);border:1px solid #fde68a}
-.gradingUngraded {background:var(--surface-tint);color:var(--text-muted);border:1px solid var(--border-soft)}
-
-/* ── View action ── */
-.actionView{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);cursor:pointer;text-decoration:none;transition:all .13s;color:var(--primary)}
-.actionView:hover{background:var(--primary-pale);border-color:var(--primary-tint)}
+/* ── Status badges ── */
+.statusReleased{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:20px;font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;background:var(--success-pale);color:var(--success);border:1px solid #a7f3d0}
+.statusReviewed{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:20px;font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;background:var(--accent-pale);color:var(--accent);border:1px solid #ddd6fe}
 
 /* ── Empty ── */
 .emptyState{display:flex;flex-direction:column;align-items:center;padding:3.5rem 1rem;text-align:center}
@@ -149,8 +149,9 @@
   .summaryGrid{grid-template-columns:repeat(2,1fr)}
   .table th:nth-child(3),.table td:nth-child(3),
   .table th:nth-child(8),.table td:nth-child(8){display:none}
-  .autoGradeNotice{flex-direction:column;align-items:flex-start}
-  .reviewAlert{margin-left:0}
+  .readOnlyNotice{flex-direction:column;align-items:flex-start}
+  .pendingReleaseTag{margin-left:0}
+  .analyticsNote{margin-left:0}
 }
 @media(max-width:480px){
   .page{padding:1rem .875rem 2.5rem}

@@ -2,6 +2,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Clock, BookOpen, GraduationCap,
   Search, ChevronLeft, ChevronRight, X,
@@ -75,7 +76,7 @@ function StatusBadge({ status }: { status: ExamStatus }) {
   )
 }
 
-function ExamCard({ exam }: { exam: MockExam }) {
+function ExamCard({ exam, onStart }: { exam: MockExam; onStart: (id: string) => void }) {
   const isAvailable = exam.status === 'available'
   return (
     <div className={`${styles.examCard} ${isAvailable ? styles.examCardAvailable : ''}`}>
@@ -85,7 +86,6 @@ function ExamCard({ exam }: { exam: MockExam }) {
           <GraduationCap size={20} strokeWidth={1.75} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.3rem' }}>
-          {/* ── Exam type badge ── */}
           <span style={{
             display: 'inline-block',
             padding: '0.18rem 0.55rem',
@@ -121,7 +121,7 @@ function ExamCard({ exam }: { exam: MockExam }) {
       )}
       <div className={styles.cardFooter}>
         {isAvailable ? (
-          <button className={styles.startBtn}>
+          <button className={styles.startBtn} onClick={() => onStart(exam.id)}>
             <PlayCircle size={15} strokeWidth={2} /> Start Exam
           </button>
         ) : (
@@ -137,6 +137,8 @@ function ExamCard({ exam }: { exam: MockExam }) {
 // ── Page ───────────────────────────────────────────────────────────────────
 
 export default function MockExamsPage() {
+  const router = useRouter()
+
   const [allExams, setAllExams] = useState<MockExam[]>([])
   const [loading,  setLoading]  = useState(true)
   const [error,    setError]    = useState<string | null>(null)
@@ -212,7 +214,7 @@ export default function MockExamsPage() {
           programs ( id, code, name )
         `)
         .eq('is_published', true)
-        .eq('exam_type', 'mock')          // ← only mock exams
+        .eq('exam_type', 'mock')
         .order('created_at', { ascending: false })
 
       if (examErr) {
@@ -344,7 +346,13 @@ export default function MockExamsPage() {
         </div>
       ) : paginated.length > 0 ? (
         <div className={styles.grid}>
-          {paginated.map(exam => <ExamCard key={exam.id} exam={exam} />)}
+          {paginated.map(exam => (
+            <ExamCard
+              key={exam.id}
+              exam={exam}
+              onStart={(id) => router.push(`/student/mock-exams/${id}`)}
+            />
+          ))}
         </div>
       ) : (
         <div className={styles.emptyState}>

@@ -1,436 +1,640 @@
-// app/(dashboard)/student/mock-exams/page.tsx
+// student/mock-exams/[examId]/page.tsx
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo, use } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Clock, BookOpen, GraduationCap,
-  Search, ChevronLeft, ChevronRight, X,
-  Lock, PlayCircle,
+  ChevronLeft, ChevronRight, Flag, SkipForward,
+  Clock, AlertTriangle, Send, XCircle, CheckCircle2,
 } from 'lucide-react'
-import styles from './mock.module.css'
 import { createClient } from '@/lib/supabase/client'
-import { EXAM_TYPE_META } from '@/lib/types/database'
+import { QuestionType, QuestionOption } from '@/lib/types/database'
+import styles from './mock.module.css'
 
-// ── Types ──────────────────────────────────────────────────────────────────
+// ── Types ──────────────────────────────────────────────────────────────────────
 
-type ExamStatus = 'available' | 'coming_soon'
-
-interface MockExam {
-  id:        string
-  title:     string
-  shortCode: string
-  category:  string
-  status:    ExamStatus
-  questions?: number
-  duration?:  string
+interface Question {
+  id:             string
+  question_text:  string
+  question_type:  QuestionType
+  points:         number
+  options:        QuestionOption[] | null
+  correct_answer: string | null
+  explanation:    string | null
+  order_number:   number | null
 }
 
-// ── Supabase raw shapes ────────────────────────────────────────────────────
-
-type CategoryShape = { id: string; name: string; icon: string | null }
-type ProgramShape  = { id: string; code: string; name: string } | null
-
-type ExamRaw = {
+interface ExamMeta {
   id:               string
   title:            string
   duration_minutes: number
-  is_published:     boolean
-  exam_type:        string | null
-  exam_categories:  CategoryShape | CategoryShape[] | null
-  programs:         ProgramShape  | ProgramShape[]  | null
+  passing_score:    number
+  total_points:     number
 }
 
-function unwrapCategory(raw: CategoryShape | CategoryShape[] | null): CategoryShape | null {
-  if (!raw) return null
-  if (Array.isArray(raw)) return raw[0] ?? null
-  return raw
+type QState = 'unanswered' | 'answered' | 'skipped' | 'flagged' | 'flagged-answered'
+
+interface AnswerMap { [qId: string]: string }
+interface StateMap  { [qId: string]: QState }
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+function parseOptions(raw: unknown): QuestionOption[] | null {
+  if (!Array.isArray(raw)) return null
+  return raw as QuestionOption[]
 }
 
-function unwrapProgram(raw: ProgramShape | ProgramShape[] | null): ProgramShape {
-  if (!raw) return null
-  if (Array.isArray(raw)) return raw[0] ?? null
-  return raw
+function formatTime(secs: number): string {
+  const m = Math.floor(secs / 60)
+  const s = secs % 60
+  return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-function formatDuration(minutes: number): string {
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  if (h === 0) return `${m} min`
-  if (m === 0) return `${h} hr${h > 1 ? 's' : ''}`
-  return `${h} hr${h > 1 ? 's' : ''} ${m} min`
+function resolveQState(qId: string, answers: AnswerMap, states: StateMap): QState {
+  if (states[qId]) return states[qId]
+  return answers[qId] ? 'answered' : 'unanswered'
 }
 
-// ── Constants ──────────────────────────────────────────────────────────────
+// ── Submitted Confirmation Screen ─────────────────────────────────────────────
+// ✅ NO score, NO percentage, NO pass/fail — just a confirmation message.
 
-const ALL_CATEGORIES = 'All Categories'
-const PAGE_SIZE = 12
-
-// ── Sub-components ─────────────────────────────────────────────────────────
-
-function StatusBadge({ status }: { status: ExamStatus }) {
+function SubmittedScreen({ examTitle, onBack }: { examTitle: string; onBack: () => void }) {
   return (
-    <span className={`${styles.badge} ${status === 'available' ? styles.badgeAvailable : styles.badgeComingSoon}`}>
-      {status === 'available' ? 'Available' : 'Coming Soon'}
-    </span>
-  )
-}
-
-// ── ExamCard now receives onStart so the parent controls navigation ────────
-function ExamCard({
-  exam,
-  onStart,
-}: {
-  exam:    MockExam
-  onStart: (id: string) => void
-}) {
-  const isAvailable = exam.status === 'available'
-
-  return (
-    <div className={`${styles.examCard} ${isAvailable ? styles.examCardAvailable : ''}`}>
-      <div className={`${styles.cardAccent} ${isAvailable ? styles.cardAccentAvailable : styles.cardAccentSoon}`} />
-
-      <div className={styles.cardTop}>
-        <div className={`${styles.cardIconWrap} ${isAvailable ? styles.cardIconAvailable : styles.cardIconSoon}`}>
-          <GraduationCap size={20} strokeWidth={1.75} />
+    <div className={styles.results}>
+      <div className={styles.resultsCard}>
+        <div
+          className={styles.resultsIconWrap}
+          style={{ background: '#dbeafe', border: '2px solid #93c5fd' }}
+        >
+          <CheckCircle2 size={28} color="#1d4ed8" />
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.3rem' }}>
-          <span style={{
-            display: 'inline-block',
-            padding: '0.18rem 0.55rem',
-            borderRadius: '20px',
-            fontSize: '0.68rem',
-            fontWeight: 700,
-            letterSpacing: '0.03em',
-            background: 'rgba(13,37,64,0.08)',
-            color: '#0d2540',
-            whiteSpace: 'nowrap',
-          }}>
-            {EXAM_TYPE_META['mock'].label}
-          </span>
-          <StatusBadge status={exam.status} />
+        <h1 className={styles.resultsTitle}>Exam Submitted!</h1>
+        <p className={styles.resultsSub}>
+          Your answers for <strong>{examTitle}</strong> have been recorded.
+        </p>
+        <div
+          style={{
+            background:   '#eff6ff',
+            border:       '1.5px solid #bfdbfe',
+            borderRadius: 10,
+            padding:      '0.9rem 1.1rem',
+            margin:       '1rem 0',
+            fontSize:     '0.84rem',
+            color:        '#1e40af',
+            lineHeight:   1.6,
+            textAlign:    'left',
+          }}
+        >
+          <strong>What happens next?</strong>
+          <br />
+          Your submission is now under faculty review. Results will be released
+          once your exam has been graded. You will be notified when your score is available.
         </div>
-      </div>
-
-      <div className={styles.cardBody}>
-        <p className={styles.shortCode}>{exam.shortCode}</p>
-        <h3 className={styles.programName}>{exam.title}</h3>
-        <span className={styles.categoryTag}>{exam.category}</span>
-      </div>
-
-      {isAvailable && (
-        <div className={styles.cardMeta}>
-          <span className={styles.metaItem}>
-            <BookOpen size={13} strokeWidth={2} />
-            {exam.questions ?? '—'} items
-          </span>
-          <span className={styles.metaItem}>
-            <Clock size={13} strokeWidth={2} />
-            {exam.duration ?? '—'}
-          </span>
-        </div>
-      )}
-
-      <div className={styles.cardFooter}>
-        {isAvailable ? (
-          <button
-            className={styles.startBtn}
-            onClick={() => onStart(exam.id)}
-          >
-            <PlayCircle size={15} strokeWidth={2} /> Start Exam
-          </button>
-        ) : (
-          <button className={styles.disabledBtn} disabled>
-            <Lock size={13} strokeWidth={2} /> Waiting for Admin Assignment
-          </button>
-        )}
+        <button className={styles.btnBack} onClick={onBack}>
+          Back to Exams
+        </button>
       </div>
     </div>
   )
 }
 
-// ── Page ───────────────────────────────────────────────────────────────────
+// ── Page ───────────────────────────────────────────────────────────────────────
 
-export default function MockExamsPage() {
-  const router = useRouter()
+export default function MockExamPage({ params }: { params: Promise<{ examId: string }> }) {
+  const router   = useRouter()
+  const supabase = useMemo(() => createClient(), [])
+  const { examId } = use(params)
 
-  const [allExams, setAllExams] = useState<MockExam[]>([])
-  const [loading,  setLoading]  = useState(true)
-  const [error,    setError]    = useState<string | null>(null)
-  const [search,   setSearch]   = useState('')
-  const [category, setCategory] = useState(ALL_CATEGORIES)
-  const [page,     setPage]     = useState(1)
+  // ── Data state ──────────────────────────────────────────────────────────────
+  const [exam,         setExam]         = useState<ExamMeta | null>(null)
+  const [questions,    setQuestions]    = useState<Question[]>([])
+  const [submissionId, setSubmissionId] = useState<string | null>(null)
+  const [loading,      setLoading]      = useState(true)
+  const [error,        setError]        = useState<string | null>(null)
+  const [submitting,   setSubmitting]   = useState(false)
 
+  // ── Exam interaction state ───────────────────────────────────────────────────
+  const [current,     setCurrent]     = useState(0)
+  const [answers,     setAnswers]     = useState<AnswerMap>({})
+  const [qStates,     setQStates]     = useState<StateMap>({})
+  const [timeLeft,    setTimeLeft]    = useState(0)
+  const [showConfirm, setShowConfirm] = useState(false)
+
+  // ✅ submitted = true shows the waiting screen, NOT a score screen
+  const [submitted,   setSubmitted]   = useState(false)
+
+  const timerRef  = useRef<ReturnType<typeof setInterval> | null>(null)
+  const startedAt = useRef<string | null>(null)
+
+  // ── Fetch & resume ───────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false
 
-    async function fetchExams() {
+    async function load() {
       setLoading(true)
       setError(null)
-      const supabase = createClient()
 
-      // ── 1. Auth ────────────────────────────────────────────────────────
-      const { data: { user }, error: authErr } = await supabase.auth.getUser()
-      if (authErr || !user) {
-        if (!cancelled) setError('You must be logged in to view exams.')
-        setLoading(false)
-        return
-      }
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { setError('Not authenticated.'); setLoading(false); return }
 
-      // ── 2. Student profile → program_id ───────────────────────────────
-      const { data: student, error: stuErr } = await supabase
-        .from('students')
-        .select('id, program_id')
-        .eq('id', user.id)
+      const { data: examRow, error: eErr } = await supabase
+        .from('exams')
+        .select('id, title, duration_minutes, passing_score, total_points')
+        .eq('id', examId)
+        .eq('is_published', true)
         .single()
 
-      if (stuErr || !student) {
-        if (!cancelled) setError('Could not load your student profile.')
-        setLoading(false)
-        return
-      }
+      if (eErr || !examRow) { setError('Exam not found or unavailable.'); setLoading(false); return }
 
-      const studentId: string        = student.id
-      const programId: string | null = student.program_id ?? null
+      const { data: qRows, error: qErr } = await supabase
+        .from('questions')
+        .select('id, question_text, question_type, points, options, correct_answer, explanation, order_number')
+        .eq('exam_id', examId)
+        .order('order_number', { ascending: true, nullsFirst: false })
 
-      // ── 3. Assigned exam IDs for this student ─────────────────────────
-      const orFilter = programId
-        ? `student_id.eq.${studentId},program_id.eq.${programId}`
-        : `student_id.eq.${studentId}`
+      if (qErr || !qRows?.length) { setError('No questions found for this exam.'); setLoading(false); return }
 
-      const { data: assignments, error: asnErr } = await supabase
-        .from('exam_assignments')
-        .select('exam_id')
-        .eq('is_active', true)
-        .or(orFilter)
-
-      if (asnErr) {
-        if (!cancelled) setError('Could not load exam assignments.')
-        setLoading(false)
-        return
-      }
-
-      const assignedIds = new Set<string>(
-        (assignments ?? [])
-          .map((a: { exam_id: string | null }) => a.exam_id)
-          .filter((id): id is string => id !== null)
-      )
-
-      // ── 4. Published MOCK exams only ──────────────────────────────────
-      const { data: examData, error: examErr } = await supabase
-        .from('exams')
-        .select(`
-          id,
-          title,
-          duration_minutes,
-          is_published,
-          exam_type,
-          exam_categories ( id, name, icon ),
-          programs ( id, code, name )
-        `)
-        .eq('is_published', true)
-        .eq('exam_type', 'mock')
+      // Resume: check for in-progress submission
+      const { data: inProg } = await supabase
+        .from('submissions')
+        .select('id, started_at')
+        .eq('exam_id', examId)
+        .eq('student_id', user.id)
+        .eq('status', 'in_progress')
         .order('created_at', { ascending: false })
+        .limit(1)
+        .single() as { data: { id: string; started_at: string } | null }
 
-      if (examErr) {
-        if (!cancelled) setError('Could not load exams.')
-        setLoading(false)
-        return
-      }
+      let subId: string
 
-      const exams = (examData ?? []) as unknown as ExamRaw[]
+      if (inProg) {
+        subId = inProg.id
+        startedAt.current = inProg.started_at
 
-      // ── 5. Question counts (batch) ─────────────────────────────────────
-      const examIds = exams.map(e => e.id)
-      const qCountMap: Record<string, number> = {}
-      if (examIds.length > 0) {
-        const { data: qRows } = await supabase
-          .from('questions')
-          .select('exam_id')
-          .in('exam_id', examIds)
-        ;(qRows ?? []).forEach((q: { exam_id: string | null }) => {
-          if (q.exam_id) qCountMap[q.exam_id] = (qCountMap[q.exam_id] ?? 0) + 1
-        })
-      }
+        const { data: savedAns } = await supabase
+          .from('answers')
+          .select('question_id, answer_text')
+          .eq('submission_id', inProg.id) as { data: { question_id: string; answer_text: string }[] | null }
 
-      // ── 6. Map → MockExam ──────────────────────────────────────────────
-      const mapped: MockExam[] = exams.map(exam => {
-        const cat  = unwrapCategory(exam.exam_categories)
-        const prog = unwrapProgram(exam.programs)
-        return {
-          id:        exam.id,
-          title:     exam.title,
-          shortCode: prog?.code ?? (cat?.name?.match(/\b([A-Z])/g)?.join('') ?? 'EXAM'),
-          category:  cat?.name ?? 'Uncategorized',
-          status:    assignedIds.has(exam.id) ? 'available' : 'coming_soon',
-          questions: qCountMap[exam.id],
-          duration:  formatDuration(exam.duration_minutes),
+        if (savedAns && !cancelled) {
+          const restoredAnswers: AnswerMap = {}
+          const restoredStates:  StateMap  = {}
+          for (const a of savedAns) {
+            if (a.question_id && a.answer_text) {
+              restoredAnswers[a.question_id] = a.answer_text
+              restoredStates[a.question_id]  = 'answered'
+            }
+          }
+          setAnswers(restoredAnswers)
+          setQStates(restoredStates)
         }
-      })
+      } else {
+        const now = new Date().toISOString()
+        startedAt.current = now
+        const { data: newSub, error: sErr } = await supabase
+          .from('submissions')
+          .insert({ exam_id: examId, student_id: user.id, started_at: now, status: 'in_progress' })
+          .select('id')
+          .single() as { data: { id: string } | null }
 
-      if (!cancelled) { setAllExams(mapped); setLoading(false) }
+        if (sErr || !newSub) { setError('Could not start exam session.'); setLoading(false); return }
+        subId = newSub.id
+      }
+
+      if (!cancelled) {
+        const qs: Question[] = (qRows ?? []).map((q: Record<string, unknown>) => ({
+          ...q,
+          question_type: q.question_type as QuestionType,
+          options: parseOptions(q.options),
+        }))
+
+        setExam(examRow as ExamMeta)
+        setQuestions(qs)
+        setSubmissionId(subId)
+
+        const total   = (examRow as ExamMeta).duration_minutes * 60
+        const elapsed = startedAt.current
+          ? Math.floor((Date.now() - new Date(startedAt.current).getTime()) / 1000)
+          : 0
+        setTimeLeft(Math.max(0, total - elapsed))
+
+        setLoading(false)
+      }
     }
 
-    fetchExams()
+    load()
     return () => { cancelled = true }
-  }, [])
+  }, [examId, supabase])
 
-  // ── Navigation handler ─────────────────────────────────────────────────
-  function handleStartExam(examId: string) {
-    router.push(`/student/exams/${examId}`)
-  }
+  // ── Timer ────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!exam || submitted || loading || timeLeft <= 0) return
 
-  // ── Derived ────────────────────────────────────────────────────────────
-  const categories = useMemo(() => {
-    const unique = Array.from(new Set(allExams.map(e => e.category))).sort()
-    return [ALL_CATEGORIES, ...unique]
-  }, [allExams])
+    timerRef.current = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current!)
+          void doSubmit()
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim()
-    return allExams.filter(e => {
-      const matchCat = category === ALL_CATEGORIES || e.category === category
-      const matchQ   = !q || e.title.toLowerCase().includes(q) || e.shortCode.toLowerCase().includes(q)
-      return matchCat && matchQ
+    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exam, submitted, loading])
+
+  // ── Auto-save answer to DB ───────────────────────────────────────────────────
+  const saveAnswer = useCallback(async (qId: string, text: string) => {
+    if (!submissionId) return
+    await supabase
+      .from('answers')
+      .upsert(
+        { submission_id: submissionId, question_id: qId, answer_text: text } as Record<string, unknown>,
+        { onConflict: 'submission_id,question_id' }
+      )
+  }, [submissionId, supabase])
+
+  // ── Handlers ─────────────────────────────────────────────────────────────────
+  const handleAnswer = useCallback((qId: string, value: string) => {
+    setAnswers((prev) => ({ ...prev, [qId]: value }))
+    setQStates((prev) => {
+      const cur     = prev[qId]
+      const flagged = cur === 'flagged' || cur === 'flagged-answered'
+      return { ...prev, [qId]: flagged ? 'flagged-answered' : 'answered' }
     })
-  }, [allExams, search, category])
+    void saveAnswer(qId, value)
+  }, [saveAnswer])
 
-  const totalPages     = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const safePage       = Math.min(page, totalPages)
-  const paginated      = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
-  const availableCount = allExams.filter(e => e.status === 'available').length
+  const handleSkip = useCallback(() => {
+    const q = questions[current]
+    if (!q) return
+    setQStates((prev) => {
+      const cur = prev[q.id]
+      if (cur === 'answered' || cur === 'flagged-answered') return prev
+      return { ...prev, [q.id]: 'skipped' }
+    })
+    if (current < questions.length - 1) setCurrent((c) => c + 1)
+  }, [current, questions])
 
-  const pageNums: (number | '…')[] = []
-  if (totalPages <= 7) {
-    for (let i = 1; i <= totalPages; i++) pageNums.push(i)
-  } else {
-    pageNums.push(1)
-    if (safePage > 3) pageNums.push('…')
-    for (let i = Math.max(2, safePage - 1); i <= Math.min(totalPages - 1, safePage + 1); i++) pageNums.push(i)
-    if (safePage < totalPages - 2) pageNums.push('…')
-    pageNums.push(totalPages)
+  const handleFlag = useCallback(() => {
+    const q = questions[current]
+    if (!q) return
+    setQStates((prev) => {
+      const cur       = prev[q.id]
+      const hasAnswer = !!answers[q.id]
+      if (cur === 'flagged')          return { ...prev, [q.id]: hasAnswer ? 'answered' : 'unanswered' }
+      if (cur === 'flagged-answered') return { ...prev, [q.id]: 'answered' }
+      if (cur === 'answered')         return { ...prev, [q.id]: 'flagged-answered' }
+      return { ...prev, [q.id]: 'flagged' }
+    })
+  }, [current, questions, answers])
+
+  // ── Submit ────────────────────────────────────────────────────────────────────
+  // ✅ MOCK EXAM RULE:
+  //    - Save all answers as-is (no grading, no is_correct, no points_earned)
+  //    - Set submission status = 'submitted' ONLY
+  //    - Do NOT compute score / percentage / passed
+  //    - Show confirmation screen, NOT results
+  const doSubmit = useCallback(async () => {
+    if (!submissionId || !exam || submitting) return
+    setSubmitting(true)
+    if (timerRef.current) clearInterval(timerRef.current)
+
+    const timeSpent = startedAt.current
+      ? Math.floor((Date.now() - new Date(startedAt.current).getTime()) / 1000)
+      : null
+
+    // Save answers — no grading logic whatsoever
+    const answerRows: {
+      submission_id: string
+      question_id:   string
+      answer_text:   string | null
+      // is_correct and points_earned intentionally omitted — set by faculty grading
+    }[] = questions.map((q) => ({
+      submission_id: submissionId,
+      question_id:   q.id,
+      answer_text:   answers[q.id] ?? null,
+    }))
+
+    await supabase
+      .from('answers')
+      .upsert(answerRows as Record<string, unknown>[], { onConflict: 'submission_id,question_id' })
+
+    // ✅ status = 'submitted' — awaiting faculty review
+    // score / percentage / passed intentionally left null
+    await supabase
+      .from('submissions')
+      .update({
+        submitted_at:       new Date().toISOString(),
+        time_spent_seconds: timeSpent,
+        status:             'submitted',
+       
+      } as Record<string, unknown>)
+      .eq('id', submissionId)
+
+    setSubmitted(true)
+    setSubmitting(false)
+  }, [submissionId, exam, answers, questions, supabase, submitting])
+
+  // ── Derived ──────────────────────────────────────────────────────────────────
+  const q             = questions[current]
+  const answeredCount = questions.filter(
+    (item) => answers[item.id] || ['answered', 'flagged-answered'].includes(qStates[item.id] ?? '')
+  ).length
+  const skippedCount    = Object.values(qStates).filter((s) => s === 'skipped').length
+  const unansweredCount = questions.length - answeredCount - skippedCount
+  const isFlagged       = q ? (qStates[q.id] === 'flagged' || qStates[q.id] === 'flagged-answered') : false
+
+  const timerCls =
+    timeLeft <= 60  ? styles.timerCrit :
+    timeLeft <= 300 ? styles.timerWarn : ''
+
+  // ── Loading / Error ──────────────────────────────────────────────────────────
+  if (loading) return <div className={styles.center}>Loading exam…</div>
+
+  if (error) {
+    return (
+      <div className={styles.center}>
+        <XCircle size={28} color="#dc2626" />
+        <span>{error}</span>
+        <button className={styles.btnCenter} onClick={() => router.back()}>Go back</button>
+      </div>
+    )
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────
+  // ── Submission Confirmed — NO scores shown ───────────────────────────────────
+  if (submitted) {
+    return (
+      <SubmittedScreen
+        examTitle={exam?.title ?? 'Mock Exam'}
+        onBack={() => router.push('/student/mock-exams')}
+      />
+    )
+  }
+
+  if (!q || !exam) return null
+
+  // ── Exam UI ──────────────────────────────────────────────────────────────────
   return (
-    <div className={styles.page}>
-      <div className={styles.header}>
-        <div>
-          <h1 className={styles.title}>Mock Exams</h1>
-          <p className={styles.subtitle}>Take board-style exams assigned by your faculty</p>
+    <div className={styles.shell}>
+
+      {/* ── Top Bar ── */}
+      <div className={styles.topBar}>
+        <div className={styles.topLeft}>
+          <span className={styles.examTitle}>{exam.title}</span>
+          <span className={styles.mockBadge}>Mock Exam</span>
         </div>
-        <span className={styles.availablePill}>
-          <span className={styles.dot} />
-          {availableCount} Available
-        </span>
+
+        <div className={styles.topCenter}>
+          <span className={styles.progressLabel}>{current + 1} / {questions.length}</span>
+          <span className={`${styles.timer} ${timerCls}`}>
+            <Clock size={13} /> {formatTime(timeLeft)}
+          </span>
+        </div>
+
+        <div className={styles.topRight}>
+          <button
+            className={styles.btnTopSubmit}
+            onClick={() => setShowConfirm(true)}
+            disabled={submitting}
+          >
+            <Send size={13} /> Submit
+          </button>
+        </div>
       </div>
 
-      <div className={styles.filterRow}>
-        <div className={styles.searchWrap}>
-          <Search size={15} strokeWidth={2.2} className={styles.searchIcon} />
-          <input
-            className={styles.searchInput}
-            type="text"
-            placeholder="Search mock exams…"
-            value={search}
-            onChange={e => { setSearch(e.target.value); setPage(1) }}
-          />
-          {search && (
-            <button className={styles.searchClear} onClick={() => setSearch('')} aria-label="Clear search">
-              <X size={13} strokeWidth={2.5} />
+      {/* ── Main ── */}
+      <div className={styles.main}>
+
+        {/* ── Sidebar ── */}
+        <div className={styles.sidebar}>
+          <div className={styles.sidebarHead}>
+            <div className={styles.sidebarHeading}>Questions</div>
+            <div className={styles.legend}>
+              {[
+                { label: 'Answered', color: '#10b981' },
+                { label: 'Skipped',  color: '#f59e0b' },
+                { label: 'Flagged',  color: '#8b5cf6' },
+                { label: 'Current',  color: '#0d2540' },
+              ].map((l) => (
+                <div key={l.label} className={styles.legendItem}>
+                  <span className={styles.legendDot} style={{ background: l.color }} />
+                  {l.label}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className={styles.palette}>
+            {questions.map((pq, idx) => {
+              const state = resolveQState(pq.id, answers, qStates)
+              const isCur = idx === current
+              return (
+                <button
+                  key={pq.id}
+                  className={`${styles.palBtn} ${
+                    isCur                           ? styles.palCurrent         :
+                    state === 'answered'             ? styles.palAnswered        :
+                    state === 'skipped'              ? styles.palSkipped         :
+                    state === 'flagged'              ? styles.palFlagged         :
+                    state === 'flagged-answered'     ? styles.palFlaggedAnswered :
+                    ''
+                  }`}
+                  onClick={() => setCurrent(idx)}
+                  title={`Question ${idx + 1}`}
+                >
+                  {idx + 1}
+                  {(state === 'flagged' || state === 'flagged-answered') && !isCur && (
+                    <span className={styles.flagPip} />
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* ── Question ── */}
+        <div className={styles.content}>
+          <div className={styles.questionCard} key={q.id}>
+
+            <div className={styles.questionMeta}>
+              <span className={styles.qNumber}>Question {current + 1} of {questions.length}</span>
+              <div className={styles.qBadges}>
+                <span className={styles.ptsBadge}>{q.points} pt{q.points !== 1 ? 's' : ''}</span>
+                <span className={styles.typeBadge}>{q.question_type.replace(/_/g, ' ')}</span>
+                <button
+                  className={`${styles.flagToggle} ${isFlagged ? styles.flagToggleActive : ''}`}
+                  onClick={handleFlag}
+                >
+                  <Flag size={12} /> {isFlagged ? 'Flagged' : 'Flag'}
+                </button>
+              </div>
+            </div>
+
+            <p className={styles.questionText}>{q.question_text}</p>
+
+            {/* MCQ */}
+            {q.question_type === 'multiple_choice' && q.options && (
+              <div className={styles.optionList}>
+                {q.options.map((opt) => (
+                  <button
+                    key={opt.label}
+                    className={`${styles.optionBtn} ${answers[q.id] === opt.label ? styles.optionSelected : ''}`}
+                    onClick={() => handleAnswer(q.id, opt.label)}
+                  >
+                    <span className={styles.optLabel}>{opt.label}</span>
+                    <span className={styles.optText}>{opt.text}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* True/False */}
+            {q.question_type === 'true_false' && (
+              <div className={styles.tfRow}>
+                {(['true', 'false'] as const).map((v) => (
+                  <button
+                    key={v}
+                    className={`${styles.tfBtn} ${answers[q.id] === v ? styles.tfSelected : ''}`}
+                    onClick={() => handleAnswer(q.id, v)}
+                  >
+                    {v === 'true' ? 'True' : 'False'}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Essay / Short Answer */}
+            {(q.question_type === 'essay' || q.question_type === 'short_answer') && (
+              <textarea
+                className={styles.textArea}
+                placeholder={q.question_type === 'essay' ? 'Write your answer here…' : 'Short answer…'}
+                value={answers[q.id] ?? ''}
+                onChange={(e) => handleAnswer(q.id, e.target.value)}
+              />
+            )}
+
+            {/* Fill in the Blank */}
+            {q.question_type === 'fill_blank' && (
+              <input
+                type="text"
+                className={styles.fillInput}
+                placeholder="Your answer…"
+                value={answers[q.id] ?? ''}
+                onChange={(e) => handleAnswer(q.id, e.target.value)}
+              />
+            )}
+
+            {/* Matching */}
+            {q.question_type === 'matching' && q.options && (
+              <div className={styles.matchList}>
+                {q.options.map((opt) => {
+                  const parsed = (() => {
+                    try { return JSON.parse(answers[q.id] ?? '{}') as Record<string, string> }
+                    catch { return {} }
+                  })()
+                  return (
+                    <div key={opt.label} className={styles.matchRow}>
+                      <div className={styles.matchLeft}>{opt.label}. {opt.text}</div>
+                      <span className={styles.matchArrow}>→</span>
+                      <input
+                        type="text"
+                        className={styles.matchInput}
+                        placeholder="Match…"
+                        value={parsed[opt.label] ?? ''}
+                        onChange={(e) => {
+                          const updated = { ...parsed, [opt.label]: e.target.value }
+                          handleAnswer(q.id, JSON.stringify(updated))
+                        }}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Nav Bar ── */}
+      <div className={styles.navBar}>
+        <div className={styles.navLeft}>
+          <button
+            className={styles.btnNav}
+            onClick={() => setCurrent((c) => Math.max(0, c - 1))}
+            disabled={current === 0}
+          >
+            <ChevronLeft size={15} /> Previous
+          </button>
+        </div>
+
+        <div className={styles.navRight}>
+          <button className={styles.btnSkip} onClick={handleSkip}>
+            <SkipForward size={14} /> Skip
+          </button>
+          {current < questions.length - 1 ? (
+            <button className={styles.btnNav} onClick={() => setCurrent((c) => c + 1)}>
+              Next <ChevronRight size={15} />
+            </button>
+          ) : (
+            <button
+              className={styles.btnSubmit}
+              onClick={() => setShowConfirm(true)}
+              disabled={submitting}
+            >
+              <Send size={14} /> {submitting ? 'Submitting…' : 'Submit Exam'}
             </button>
           )}
         </div>
-
-        <select
-          className={styles.categorySelect}
-          value={category}
-          onChange={e => { setCategory(e.target.value); setPage(1) }}
-        >
-          {categories.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-
-        <p className={styles.resultCount}>
-          <strong>{filtered.length}</strong> exam{filtered.length !== 1 ? 's' : ''} found
-        </p>
       </div>
 
-      {loading ? (
-        <div className={styles.grid}>
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className={styles.examCard} style={{ minHeight: 260 }}>
-              <div style={{ height: 4, background: '#e4ecf3', borderRadius: '13px 13px 0 0' }} />
-              <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 10, background: '#f0f4f8', animation: 'shimmer 1.4s infinite' }} />
-                  <div style={{ width: 80, height: 20, borderRadius: 99, background: '#f0f4f8', animation: 'shimmer 1.4s infinite' }} />
-                </div>
-                <div style={{ width: '40%', height: 12, borderRadius: 6, background: '#f0f4f8', animation: 'shimmer 1.4s infinite' }} />
-                <div style={{ width: '80%', height: 16, borderRadius: 6, background: '#f0f4f8', animation: 'shimmer 1.4s infinite' }} />
-                <div style={{ width: '55%', height: 12, borderRadius: 99, background: '#f0f4f8', animation: 'shimmer 1.4s infinite' }} />
+      {/* ── Confirm Modal ── */}
+      {showConfirm && (
+        <div
+          className={styles.overlay}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowConfirm(false) }}
+        >
+          <div className={styles.modal}>
+            <div
+              className={styles.modalIcon}
+              style={{ background: '#fffbeb', border: '2px solid #fde68a' }}
+            >
+              <AlertTriangle size={24} color="#d97706" />
+            </div>
+            <h2 className={styles.modalTitle}>Submit Exam?</h2>
+            <p className={styles.modalBody}>
+              Once submitted you cannot change your answers. Your exam will be reviewed by faculty before results are released.
+            </p>
+
+            <div className={styles.modalStatRow}>
+              <div className={styles.modalStat}>
+                <span className={styles.modalStatVal} style={{ color: '#059669' }}>{answeredCount}</span>
+                <span className={styles.modalStatLbl}>Answered</span>
+              </div>
+              <div className={styles.modalStat}>
+                <span className={styles.modalStatVal} style={{ color: '#d97706' }}>{skippedCount}</span>
+                <span className={styles.modalStatLbl}>Skipped</span>
+              </div>
+              <div className={styles.modalStat}>
+                <span className={styles.modalStatVal} style={{ color: '#dc2626' }}>{Math.max(0, unansweredCount)}</span>
+                <span className={styles.modalStatLbl}>Unanswered</span>
               </div>
             </div>
-          ))}
-        </div>
-      ) : error ? (
-        <div className={styles.emptyState}>
-          <p className={styles.emptyTitle}>Something went wrong</p>
-          <p className={styles.emptyText}>{error}</p>
-        </div>
-      ) : paginated.length > 0 ? (
-        <div className={styles.grid}>
-          {paginated.map(exam => (
-            <ExamCard
-              key={exam.id}
-              exam={exam}
-              onStart={handleStartExam}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className={styles.emptyState}>
-          <Search size={40} strokeWidth={1.4} color="#cbd5e1" />
-          <p className={styles.emptyTitle}>No mock exams found</p>
-          <p className={styles.emptyText}>Try adjusting your search or category filter.</p>
-          <button className={styles.emptyBtn} onClick={() => { setSearch(''); setCategory(ALL_CATEGORIES) }}>
-            Clear Filters
-          </button>
-        </div>
-      )}
 
-      {!loading && !error && totalPages > 1 && (
-        <div className={styles.pagination}>
-          <span className={styles.pageInfo}>
-            Page {safePage} of {totalPages} &nbsp;·&nbsp; {filtered.length} total
-          </span>
-          <div className={styles.pageControls}>
-            <button
-              className={styles.pageBtn}
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={safePage === 1}
-              aria-label="Previous page"
-            >
-              <ChevronLeft size={15} strokeWidth={2.5} />
-            </button>
-            {pageNums.map((n, i) =>
-              n === '…'
-                ? <span key={`e-${i}`} className={styles.pageEllipsis}>…</span>
-                : <button
-                    key={n}
-                    className={`${styles.pageNum} ${safePage === n ? styles.pageNumActive : ''}`}
-                    onClick={() => setPage(n as number)}
-                  >
-                    {n}
-                  </button>
-            )}
-            <button
-              className={styles.pageBtn}
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={safePage === totalPages}
-              aria-label="Next page"
-            >
-              <ChevronRight size={15} strokeWidth={2.5} />
-            </button>
+            <div className={styles.modalActions}>
+              <button className={styles.btnModalCancel} onClick={() => setShowConfirm(false)}>
+                Keep reviewing
+              </button>
+              <button
+                className={styles.btnModalConfirm}
+                onClick={() => { setShowConfirm(false); void doSubmit() }}
+                disabled={submitting}
+              >
+                {submitting ? 'Submitting…' : 'Submit now'}
+              </button>
+            </div>
           </div>
         </div>
       )}

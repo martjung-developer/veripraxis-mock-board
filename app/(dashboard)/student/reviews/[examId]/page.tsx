@@ -1,72 +1,80 @@
-// student/reviews/[examId]/page.tsx
-// Practice / Reviewer mode — no timer, instant feedback, retry allowed
+// student/reviews/[examId]/page.tsx - Practice Exam
+
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, use } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ChevronLeft, ChevronRight, CheckCircle2,
-  XCircle, BookOpen, RotateCcw, ArrowLeft,
+  ChevronLeft, ChevronRight,
+  CheckCircle2, XCircle, BookOpen, RotateCcw, ArrowLeft,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { Database, QuestionOption } from '@/lib/types/database'
+import { AUTO_GRADE_QUESTION_TYPES, QuestionType, QuestionOption } from '@/lib/types/database'
 import styles from './practice.module.css'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
-type QRow = Database['public']['Tables']['questions']['Row']
-type ExamRow = Database['public']['Tables']['exams']['Row']
-type PracticeRow = Database['public']['Tables']['practice_exams']['Row']
 
-interface Question extends QRow {
-  parsedOptions: QuestionOption[] | null
+interface Question {
+  id:             string
+  question_text:  string
+  question_type:  QuestionType
+  points:         number
+  options:        QuestionOption[] | null
+  correct_answer: string | null
+  explanation:    string | null
+  order_number:   number | null
 }
 
-interface FeedbackState {
-  submitted:    boolean
-  isCorrect:    boolean | null   // null = manual type (no auto-grade in practice)
+interface ExamMeta {
+  id:    string
+  title: string
+}
+
+interface FeedbackEntry {
+  submitted:     boolean
+  isCorrect:     boolean | null   // null = manual type
   correctAnswer: string | null
-  explanation:  string | null
+  explanation:   string | null
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
+
 function parseOptions(raw: unknown): QuestionOption[] | null {
   if (!Array.isArray(raw)) return null
   return raw as QuestionOption[]
 }
 
-function stripDifficultyTag(raw: string | null): string {
+function stripDiffTag(raw: string | null): string {
   if (!raw) return ''
   return raw.replace(/^\[(easy|medium|hard)\]\s*/i, '')
 }
 
-function checkAnswer(q: Question, studentAnswer: string): boolean | null {
-  if (!q.correct_answer) return null  // essay/short_answer — no auto-grade
+function grade(q: Question, answer: string): boolean | null {
+  if (!q.correct_answer) return null
   if (q.question_type === 'multiple_choice' || q.question_type === 'true_false') {
-    return studentAnswer.toLowerCase() === q.correct_answer.toLowerCase()
+    return answer.toLowerCase() === q.correct_answer.toLowerCase()
   }
   if (q.question_type === 'fill_blank') {
-    return studentAnswer.trim().toLowerCase() === q.correct_answer.trim().toLowerCase()
+    return answer.trim().toLowerCase() === q.correct_answer.trim().toLowerCase()
   }
-  return null  // matching, short_answer, essay
+  return null  // matching, short_answer, essay — no auto-grade
 }
 
 // ── Page ───────────────────────────────────────────────────────────────────────
-export default function PracticeExamPage({ params }: { params: { examId: string } }) {
+
+export default function PracticeExamPage({ params }: { params: Promise<{ examId: string }> }) {
   const router   = useRouter()
   const supabase = useMemo(() => createClient(), [])
-  const { examId } = params
+  const { examId } = use(params)
 
-  // This page supports both practice_exams (reviewers) AND exams with exam_type='practice'
-  // We detect which one based on what we find in the DB.
-
-  const [practiceExam, setPracticeExam] = useState<PracticeRow | null>(null)
-  const [questions,    setQuestions]    = useState<Question[]>([])
-  const [loading,      setLoading]      = useState(true)
-  const [error,        setError]        = useState<string | null>(null)
-
+  // ── State ────────────────────────────────────────────────────────────────────
+  const [exam,       setExam]       = useState<ExamMeta | null>(null)
+  const [questions,  setQuestions]  = useState<Question[]>([])
+  const [loading,    setLoading]    = useState(true)
+  const [error,      setError]      = useState<string | null>(null)
   const [current,    setCurrent]    = useState(0)
   const [answers,    setAnswers]    = useState<Record<string, string>>({})
-  const [feedbacks,  setFeedbacks]  = useState<Record<string, FeedbackState>>({})
+  const [feedbacks,  setFeedbacks]  = useState<Record<string, FeedbackEntry>>({})
   const [completed,  setCompleted]  = useState(false)
 
   // ── Fetch ────────────────────────────────────────────────────────────────────
@@ -77,98 +85,32 @@ export default function PracticeExamPage({ params }: { params: { examId: string 
       setLoading(true)
       setError(null)
 
-      // Try practice_exams first
-      const { data: practiceRow } = await supabase
-        .from('practice_exams')
-        .select('*')
-        .eq('id', examId)
-        .eq('is_published', true)
-        .single()
-
-      const practice = practiceRow as PracticeRow | null
-
-      if (practice && !cancelled) {
-        // Practice exam — questions live in the `questions` table linked to an exam.
-        // For practice_exams (reviewers), content is in `content` column (no questions table link).
-        // We fetch questions from exams that share the same category and are practice type.
-        // However, per schema, practice_exams don't directly link to questions.
-        // We show the reviewer content and allow navigation if any linked exam questions exist.
-        // For this implementation: fetch questions from exams with same category_id.
-        let qs: Question[] = []
-
-        if (practice.category_id) {
-          const { data: examRows } = await supabase
-            .from('exams')
-            .select('id')
-            .eq('category_id', practice.category_id)
-            .eq('is_published', true)
-            .limit(1)
-
-          const linkedExamId = (examRows as Pick<ExamRow, 'id'>[] | null)?.[0]?.id
-
-          if (linkedExamId) {
-            const { data: qRows } = await supabase
-              .from('questions')
-              .select('*')
-              .eq('exam_id', linkedExamId)
-              .order('order_number', { ascending: true, nullsFirst: false })
-
-            qs = ((qRows as QRow[] | null) ?? []).map((q) => ({ ...q, parsedOptions: parseOptions(q.options) }))
-          }
-        }
-
-        if (!cancelled) {
-          setPracticeExam(practice)
-          setQuestions(qs)
-          setLoading(false)
-        }
-        return
-      }
-
-      // Fall back: try exams table with exam_type = 'practice'
-      const { data: examRow, error: examErr } = await supabase
+      const { data: examRow, error: eErr } = await supabase
         .from('exams')
-        .select('*')
+        .select('id, title, exam_type')
         .eq('id', examId)
         .eq('is_published', true)
         .single()
 
-      const exam = examRow as ExamRow | null
-
-      if (examErr || !exam) {
-        if (!cancelled) { setError('Reviewer not found.'); setLoading(false) }
-        return
-      }
+      if (eErr || !examRow) { setError('Reviewer not found or unavailable.'); setLoading(false); return }
 
       const { data: qRows, error: qErr } = await supabase
         .from('questions')
-        .select('*')
+        .select('id, question_text, question_type, points, options, correct_answer, explanation, order_number')
         .eq('exam_id', examId)
         .order('order_number', { ascending: true, nullsFirst: false })
 
-      const questionsRows = (qRows as QRow[] | null) ?? []
-
-      if (qErr || !questionsRows.length) {
-        if (!cancelled) { setError('No questions found for this reviewer.'); setLoading(false) }
-        return
-      }
+      if (qErr || !qRows?.length) { setError('No questions found for this reviewer.'); setLoading(false); return }
 
       if (!cancelled) {
-        // Treat exam as a practice reviewer
-        setPracticeExam({
-          id:           exam.id,
-          title:        exam.title,
-          description:  exam.description,
-          category_id:  exam.category_id,
-          content:      null,
-          file_url:     null,
-          created_by:   exam.created_by,
-          is_published: exam.is_published,
-          view_count:   0,
-          created_at:   exam.created_at,
-          updated_at:   exam.updated_at,
-        })
-        setQuestions(questionsRows.map((q) => ({ ...q, parsedOptions: parseOptions(q.options) })))
+        setExam({ id: examRow.id, title: examRow.title })
+        setQuestions(
+          (qRows ?? []).map((q) => ({
+            ...q,
+            question_type: q.question_type as QuestionType,
+            options: parseOptions(q.options),
+          }))
+        )
         setLoading(false)
       }
     }
@@ -177,9 +119,10 @@ export default function PracticeExamPage({ params }: { params: { examId: string 
     return () => { cancelled = true }
   }, [examId, supabase])
 
-  // ── Answer & check ───────────────────────────────────────────────────────────
+  // ── Handlers ─────────────────────────────────────────────────────────────────
+
   const handleAnswer = useCallback((qId: string, value: string) => {
-    if (feedbacks[qId]?.submitted) return  // already checked — use retry
+    if (feedbacks[qId]?.submitted) return
     setAnswers((prev) => ({ ...prev, [qId]: value }))
   }, [feedbacks])
 
@@ -187,8 +130,7 @@ export default function PracticeExamPage({ params }: { params: { examId: string 
     const q = questions[current]
     if (!q) return
     const studentAnswer = answers[q.id] ?? ''
-    const isCorrect     = checkAnswer(q, studentAnswer)
-    const explanation   = stripDifficultyTag(q.explanation)
+    const isCorrect     = grade(q, studentAnswer)
 
     setFeedbacks((prev) => ({
       ...prev,
@@ -196,7 +138,7 @@ export default function PracticeExamPage({ params }: { params: { examId: string 
         submitted:     true,
         isCorrect,
         correctAnswer: q.correct_answer,
-        explanation:   explanation || null,
+        explanation:   stripDiffTag(q.explanation) || null,
       },
     }))
   }, [current, questions, answers])
@@ -204,17 +146,9 @@ export default function PracticeExamPage({ params }: { params: { examId: string 
   const handleRetry = useCallback(() => {
     const q = questions[current]
     if (!q) return
-    setAnswers((prev) => { const n = { ...prev }; delete n[q.id]; return n })
+    setAnswers((prev)   => { const n = { ...prev }; delete n[q.id]; return n })
     setFeedbacks((prev) => { const n = { ...prev }; delete n[q.id]; return n })
   }, [current, questions])
-
-  const handleNext = useCallback(() => {
-    if (current < questions.length - 1) {
-      setCurrent((c) => c + 1)
-    } else {
-      setCompleted(true)
-    }
-  }, [current, questions.length])
 
   const handleRestart = useCallback(() => {
     setAnswers({})
@@ -224,10 +158,11 @@ export default function PracticeExamPage({ params }: { params: { examId: string 
   }, [])
 
   // ── Derived ──────────────────────────────────────────────────────────────────
-  const q          = questions[current]
-  const feedback   = q ? feedbacks[q.id] : undefined
-  const pct        = questions.length > 0 ? ((current + 1) / questions.length) * 100 : 0
+  const q            = questions[current]
+  const fb           = q ? feedbacks[q.id] : undefined
+  const pct          = questions.length > 0 ? ((current + 1) / questions.length) * 100 : 0
   const correctCount = Object.values(feedbacks).filter((f) => f.isCorrect === true).length
+  const canCheck     = !!(answers[q?.id ?? '']?.trim()) && !fb?.submitted
 
   // ── Loading / Error ──────────────────────────────────────────────────────────
   if (loading) return <div className={styles.center}>Loading reviewer…</div>
@@ -237,54 +172,54 @@ export default function PracticeExamPage({ params }: { params: { examId: string 
       <div className={styles.center}>
         <XCircle size={28} color="#dc2626" />
         <span>{error}</span>
-        <button onClick={() => router.back()} style={{ marginTop: '0.5rem', cursor: 'pointer' }}>
-          Go back
-        </button>
+        <button className={styles.btnCenter} onClick={() => router.back()}>Go back</button>
       </div>
     )
   }
 
-  // ── Completion screen ────────────────────────────────────────────────────────
+  // ── Completion ───────────────────────────────────────────────────────────────
   if (completed) {
     const gradable = Object.values(feedbacks).filter((f) => f.isCorrect !== null).length
+    const accuracy = gradable > 0 ? Math.round((correctCount / gradable) * 100) : null
     return (
       <div className={styles.completion}>
         <div className={styles.completionCard}>
           <div className={styles.completionIcon}>
-            <BookOpen size={28} color="#8b5cf6" />
+            <BookOpen size={28} color="#059669" />
           </div>
           <h1 className={styles.completionTitle}>Review Complete!</h1>
           <p className={styles.completionSub}>
-            You&apos;ve gone through all {questions.length} question{questions.length !== 1 ? 's' : ''} in this reviewer.
+            You've finished all {questions.length} question{questions.length !== 1 ? 's' : ''}.
           </p>
-          <div className={styles.completionStats}>
-            <div className={styles.completionStatBox}>
-              <span className={styles.completionStatValue}>{questions.length}</span>
-              <span className={styles.completionStatLabel}>Questions</span>
+
+          <div className={styles.completionGrid}>
+            <div className={styles.completionGridItem}>
+              <span className={styles.completionGridVal}>{questions.length}</span>
+              <span className={styles.completionGridLbl}>Questions</span>
             </div>
-            <div className={styles.completionStatBox}>
-              <span className={styles.completionStatValue} style={{ color: '#059669' }}>{correctCount}</span>
-              <span className={styles.completionStatLabel}>Correct</span>
+            <div className={styles.completionGridItem}>
+              <span className={styles.completionGridVal} style={{ color: '#059669' }}>{correctCount}</span>
+              <span className={styles.completionGridLbl}>Correct</span>
             </div>
-            <div className={styles.completionStatBox}>
-              <span className={styles.completionStatValue} style={{ color: '#dc2626' }}>
+            <div className={styles.completionGridItem}>
+              <span className={styles.completionGridVal} style={{ color: '#dc2626' }}>
                 {gradable - correctCount}
               </span>
-              <span className={styles.completionStatLabel}>Wrong</span>
+              <span className={styles.completionGridLbl}>Wrong</span>
             </div>
-            <div className={styles.completionStatBox}>
-              <span className={styles.completionStatValue}>
-                {gradable > 0 ? Math.round((correctCount / gradable) * 100) : '—'}
-                {gradable > 0 ? '%' : ''}
+            <div className={styles.completionGridItem}>
+              <span className={styles.completionGridVal}>
+                {accuracy !== null ? `${accuracy}%` : '—'}
               </span>
-              <span className={styles.completionStatLabel}>Accuracy</span>
+              <span className={styles.completionGridLbl}>Accuracy</span>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button className={styles.btnCompletionRetry} onClick={handleRestart}>
+
+          <div className={styles.completionActions}>
+            <button className={styles.btnRetryAll} onClick={handleRestart}>
               <RotateCcw size={14} /> Try again
             </button>
-            <button className={styles.btnCompletionBack} onClick={() => router.push('/student/reviews')}>
+            <button className={styles.btnBackList} onClick={() => router.push('/student/reviews')}>
               <ArrowLeft size={14} /> Back to Reviewers
             </button>
           </div>
@@ -293,22 +228,20 @@ export default function PracticeExamPage({ params }: { params: { examId: string 
     )
   }
 
-  if (!q || !practiceExam) return null
+  if (!q || !exam) return null
 
-  const canCheck = (answers[q.id] ?? '').trim().length > 0 && !feedback?.submitted
-
-  // ── Main Exam UI ─────────────────────────────────────────────────────────────
+  // ── Practice UI ──────────────────────────────────────────────────────────────
   return (
     <div className={styles.shell}>
 
       {/* ── Top Bar ── */}
       <div className={styles.topBar}>
-        <div className={styles.topBarLeft}>
-          <span className={styles.examTitle}>{practiceExam.title}</span>
-          <span className={styles.practiceTag}>Practice</span>
+        <div className={styles.topLeft}>
+          <span className={styles.examTitle}>{exam.title}</span>
+          <span className={styles.practiceBadge}>Practice</span>
         </div>
-        <div className={styles.topBarRight}>
-          <span className={styles.progressInfo}>{current + 1} / {questions.length}</span>
+        <div className={styles.topRight}>
+          <span className={styles.progressLabel}>{current + 1} / {questions.length}</span>
           <div className={styles.progressBarWrap}>
             <div className={styles.progressBarFill} style={{ width: `${pct}%` }} />
           </div>
@@ -321,13 +254,13 @@ export default function PracticeExamPage({ params }: { params: { examId: string 
         {/* ── Sidebar ── */}
         <div className={styles.sidebar}>
           <div className={styles.sidebarHead}>
-            <div className={styles.sidebarTitle}>Questions</div>
-            <div className={styles.sidebarLegend}>
+            <div className={styles.sidebarHeading}>Questions</div>
+            <div className={styles.legend}>
               {[
-                { label: 'Correct',   color: '#10b981' },
-                { label: 'Wrong',     color: '#ef4444' },
-                { label: 'Answered',  color: '#8b5cf6' },
-                { label: 'Current',   color: '#7c3aed' },
+                { label: 'Correct', color: '#10b981' },
+                { label: 'Wrong',   color: '#ef4444' },
+                { label: 'Checked', color: '#8b5cf6' },
+                { label: 'Current', color: '#0d2540' },
               ].map((l) => (
                 <div key={l.label} className={styles.legendItem}>
                   <span className={styles.legendDot} style={{ background: l.color }} />
@@ -339,19 +272,18 @@ export default function PracticeExamPage({ params }: { params: { examId: string 
 
           <div className={styles.palette}>
             {questions.map((pq, idx) => {
-              const fb    = feedbacks[pq.id]
+              const pfb   = feedbacks[pq.id]
               const isCur = idx === current
-              const cls =
-                isCur                    ? styles.paletteBtnCurrent   :
-                fb?.isCorrect === true   ? styles.paletteBtnCorrect   :
-                fb?.isCorrect === false  ? styles.paletteBtnIncorrect :
-                fb?.submitted            ? styles.paletteBtnAnswered  :
-                answers[pq.id]           ? styles.paletteBtnAnswered  :
+              const cls   =
+                isCur                    ? styles.palCurrent :
+                pfb?.isCorrect === true  ? styles.palCorrect :
+                pfb?.isCorrect === false ? styles.palWrong   :
+                pfb?.submitted           ? styles.palChecked :
                 ''
               return (
                 <button
                   key={pq.id}
-                  className={`${styles.paletteBtn} ${cls}`}
+                  className={`${styles.palBtn} ${cls}`}
                   onClick={() => setCurrent(idx)}
                   title={`Question ${idx + 1}`}
                 >
@@ -363,49 +295,45 @@ export default function PracticeExamPage({ params }: { params: { examId: string 
         </div>
 
         {/* ── Question ── */}
-        <div className={styles.questionArea}>
+        <div className={styles.content}>
           <div className={styles.questionCard} key={q.id}>
+
             <div className={styles.questionMeta}>
-              <span className={styles.questionNumber}>Question {current + 1} of {questions.length}</span>
-              <div className={styles.questionBadges}>
-                <span className={styles.pointsBadge}>{q.points} pt{q.points !== 1 ? 's' : ''}</span>
+              <span className={styles.qNumber}>Question {current + 1} of {questions.length}</span>
+              <div className={styles.qBadges}>
+                <span className={styles.ptsBadge}>{q.points} pt{q.points !== 1 ? 's' : ''}</span>
                 <span className={styles.typeBadge}>{q.question_type.replace(/_/g, ' ')}</span>
               </div>
             </div>
 
             <p className={styles.questionText}>{q.question_text}</p>
 
-            {/* ── MCQ ── */}
-            {q.question_type === 'multiple_choice' && q.parsedOptions && (
-              <div className={styles.optionsList}>
-                {q.parsedOptions.map((opt) => {
-                  const isSelected = answers[q.id] === opt.label
-                  const isSubmitted = feedback?.submitted
-                  const isCorrectOpt = feedback?.correctAnswer === opt.label
-                  const isWrongOpt   = isSelected && feedback?.isCorrect === false
-
+            {/* MCQ */}
+            {q.question_type === 'multiple_choice' && q.options && (
+              <div className={styles.optionList}>
+                {q.options.map((opt) => {
+                  const isSel      = answers[q.id] === opt.label
+                  const isChecked  = fb?.submitted
+                  const isCorrectO = fb?.correctAnswer === opt.label
+                  const isWrongO   = isSel && fb?.isCorrect === false
                   return (
                     <button
                       key={opt.label}
                       className={`${styles.optionBtn}
-                        ${isSelected && !isSubmitted ? styles.optionBtnSelected : ''}
-                        ${isSubmitted && isCorrectOpt ? styles.optionBtnCorrect  : ''}
-                        ${isSubmitted && isWrongOpt   ? styles.optionBtnWrong    : ''}
-                        ${isSubmitted               ? styles.optionBtnSubmitted : ''}
+                        ${isSel && !isChecked     ? styles.optionSelected : ''}
+                        ${isChecked && isCorrectO ? styles.optionCorrect  : ''}
+                        ${isChecked && isWrongO   ? styles.optionWrong    : ''}
+                        ${isChecked               ? styles.optLocked      : ''}
                       `}
-                      onClick={() => !isSubmitted && handleAnswer(q.id, opt.label)}
+                      onClick={() => !isChecked && handleAnswer(q.id, opt.label)}
                     >
-                      <span className={styles.optionLabel}>{opt.label}</span>
-                      <span className={styles.optionText}>{opt.text}</span>
-                      {isSubmitted && isCorrectOpt && (
-                        <span className={styles.optionResultIcon}>
-                          <CheckCircle2 size={16} color="#059669" />
-                        </span>
+                      <span className={styles.optLabel}>{opt.label}</span>
+                      <span className={styles.optText}>{opt.text}</span>
+                      {isChecked && isCorrectO && (
+                        <span className={styles.optIcon}><CheckCircle2 size={16} color="#059669" /></span>
                       )}
-                      {isSubmitted && isWrongOpt && (
-                        <span className={styles.optionResultIcon}>
-                          <XCircle size={16} color="#dc2626" />
-                        </span>
+                      {isChecked && isWrongO && (
+                        <span className={styles.optIcon}><XCircle size={16} color="#dc2626" /></span>
                       )}
                     </button>
                   )
@@ -413,86 +341,75 @@ export default function PracticeExamPage({ params }: { params: { examId: string 
               </div>
             )}
 
-            {/* ── True / False ── */}
+            {/* True/False */}
             {q.question_type === 'true_false' && (
               <div className={styles.tfRow}>
-                {['true', 'false'].map((v) => {
-                  const isSelected  = answers[q.id] === v
-                  const isSubmitted = feedback?.submitted
-                  const isCorrectV  = feedback?.correctAnswer === v
-                  const isWrongV    = isSelected && feedback?.isCorrect === false
-
+                {(['true', 'false'] as const).map((v) => {
+                  const isSel     = answers[q.id] === v
+                  const isChecked = fb?.submitted
+                  const isCorr    = fb?.correctAnswer === v
+                  const isWrong   = isSel && fb?.isCorrect === false
                   return (
                     <button
                       key={v}
                       className={`${styles.tfBtn}
-                        ${isSelected && !isSubmitted ? styles.tfBtnSelected  : ''}
-                        ${isSubmitted && isCorrectV  ? styles.tfBtnCorrect   : ''}
-                        ${isSubmitted && isWrongV    ? styles.tfBtnWrong     : ''}
-                        ${isSubmitted               ? styles.tfBtnSubmitted : ''}
+                        ${isSel && !isChecked ? styles.tfSelected : ''}
+                        ${isChecked && isCorr  ? styles.tfCorrect  : ''}
+                        ${isChecked && isWrong ? styles.tfWrong    : ''}
+                        ${isChecked            ? styles.tfLocked   : ''}
                       `}
-                      onClick={() => !isSubmitted && handleAnswer(q.id, v)}
+                      onClick={() => !isChecked && handleAnswer(q.id, v)}
                     >
-                      {v.charAt(0).toUpperCase() + v.slice(1)}
+                      {v === 'true' ? 'True' : 'False'}
                     </button>
                   )
                 })}
               </div>
             )}
 
-            {/* ── Essay / Short Answer ── */}
+            {/* Essay / Short Answer */}
             {(q.question_type === 'essay' || q.question_type === 'short_answer') && (
               <textarea
-                className={styles.textAnswer}
+                className={styles.textArea}
                 placeholder={q.question_type === 'essay' ? 'Write your answer here…' : 'Short answer…'}
                 value={answers[q.id] ?? ''}
                 onChange={(e) => handleAnswer(q.id, e.target.value)}
-                disabled={feedback?.submitted}
+                disabled={fb?.submitted}
               />
             )}
 
-            {/* ── Fill in the blank ── */}
+            {/* Fill in the Blank */}
             {q.question_type === 'fill_blank' && (
               <input
-                className={styles.fillBlankInput}
                 type="text"
+                className={styles.fillInput}
                 placeholder="Your answer…"
                 value={answers[q.id] ?? ''}
                 onChange={(e) => handleAnswer(q.id, e.target.value)}
-                disabled={feedback?.submitted}
+                disabled={fb?.submitted}
               />
             )}
 
-            {/* ── Matching ── */}
-            {q.question_type === 'matching' && q.parsedOptions && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {q.parsedOptions.map((opt) => {
-                  const currentMatchings = (() => {
+            {/* Matching */}
+            {q.question_type === 'matching' && q.options && (
+              <div className={styles.matchList}>
+                {q.options.map((opt) => {
+                  const parsed = (() => {
                     try { return JSON.parse(answers[q.id] ?? '{}') as Record<string, string> }
-                    catch { return {} as Record<string, string> }
+                    catch { return {} }
                   })()
                   return (
-                    <div key={opt.label} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <div style={{
-                        padding: '0.5rem 0.8rem', background: '#f0f3f8', borderRadius: 7,
-                        fontSize: '0.82rem', fontWeight: 600, color: '#0d1523', flex: 1
-                      }}>
-                        {opt.label}. {opt.text}
-                      </div>
-                      <span style={{ color: '#8a9ab5' }}>→</span>
+                    <div key={opt.label} className={styles.matchRow}>
+                      <div className={styles.matchLeft}>{opt.label}. {opt.text}</div>
+                      <span className={styles.matchArrow}>→</span>
                       <input
-                        style={{
-                          padding: '0.48rem 0.75rem', border: '1.5px solid #e4e9f0',
-                          borderRadius: 7, fontFamily: 'DM Sans, sans-serif',
-                          fontSize: '0.8rem', color: '#0d1523', outline: 'none',
-                          background: feedback?.submitted ? '#f0f3f8' : '#fff',
-                        }}
                         type="text"
+                        className={styles.matchInput}
                         placeholder="Match…"
-                        value={currentMatchings[opt.label] ?? ''}
-                        disabled={feedback?.submitted}
+                        value={parsed[opt.label] ?? ''}
+                        disabled={fb?.submitted}
                         onChange={(e) => {
-                          const updated = { ...currentMatchings, [opt.label]: e.target.value }
+                          const updated = { ...parsed, [opt.label]: e.target.value }
                           handleAnswer(q.id, JSON.stringify(updated))
                         }}
                       />
@@ -502,10 +419,14 @@ export default function PracticeExamPage({ params }: { params: { examId: string 
               </div>
             )}
 
-            {/* ── Action buttons ── */}
-            <div className={styles.answerActions}>
-              {!feedback?.submitted ? (
-                <button className={styles.btnCheck} onClick={handleCheck} disabled={!canCheck}>
+            {/* Action bar */}
+            <div className={styles.answerBar}>
+              {!fb?.submitted ? (
+                <button
+                  className={styles.btnCheck}
+                  onClick={handleCheck}
+                  disabled={!canCheck}
+                >
                   <CheckCircle2 size={14} /> Check Answer
                 </button>
               ) : (
@@ -515,42 +436,33 @@ export default function PracticeExamPage({ params }: { params: { examId: string 
               )}
             </div>
 
-            {/* ── Feedback ── */}
-            {feedback?.submitted && (
+            {/* Feedback */}
+            {fb?.submitted && (
               <div
-                className={`${styles.feedbackBox} ${
-                  feedback.isCorrect === true  ? styles.feedbackBoxCorrect :
-                  feedback.isCorrect === false ? styles.feedbackBoxWrong   :
-                  styles.feedbackBoxCorrect    // null = manual, show neutral green
+                className={`${styles.feedback} ${
+                  fb.isCorrect === true  ? styles.feedbackCorrect  :
+                  fb.isCorrect === false ? styles.feedbackWrong    :
+                  styles.feedbackNeutral
                 }`}
               >
-                <div className={styles.feedbackHeader}>
-                  {feedback.isCorrect === true && (
-                    <>
-                      <CheckCircle2 size={16} color="#059669" />
-                      <span className={styles.feedbackCorrectText}>Correct!</span>
-                    </>
-                  )}
-                  {feedback.isCorrect === false && (
-                    <>
-                      <XCircle size={16} color="#dc2626" />
-                      <span className={styles.feedbackWrongText}>Incorrect</span>
-                    </>
-                  )}
-                  {feedback.isCorrect === null && (
-                    <>
-                      <BookOpen size={16} color="#059669" />
-                      <span className={styles.feedbackCorrectText}>Answer recorded — requires manual review</span>
-                    </>
-                  )}
+                <div className={`${styles.feedbackHeader} ${
+                  fb.isCorrect === true  ? styles.feedbackHeaderCorrect  :
+                  fb.isCorrect === false ? styles.feedbackHeaderWrong    :
+                  styles.feedbackHeaderNeutral
+                }`}>
+                  {fb.isCorrect === true  && <><CheckCircle2 size={15} /> Correct!</>}
+                  {fb.isCorrect === false && <><XCircle      size={15} /> Incorrect</>}
+                  {fb.isCorrect === null  && <><BookOpen     size={15} /> Recorded — requires manual review</>}
                 </div>
-                {feedback.isCorrect === false && feedback.correctAnswer && (
+
+                {fb.isCorrect === false && fb.correctAnswer && (
                   <p className={styles.feedbackAnswer}>
-                    Correct answer: <span>{feedback.correctAnswer}</span>
+                    Correct answer: <strong>{fb.correctAnswer}</strong>
                   </p>
                 )}
-                {feedback.explanation && (
-                  <p className={styles.feedbackExplanation}>{feedback.explanation}</p>
+
+                {fb.explanation && (
+                  <p className={styles.feedbackExplanation}>{fb.explanation}</p>
                 )}
               </div>
             )}
@@ -569,9 +481,13 @@ export default function PracticeExamPage({ params }: { params: { examId: string 
             <ChevronLeft size={15} /> Previous
           </button>
         </div>
+
         <div className={styles.navRight}>
           {current < questions.length - 1 ? (
-            <button className={styles.btnNav} onClick={handleNext}>
+            <button
+              className={styles.btnNav}
+              onClick={() => setCurrent((c) => c + 1)}
+            >
               Next <ChevronRight size={15} />
             </button>
           ) : (

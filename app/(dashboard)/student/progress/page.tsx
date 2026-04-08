@@ -39,31 +39,35 @@ function buildAnimatedCounters(averageScore: number, passRate: number) {
 // ── Types ─────────────────────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
 
-type FilterRange       = '7d' | '30d' | 'all'
-type SubmissionStatus  = 'submitted' | 'graded' | 'in_progress' | 'draft'
+type FilterRange = '7d' | '30d' | 'all'
+
+// All possible submission statuses stored in the DB
+type SubmissionStatus = 'in_progress' | 'submitted' | 'graded' | 'released'
 
 interface RecentExamItem {
   id:          string
   title:       string
   category:    string | null
   submittedAt: string | null
-  score:       number | null
-  passed:      boolean | null
+  score:       number | null   // only populated for 'released' status
+  passed:      boolean | null  // only populated for 'released' status
+  status:      SubmissionStatus
 }
 
 interface TimelinePoint  { date: string; score: number }
 interface CategoryAvg    { label: string; score: number }
 
 interface ProgressMetrics {
-  examsTaken:          number
-  averageScore:        number
-  highestScore:        number
+  examsTaken:          number  // all terminal submissions (submitted+graded+released)
+  averageScore:        number  // from released only
+  highestScore:        number  // from released only
   highestScoreTitle:   string
-  passRate:            number
-  studyStreakDays:     number
-  totalStudyHours:     number
-  totalPassed:         number
-  totalFailed:         number
+  passRate:            number  // from released only
+  studyStreakDays:     number  // from all submitted_at dates
+  totalStudyHours:     number  // from all time_spent_seconds
+  totalPassed:         number  // from released
+  totalFailed:         number  // from released
+  pendingCount:        number  // submitted + graded (not yet released)
   scoreTimeline:       TimelinePoint[]
   categoryAverages:    CategoryAvg[]
   recentItems:         RecentExamItem[]
@@ -88,11 +92,12 @@ interface RawExam     { id: string; title: string; category_id: string | null }
 interface RawCategory { id: string; name:  string }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ── Pure helpers (inlined from lib/student/progress/progress.ts) ──────────────
+// ── Pure helpers ──────────────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
 
 function computeStreak(submissions: RawSubmission[]): number {
   if (!submissions.length) return 0
+  // Use submitted_at or created_at to track active days
   const daySet = new Set<string>()
   for (const s of submissions) daySet.add((s.submitted_at ?? s.created_at).slice(0, 10))
   const days   = Array.from(daySet).sort().reverse()
@@ -107,8 +112,9 @@ function computeStreak(submissions: RawSubmission[]): number {
 }
 
 function buildTimeline(submissions: RawSubmission[]): TimelinePoint[] {
+  // Only plot points for released submissions (score is confirmed)
   return submissions
-    .filter((s) => s.percentage !== null && s.submitted_at !== null)
+    .filter((s) => s.status === 'released' && s.percentage !== null && s.submitted_at !== null)
     .sort((a, b) => new Date(a.submitted_at!).getTime() - new Date(b.submitted_at!).getTime())
     .map((s) => ({ date: s.submitted_at!.slice(0, 10), score: Math.round(s.percentage!) }))
 }
@@ -118,8 +124,9 @@ function buildCategoryAverages(
   examCategoryMap: Map<string, string>,
 ): CategoryAvg[] {
   const buckets = new Map<string, number[]>()
+  // Only use released scores for category averages
   for (const s of submissions) {
-    if (!s.exam_id || s.percentage === null) continue
+    if (!s.exam_id || s.percentage === null || s.status !== 'released') continue
     const cat    = examCategoryMap.get(s.exam_id) ?? 'Other'
     const bucket = buckets.get(cat) ?? []
     bucket.push(s.percentage)
@@ -142,7 +149,7 @@ function sliceTimeline(timeline: TimelinePoint[], range: FilterRange): TimelineP
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ── Achievement definitions (driven by live metrics) ──────────────────────────
+// ── Achievement definitions ────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
 
 function buildAchievements(m: ProgressMetrics) {
@@ -289,12 +296,43 @@ function SkeletonCard() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ── Status Badge ───────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+
+function StatusBadge({ status, passed }: { status: SubmissionStatus; passed: boolean | null }) {
+  if (status === 'in_progress') {
+    return (
+      <span className={styles.badge} style={{ background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd' }}>
+        In Progress
+      </span>
+    )
+  }
+  if (status === 'submitted') {
+    return (
+      <span className={styles.badge} style={{ background: '#fffbeb', color: '#92400e', border: '1px solid #fde68a' }}>
+        Submitted
+      </span>
+    )
+  }
+  if (status === 'graded') {
+    return (
+      <span className={styles.badge} style={{ background: '#f5f3ff', color: '#5b21b6', border: '1px solid #ddd6fe' }}>
+        Under Review
+      </span>
+    )
+  }
+  // released — show pass/fail
+  if (passed === true)  return <span className={`${styles.badge} ${styles.badgePassed}`}>Passed</span>
+  if (passed === false) return <span className={`${styles.badge} ${styles.badgeFailed}`}>Failed</span>
+  return <span className={`${styles.badge}`} style={{ background: '#f0f5fa', color: '#64748b', border: '1px solid #e2e8f0' }}>Released</span>
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // ── Constants ──────────────────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
 
 const BAR_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4']
 
-// Static donut — distribution is not stored in DB so we use a sensible default
 const STUDY_DIST: DonutSlice[] = [
   { label: 'Mock Exams',      pct: 50, color: '#3b82f6' },
   { label: 'Practice Exams',  pct: 30, color: '#f59e0b' },
@@ -318,22 +356,27 @@ export default function ProgressPage() {
   const fetchData = useCallback(async () => {
     setLoading(true); setError(null)
 
-    // 1. Auth
     const { data: { user }, error: authErr } = await supabase.auth.getUser()
     if (authErr || !user) { setError('Not authenticated.'); setLoading(false); return }
 
-    // 2. Student record
     const { data: studentRow, error: stuErr } = await supabase
       .from('students').select('id').eq('id', user.id).single()
     if (stuErr || !studentRow) { setError('Student record not found.'); setLoading(false); return }
     const studentId: string = (studentRow as { id: string }).id
 
-    // 3. Submissions (submitted + graded only)
+    // ── Fetch ALL submissions across ALL statuses ──────────────────────────
+    // in_progress : student started but hasn't submitted yet
+    // submitted   : student submitted; awaiting faculty review
+    // graded      : faculty graded internally (not yet released)
+    // released    : faculty released; student can see score
+    //
+    // We fetch all so the progress page gives a full picture of activity.
+    // Scores (percentage, passed) are only shown for 'released' items.
     const { data: subRows, error: subErr } = await supabase
       .from('submissions')
       .select('id, exam_id, submitted_at, time_spent_seconds, status, percentage, passed, created_at')
       .eq('student_id', studentId)
-      .in('status', ['submitted', 'graded'] as SubmissionStatus[])
+      .in('status', ['in_progress', 'submitted', 'graded', 'released'] as SubmissionStatus[])
       .order('submitted_at', { ascending: false })
 
     if (subErr) { setError('Could not load your submissions.'); setLoading(false); return }
@@ -347,6 +390,7 @@ export default function ProgressPage() {
         examsTaken: 0, averageScore: 0, highestScore: 0,
         highestScoreTitle: '—', passRate: 0, studyStreakDays: 0,
         totalStudyHours: 0, totalPassed: 0, totalFailed: 0,
+        pendingCount: 0,
         scoreTimeline: [], categoryAverages: [], recentItems: [],
         hasData: false, ...ctrs,
       })
@@ -381,17 +425,25 @@ export default function ProgressPage() {
       )
     }
 
-    // 5. Compute metrics
-    const withScore  = submissions.filter((s) => s.percentage !== null)
-    const passedSubs = submissions.filter((s) => s.passed === true)
-    const failedSubs = submissions.filter((s) => s.passed === false)
+    // ── Compute metrics ────────────────────────────────────────────────────
+    // "examsTaken" = any terminal action (exclude in_progress)
+    const terminalSubs = submissions.filter((s) => s.status !== 'in_progress')
+
+    // Released submissions are the only ones with confirmed scores
+    const releasedSubs = submissions.filter((s) => s.status === 'released')
+    const withScore    = releasedSubs.filter((s) => s.percentage !== null)
+    const passedSubs   = releasedSubs.filter((s) => s.passed === true)
+    const failedSubs   = releasedSubs.filter((s) => s.passed === false)
+
+    // Pending = submitted + graded (not yet visible to student)
+    const pendingCount = submissions.filter((s) => s.status === 'submitted' || s.status === 'graded').length
 
     const averageScore = withScore.length
       ? withScore.reduce((sum, s) => sum + s.percentage!, 0) / withScore.length : 0
     const highestScore = withScore.length
       ? Math.max(...withScore.map((s) => s.percentage!)) : 0
-    const passRate     = submissions.length
-      ? (passedSubs.length / submissions.length) * 100 : 0
+    const passRate     = releasedSubs.length
+      ? (passedSubs.length / releasedSubs.length) * 100 : 0
 
     const highestSub = withScore.reduce<RawSubmission | null>(
       (best, s) => (!best || s.percentage! > best.percentage! ? s : best), null
@@ -399,33 +451,43 @@ export default function ProgressPage() {
     const highestScoreTitle = highestSub?.exam_id
       ? (examMap.get(highestSub.exam_id)?.title ?? '—') : '—'
 
+    // Total study time across ALL submissions (time spent is always recorded)
     const totalStudySecs = submissions.reduce((sum, s) => sum + (s.time_spent_seconds ?? 0), 0)
 
-    // 6. Recent items
-    const recentItems: RecentExamItem[] = submissions.slice(0, 5).map((s) => {
+    // Streak: use all submission dates regardless of status
+    const streakSource = submissions.filter(
+      (s) => s.status !== 'in_progress' && (s.submitted_at ?? s.created_at)
+    )
+
+    // Recent items — last 5 terminal submissions
+    const recentItems: RecentExamItem[] = terminalSubs.slice(0, 5).map((s) => {
       const exam = s.exam_id ? examMap.get(s.exam_id) : undefined
+      const isReleased = s.status === 'released'
       return {
         id:          s.id,
         title:       exam?.title ?? 'Unknown Exam',
         category:    exam?.category_id ? (categoryNameMap.get(exam.category_id) ?? null) : null,
         submittedAt: s.submitted_at,
-        score:       s.percentage !== null ? Math.round(s.percentage) : null,
-        passed:      s.passed,
+        // Only expose score when released
+        score:       isReleased && s.percentage !== null ? Math.round(s.percentage) : null,
+        passed:      isReleased ? s.passed : null,
+        status:      s.status,
       }
     })
 
     const ctrs = buildAnimatedCounters(averageScore, passRate)
 
     setMetrics({
-      examsTaken:          submissions.length,
+      examsTaken:          terminalSubs.length,
       averageScore:        Math.round(averageScore * 10) / 10,
       highestScore:        Math.round(highestScore * 10) / 10,
       highestScoreTitle,
       passRate:            Math.round(passRate * 10) / 10,
-      studyStreakDays:     computeStreak(submissions),
+      studyStreakDays:     computeStreak(streakSource),
       totalStudyHours:     Math.round((totalStudySecs / 3600) * 10) / 10,
       totalPassed:         passedSubs.length,
       totalFailed:         failedSubs.length,
+      pendingCount,
       scoreTimeline:       buildTimeline(submissions),
       categoryAverages:    buildCategoryAverages(submissions, examCategoryMap),
       recentItems,
@@ -448,7 +510,6 @@ export default function ProgressPage() {
   const earnedCount = achievements.filter((a) => a.earned).length
   const isEmpty     = !loading && metrics && !metrics.hasData
 
-  // Stat card config — all values come from live metrics
   const statCards = useMemo(() => {
     if (!metrics) return []
     return [
@@ -461,14 +522,14 @@ export default function ProgressPage() {
       },
       {
         Icon: TrendingUp,   iconColor: '#10b981', iconBg: '#f0fdf4',
-        label: 'Average Score', value: `${metrics.averageScore}%`,
-        trend: metrics.averageScore >= 75 ? 'Good' : 'Needs work',
-        trendPositive: metrics.averageScore >= 75,
-        sub: 'across all exams',
+        label: 'Average Score', value: metrics.averageScore > 0 ? `${metrics.averageScore}%` : '—',
+        trend: metrics.averageScore >= 75 ? 'Good' : metrics.averageScore > 0 ? 'Needs work' : 'No releases yet',
+        trendPositive: metrics.averageScore >= 75 ? true : metrics.averageScore > 0 ? false : null,
+        sub: 'released exams only',
       },
       {
         Icon: Trophy,       iconColor: '#f59e0b', iconBg: '#fffbeb',
-        label: 'Highest Score', value: `${metrics.highestScore}%`,
+        label: 'Highest Score', value: metrics.highestScore > 0 ? `${metrics.highestScore}%` : '—',
         trend: '—', trendPositive: null as boolean | null,
         sub: metrics.highestScoreTitle,
       },
@@ -488,9 +549,9 @@ export default function ProgressPage() {
       },
       {
         Icon: CheckCircle2, iconColor: '#10b981', iconBg: '#f0fdf4',
-        label: 'Pass Rate',     value: `${metrics.passRate}%`,
-        trend: metrics.passRate >= 70 ? 'Great' : metrics.passRate >= 50 ? 'Fair' : 'Low',
-        trendPositive: metrics.passRate >= 70 ? true : metrics.passRate >= 50 ? null : false,
+        label: 'Pass Rate',     value: metrics.passRate > 0 ? `${metrics.passRate}%` : '—',
+        trend: metrics.passRate >= 70 ? 'Great' : metrics.passRate >= 50 ? 'Fair' : metrics.passRate > 0 ? 'Low' : 'Pending',
+        trendPositive: metrics.passRate >= 70 ? true : metrics.passRate >= 50 ? null : metrics.passRate > 0 ? false : null,
         sub: `${metrics.totalPassed} of ${metrics.examsTaken} passed`,
       },
     ]
@@ -544,6 +605,20 @@ export default function ProgressPage() {
         </div>
       )}
 
+      {/* ── Pending notice ── */}
+      {!loading && metrics && metrics.pendingCount > 0 && (
+        <div style={{
+          background: '#fffbeb', border: '1.5px solid #fde68a',
+          borderRadius: 10, padding: '0.8rem 1rem', marginBottom: '0.5rem',
+          display: 'flex', alignItems: 'center', gap: '0.6rem',
+        }}>
+          <Clock size={15} color="#d97706" style={{ flexShrink: 0 }} />
+          <p style={{ fontSize: '0.82rem', color: '#92400e', margin: 0 }}>
+            <strong>{metrics.pendingCount}</strong> submission{metrics.pendingCount > 1 ? 's' : ''} pending faculty review — scores will appear once released.
+          </p>
+        </div>
+      )}
+
       {/* ── Empty state ── */}
       {isEmpty && (
         <div className={styles.emptyState}>
@@ -585,7 +660,7 @@ export default function ProgressPage() {
           <div className={styles.card}>
             <div className={styles.cardHead}>
               <span className={styles.cardTitle}>Performance Over Time</span>
-              <span className={styles.cardHint}>score %</span>
+              <span className={styles.cardHint}>score % (released exams)</span>
             </div>
             <div className={styles.lineWrap}>
               {loading
@@ -667,6 +742,7 @@ export default function ProgressPage() {
                               {item.category && <p className={styles.examCategory}>{item.category}</p>}
                             </td>
                             <td>
+                              {/* Score only shown for released submissions */}
                               {item.score !== null
                                 ? <span className={styles.scoreVal} style={{ color: item.score >= 75 ? '#10b981' : '#ef4444' }}>
                                     {item.score}<span className={styles.scoreTotal}>/100</span>
@@ -674,11 +750,7 @@ export default function ProgressPage() {
                                 : <span className={styles.scoreTotal}>—</span>}
                             </td>
                             <td>
-                              {item.passed === null
-                                ? <span className={`${styles.badge} ${styles.trendNeutral}`}>—</span>
-                                : item.passed
-                                  ? <span className={`${styles.badge} ${styles.badgePassed}`}>Passed</span>
-                                  : <span className={`${styles.badge} ${styles.badgeFailed}`}>Failed</span>}
+                              <StatusBadge status={item.status} passed={item.passed} />
                             </td>
                             <td>
                               <span className={styles.examDate}>

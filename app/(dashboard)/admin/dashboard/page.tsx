@@ -1,4 +1,4 @@
-// app/(dashboard)/faculty/dashboard/page.tsx
+// app/(dashboard)/admin/dashboard/page.tsx
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -20,10 +20,12 @@ interface FacultyStats {
   assignedStudents:   number;
   publishedExams:     number;
   practiceExams:      number;
-  pendingGrading:     number;
-  passRate:           number | null;
-  avgScore:           number | null;
-  totalSubmissions:   number;
+  pendingGrading:     number;   // status = 'submitted' — awaiting faculty action
+  gradedNotReleased:  number;   // status = 'graded' — graded but not yet released
+  releasedCount:      number;   // status = 'released' — published to students
+  passRate:           number | null;   // from released only
+  avgScore:           number | null;   // from released only
+  totalSubmissions:   number;          // all terminal statuses
 }
 
 interface PendingSubmission {
@@ -83,12 +85,7 @@ function scoreColor(pct: number | null): string {
    Sub-components
 ───────────────────────────────────────────── */
 function Skeleton({ w = "100%", h = 13 }: { w?: string; h?: number }) {
-  return (
-    <div
-      className={styles.skeleton}
-      style={{ width: w, height: h }}
-    />
-  );
+  return <div className={styles.skeleton} style={{ width: w, height: h }} />;
 }
 
 function Badge({ passed }: { passed: boolean | null }) {
@@ -103,17 +100,18 @@ function Badge({ passed }: { passed: boolean | null }) {
 export default function FacultyDashboardPage() {
   const supabase = createClient();
 
-  const [facultyName,   setFacultyName]   = useState<string | null>(null);
-  const [facultyId,     setFacultyId]     = useState<string | null>(null);
-  const [stats,         setStats]         = useState<FacultyStats>({
+  const [facultyName,    setFacultyName]    = useState<string | null>(null);
+  const [facultyId,      setFacultyId]      = useState<string | null>(null);
+  const [stats,          setStats]          = useState<FacultyStats>({
     assignedStudents: 0, publishedExams: 0, practiceExams: 0,
-    pendingGrading: 0, passRate: null, avgScore: null, totalSubmissions: 0,
+    pendingGrading: 0, gradedNotReleased: 0, releasedCount: 0,
+    passRate: null, avgScore: null, totalSubmissions: 0,
   });
-  const [pendingSubs,   setPendingSubs]   = useState<PendingSubmission[]>([]);
-  const [recentActivity,setRecentActivity]= useState<RecentActivity[]>([]);
+  const [pendingSubs,    setPendingSubs]    = useState<PendingSubmission[]>([]);
+  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [examsNeedingKey,setExamsNeedingKey] = useState<ExamNeedingKey[]>([]);
-  const [loading,       setLoading]       = useState(true);
-  const [mounted,       setMounted]       = useState(false);
+  const [loading,        setLoading]        = useState(true);
+  const [mounted,        setMounted]        = useState(false);
 
   const fetchDashboard = useCallback(async (fid: string) => {
     /* ── 1. Exams created by this faculty ── */
@@ -122,10 +120,10 @@ export default function FacultyDashboardPage() {
       .select("id, title, is_published, total_points")
       .eq("created_by", fid);
 
-    const myExamIds = (myExams ?? []).map((e: { id: string; title: string; is_published: boolean; total_points: number }) => e.id);
+    const myExamIds      = (myExams ?? []).map((e: { id: string; title: string; is_published: boolean; total_points: number }) => e.id);
     const publishedCount = (myExams ?? []).filter((e: { id: string; title: string; is_published: boolean; total_points: number }) => e.is_published).length;
 
-    /* ── 2. Practice exams by this faculty ── */
+    /* ── 2. Practice exams ── */
     const { count: practiceCount } = await supabase
       .from("practice_exams")
       .select("id", { count: "exact", head: true })
@@ -133,41 +131,56 @@ export default function FacultyDashboardPage() {
       .eq("is_published", true);
 
     /* ── 3. Submissions for faculty's exams ── */
-    let pendingGrading = 0;
+    let pendingGrading    = 0;
+    let gradedNotReleased = 0;
+    let releasedCount     = 0;
     let passRate: number | null = null;
     let avgScore: number | null = null;
-    let totalSubmissions = 0;
+    let totalSubmissions  = 0;
     let rawPending: PendingSubmission[] = [];
 
     if (myExamIds.length > 0) {
+      // Fetch ALL terminal submissions (submitted + graded + released)
       const { data: allSubs } = await supabase
         .from("submissions")
         .select("id, student_id, exam_id, status, percentage, passed, submitted_at")
         .in("exam_id", myExamIds)
-        .in("status", ["submitted", "graded"])
+        .in("status", ["submitted", "graded", "released"])
         .order("submitted_at", { ascending: false });
 
-      const subs = (allSubs ?? []) as Array<{ id: string; student_id: string | null; exam_id: string | null; status: string; percentage: number | null; passed: boolean | null; submitted_at: string | null }>;
-      totalSubmissions = subs.length;
-      pendingGrading   = subs.filter((s: typeof subs[0]) => s.status === "submitted").length;
+      const subs = (allSubs ?? []) as Array<{
+        id: string; student_id: string | null; exam_id: string | null;
+        status: string; percentage: number | null; passed: boolean | null; submitted_at: string | null;
+      }>;
 
-      const scores = subs.map((s: typeof subs[0]) => s.percentage).filter((v): v is number => v !== null);
-      const passed = subs.filter((s: typeof subs[0]) => s.passed === true).length;
-      if (subs.length > 0) passRate = Math.round((passed / subs.length) * 100);
+      totalSubmissions  = subs.length;
+      // submitted = student submitted, needs faculty grading/review
+      pendingGrading    = subs.filter((s) => s.status === "submitted").length;
+      // graded = faculty graded but hasn't released to students yet
+      gradedNotReleased = subs.filter((s) => s.status === "graded").length;
+      // released = faculty published score to student
+      releasedCount     = subs.filter((s) => s.status === "released").length;
+
+      // Pass rate and avg score computed from RELEASED submissions only
+      // (those are the ones with confirmed, published scores)
+      const releasedSubs = subs.filter((s) => s.status === "released");
+      const scores = releasedSubs.map((s) => s.percentage).filter((v): v is number => v !== null);
+      const passed = releasedSubs.filter((s) => s.passed === true).length;
+      if (releasedSubs.length > 0) passRate = Math.round((passed / releasedSubs.length) * 100);
       if (scores.length > 0) avgScore = Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length);
 
-      /* pending grading — latest 5 "submitted" (not yet graded) */
-      const pending5 = subs.filter((s: typeof subs[0]) => s.status === "submitted").slice(0, 5);
+      /* Pending grading table — latest 5 with status 'submitted' */
+      const pending5 = subs.filter((s) => s.status === "submitted").slice(0, 5);
       if (pending5.length > 0) {
-        const studentIds = [...new Set(pending5.map((s: typeof subs[0]) => s.student_id).filter(Boolean))] as string[];
-        const examIds    = [...new Set(pending5.map((s: typeof subs[0]) => s.exam_id).filter(Boolean))]    as string[];
+        const studentIds = [...new Set(pending5.map((s) => s.student_id).filter(Boolean))] as string[];
+        const examIds    = [...new Set(pending5.map((s) => s.exam_id).filter(Boolean))]    as string[];
         const [profRes, examRes] = await Promise.all([
           supabase.from("profiles").select("id, full_name").in("id", studentIds),
           supabase.from("exams").select("id, title").in("id", examIds),
         ]);
         const profMap = new Map((profRes.data ?? []).map((p: { id: string; full_name: string | null }) => [p.id, p.full_name ?? "Unknown"]));
         const examMap = new Map((examRes.data ?? []).map((e: { id: string; title: string }) => [e.id, e.title]));
-        rawPending = pending5.map((r: typeof subs[0]) => ({
+        rawPending = pending5.map((r) => ({
           id:           r.id,
           student_name: profMap.get(r.student_id ?? "") ?? "Unknown",
           exam_title:   examMap.get(r.exam_id    ?? "") ?? "Unknown Exam",
@@ -180,7 +193,7 @@ export default function FacultyDashboardPage() {
     }
     setPendingSubs(rawPending);
 
-    /* ── 4. Exams missing answer keys (no questions with correct_answer) ── */
+    /* ── 4. Exams missing answer keys ── */
     let examsNeedingKeys: ExamNeedingKey[] = [];
     if (myExamIds.length > 0) {
       const { data: qRows } = await supabase
@@ -209,13 +222,14 @@ export default function FacultyDashboardPage() {
     }
     setExamsNeedingKey(examsNeedingKeys);
 
-    /* ── 5. Assigned students (students who have taken faculty's exams) ── */
+    /* ── 5. Unique students who submitted to faculty's exams ── */
     let assignedStudents = 0;
     if (myExamIds.length > 0) {
       const { count } = await supabase
         .from("submissions")
         .select("student_id", { count: "exact", head: true })
-        .in("exam_id", myExamIds);
+        .in("exam_id", myExamIds)
+        .in("status", ["submitted", "graded", "released"]);
       assignedStudents = count ?? 0;
     }
 
@@ -238,6 +252,8 @@ export default function FacultyDashboardPage() {
       publishedExams:   publishedCount,
       practiceExams:    practiceCount ?? 0,
       pendingGrading,
+      gradedNotReleased,
+      releasedCount,
       passRate,
       avgScore,
       totalSubmissions,
@@ -264,40 +280,40 @@ export default function FacultyDashboardPage() {
   const STAT_CARDS = [
     {
       Icon: UserCheck,    bg: "#eff6ff", color: "#2563eb",
-      label: "Students Reached",  value: String(stats.assignedStudents),
-      sub: "submitted your exams", href: "/admin/students",
+      label: "Students Reached",     value: String(stats.assignedStudents),
+      sub: "submitted your exams",   href: "/admin/students",
       empty: stats.assignedStudents === 0,
     },
     {
       Icon: ClipboardList, bg: "#f0fdf4", color: "#059669",
-      label: "Mock Exams",         value: String(stats.publishedExams),
-      sub: "published",            href: "/admin/exams",
+      label: "Mock Exams",           value: String(stats.publishedExams),
+      sub: "published",              href: "/admin/exams",
       empty: stats.publishedExams === 0,
     },
     {
       Icon: BookOpen,      bg: "#fffbeb", color: "#d97706",
-      label: "Practice Exams",     value: String(stats.practiceExams),
-      sub: "published",            href: "/admin/practice-exams",
+      label: "Practice Exams",       value: String(stats.practiceExams),
+      sub: "published",              href: "/admin/practice-exams",
       empty: stats.practiceExams === 0,
     },
     {
       Icon: PenLine,       bg: "#fef2f2", color: "#dc2626",
-      label: "Pending Grading",    value: String(stats.pendingGrading),
-      sub: "awaiting your review", href: "/admin/grading",
+      label: "Pending Grading",      value: String(stats.pendingGrading),
+      sub: "awaiting your review",   href: "/admin/grading",
       empty: stats.pendingGrading === 0,
       urgent: stats.pendingGrading > 0,
     },
     {
       Icon: BarChart2,     bg: "#f5f3ff", color: "#7c3aed",
-      label: "Avg Score",          value: stats.avgScore !== null ? `${stats.avgScore}%` : "—",
-      sub: "across all submissions",href: "/admin/analytics",
+      label: "Avg Score",            value: stats.avgScore !== null ? `${stats.avgScore}%` : "—",
+      sub: "released exams only",    href: "/admin/analytics",
       empty: stats.avgScore === null,
     },
     {
       Icon: Award,         bg: "#ecfeff", color: "#0891b2",
-      label: "Pass Rate",          value: stats.passRate !== null ? `${stats.passRate}%` : "—",
+      label: "Released Results",     value: String(stats.releasedCount),
       sub: `${stats.totalSubmissions} total submissions`, href: "/admin/analytics",
-      empty: stats.passRate === null,
+      empty: stats.releasedCount === 0,
     },
   ];
 
@@ -310,9 +326,6 @@ export default function FacultyDashboardPage() {
     { Icon: FileText,     bg: "#ecfeff", color: "#0891b2", label: "Add Practice Exam", sub: "Upload practice exam",  href: "/admin/exams/create"  },
   ];
 
-  /* ════════════════════════════════════════════
-     RENDER
-  ════════════════════════════════════════════ */
   return (
     <div className={styles.page}>
 
@@ -344,6 +357,19 @@ export default function FacultyDashboardPage() {
           </span>
           <Link href="/admin/exams" className={styles.urgentLink}>
             Grade now <ChevronRight size={13} />
+          </Link>
+        </div>
+      )}
+
+      {/* ── Graded but not yet released notice ── */}
+      {!loading && stats.gradedNotReleased > 0 && (
+        <div className={styles.urgent} style={{ background: '#f5f3ff', borderColor: '#ddd6fe' }}>
+          <Clock size={16} style={{ color: '#7c3aed', flexShrink: 0 }} />
+          <span className={styles.urgentText} style={{ color: '#5b21b6' }}>
+            <strong>{stats.gradedNotReleased} submission{stats.gradedNotReleased > 1 ? "s" : ""}</strong> graded but not yet released to students.
+          </span>
+          <Link href="/admin/exams" className={styles.urgentLink} style={{ color: '#7c3aed' }}>
+            Release now <ChevronRight size={13} />
           </Link>
         </div>
       )}
@@ -403,10 +429,9 @@ export default function FacultyDashboardPage() {
         ))}
       </div>
 
-      {/* ── Row 1: Pending grading table + Quick actions ── */}
+      {/* ── Row 1: Pending grading + Quick actions ── */}
       <div className={styles.row}>
 
-        {/* Pending submissions */}
         <div className={styles.card}>
           <div className={styles.cardHead}>
             <span className={styles.cardTitle}>
@@ -464,7 +489,6 @@ export default function FacultyDashboardPage() {
           )}
         </div>
 
-        {/* Quick actions */}
         <div className={styles.card}>
           <div className={styles.cardHead}>
             <span className={styles.cardTitle}>
@@ -488,10 +512,9 @@ export default function FacultyDashboardPage() {
         </div>
       </div>
 
-      {/* ── Row 2: Exams missing answer keys + Recent activity + Overview ── */}
+      {/* ── Row 2: Answer keys + Recent activity + Overview ── */}
       <div className={styles.row}>
 
-        {/* Answer keys needed */}
         <div className={styles.card}>
           <div className={styles.cardHead}>
             <span className={styles.cardTitle}>
@@ -528,12 +551,7 @@ export default function FacultyDashboardPage() {
             ))
           )}
 
-          {/* Upload questions CTA */}
-          <div style={{
-            marginTop: "1rem", paddingTop: "1rem",
-            borderTop: "1px solid var(--c-border-soft)",
-            display: "flex", gap: "0.65rem",
-          }}>
+          <div style={{ marginTop: "1rem", paddingTop: "1rem", borderTop: "1px solid var(--c-border-soft)", display: "flex", gap: "0.65rem" }}>
             <Link href="/admin/questionnaires" className={styles.btnPrimary} style={{ flex: 1, justifyContent: "center", fontSize: "0.76rem" }}>
               <Upload size={12} /> Upload Question Bank
             </Link>
@@ -543,10 +561,8 @@ export default function FacultyDashboardPage() {
           </div>
         </div>
 
-        {/* Recent activity + platform overview stacked */}
         <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
 
-          {/* Recent activity */}
           <div className={styles.card}>
             <div className={styles.cardHead}>
               <span className={styles.cardTitle}>
@@ -589,7 +605,6 @@ export default function FacultyDashboardPage() {
             )}
           </div>
 
-          {/* Performance overview */}
           <div className={styles.card}>
             <div className={styles.cardHead}>
               <span className={styles.cardTitle}>
@@ -598,9 +613,9 @@ export default function FacultyDashboardPage() {
               </span>
             </div>
             {[
-              { label: "Pass Rate",       pct: stats.passRate ?? 0,   fillClass: styles.progGreen },
-              { label: "Avg Score",       pct: stats.avgScore ?? 0,   fillClass: styles.progBlue  },
-              { label: "Exams Published", pct: stats.publishedExams > 0 ? Math.min(stats.publishedExams * 10, 100) : 0, fillClass: styles.progAmber },
+              { label: "Pass Rate",        pct: stats.passRate ?? 0,    fillClass: styles.progGreen, sub: "released exams" },
+              { label: "Avg Score",        pct: stats.avgScore ?? 0,    fillClass: styles.progBlue,  sub: "released exams" },
+              { label: "Released Results", pct: stats.totalSubmissions > 0 ? Math.min(Math.round((stats.releasedCount / stats.totalSubmissions) * 100), 100) : 0, fillClass: styles.progAmber, sub: `${stats.releasedCount} of ${stats.totalSubmissions}` },
             ].map((p) => (
               <div key={p.label} className={styles.progItem}>
                 <div className={styles.progTop}>
@@ -616,7 +631,6 @@ export default function FacultyDashboardPage() {
               </div>
             ))}
 
-            {/* Nav links */}
             <div style={{ marginTop: "1rem", display: "flex", gap: "0.6rem" }}>
               {[
                 { label: "Programs",  Icon: GraduationCap, color: "#ec4899", href: "/admin/programs"  },

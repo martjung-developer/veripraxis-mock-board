@@ -76,7 +76,6 @@ function StatusBadge({ status }: { status: ExamStatus }) {
   )
 }
 
-// ── ReviewCard now receives onStart so the parent controls navigation ─
 function ReviewCard({
   item,
   onStart,
