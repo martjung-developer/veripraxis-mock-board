@@ -1,549 +1,593 @@
 // app/(dashboard)/admin/students/[id]/page.tsx
-"use client";
+'use client'
 
-import { useEffect, useState, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
+import { use, useState, useEffect, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
-  ArrowLeft, User, Mail, GraduationCap, BookOpen,
-  Bell, ClipboardList, BarChart2, Pencil, Send,
-  PlusCircle, Loader2, AlertTriangle, Clock,
-  CheckCircle2, XCircle, FileText, Trophy,
-  ChevronRight, Calendar,
-} from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
-import styles from "./id.module.css";
+  ArrowLeft, Pencil, Bell, BookOpen,
+  FileText, Clock, CheckCircle2,
+  ClipboardList, Send, AlertCircle,
+} from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { useUser }      from '@/lib/context/AuthContext'
+import styles           from './student-detail.module.css'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
-type StudentDetail = {
-  id:          string;
-  full_name:   string | null;
-  email:       string;
-  avatar_url:  string | null;
-  created_at:  string;
-  role:        string;
-  student_id:  string | null;
-  year_level:  number | null;
-  target_exam: string | null;
-  program_name: string | null;
-  school_name:  string | null;
-  program_id:   string | null;
-};
 
-type ExamAssignment = {
-  id:          string;
-  assigned_at: string;
-  deadline:    string | null;
-  is_active:   boolean;
-  exam_title:  string | null;
-  exam_id:     string | null;
-};
+interface StudentProfile {
+  id:           string
+  full_name:    string | null
+  email:        string
+  avatar_url:   string | null
+  student_id:   string | null
+  year_level:   number | null
+  program_id:   string | null
+  program_code: string | null
+  program_name: string | null
+  school:       string | null
+  target_exam:  string | null
+  created_at:   string
+}
 
-type Submission = {
-  id:           string;
-  exam_title:   string | null;
-  exam_id:      string | null;
-  submitted_at: string | null;
-  score:        number | null;
-  percentage:   number | null;
-  passed:       boolean | null;
-  status:       string;
-};
+interface AssignedExam {
+  id:          string
+  exam_id:     string
+  exam_title:  string
+  exam_type:   string
+  is_active:   boolean
+  assigned_at: string
+  deadline:    string | null
+}
 
-type Notification = {
-  id:         string;
-  title:      string | null;
-  message:    string | null;
-  type:       string | null;
-  is_read:    boolean;
-  created_at: string;
-};
+interface Submission {
+  id:           string
+  exam_title:   string
+  exam_type:    string
+  status:       string
+  percentage:   number | null
+  passed:       boolean | null
+  submitted_at: string | null
+}
 
-function getInitials(name: string | null, email: string) {
+interface Notification {
+  id:         string
+  title:      string | null
+  message:    string | null
+  type:       string | null
+  is_read:    boolean
+  created_at: string
+}
+
+type ActiveTab = 'exams' | 'submissions' | 'notifications'
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+function getInitials(name: string | null, email: string): string {
   if (name) {
-    const p = name.trim().split(" ");
-    return p.length >= 2
-      ? (p[0][0] + p[p.length - 1][0]).toUpperCase()
-      : p[0].slice(0, 2).toUpperCase();
+    const parts = name.trim().split(' ')
+    return parts.length >= 2
+      ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+      : parts[0].slice(0, 2).toUpperCase()
   }
-  return email.slice(0, 2).toUpperCase();
+  return email.slice(0, 2).toUpperCase()
 }
 
-function formatDate(iso: string | null) {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-PH", {
-    month: "short", day: "numeric", year: "numeric",
-  });
+function formatDate(iso: string | null): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+  })
 }
 
-function formatDateTime(iso: string | null) {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleString("en-PH", {
-    month: "short", day: "numeric", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
+function yearLabel(n: number | null): string {
+  if (!n) return '—'
+  const suffix = ['st', 'nd', 'rd'][n - 1] ?? 'th'
+  return `${n}${suffix} Year`
 }
 
-// ── Stat Mini Card ─────────────────────────────────────────────────────────────
-function StatMini({ icon, label, value, color }: {
-  icon: React.ReactNode;
-  label: string;
-  value: string | number;
-  color: string;
+// ── Page ───────────────────────────────────────────────────────────────────────
+
+export default function StudentDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>   // ← unwrap with React.use()
 }) {
-  return (
-    <div className={styles.statMini}>
-      <div className={styles.statMiniIcon} style={{ background: color + "18", color }}>
-        {icon}
-      </div>
-      <div>
-        <div className={styles.statMiniValue}>{value}</div>
-        <div className={styles.statMiniLabel}>{label}</div>
-      </div>
-    </div>
-  );
-}
+  const { id: studentId } = use(params)
 
-// ── Main Page ──────────────────────────────────────────────────────────────────
-export default function StudentDetailPage() {
-  const params  = useParams();
-  const router  = useRouter();
-  const id      = params.id as string;
-  const supabase = createClient();
+  const router   = useRouter()
+  const supabase = useMemo(() => createClient(), [])
+  const { user, loading: authLoading } = useUser()
 
-  const [student,       setStudent]       = useState<StudentDetail | null>(null);
-  const [assignments,   setAssignments]   = useState<ExamAssignment[]>([]);
-  const [submissions,   setSubmissions]   = useState<Submission[]>([]);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading,       setLoading]       = useState(true);
-  const [error,         setError]         = useState("");
-  const [activeTab,     setActiveTab]     = useState<"exams" | "submissions" | "notifications">("exams");
+  const [profile,       setProfile]       = useState<StudentProfile | null>(null)
+  const [assignedExams, setAssignedExams] = useState<AssignedExam[]>([])
+  const [submissions,   setSubmissions]   = useState<Submission[]>([])
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [loading,       setLoading]       = useState(true)
+  const [error,         setError]         = useState<string | null>(null)
+  const [activeTab,     setActiveTab]     = useState<ActiveTab>('exams')
 
-  // ── Fetch all data ─────────────────────────────────────────────────────────
-  const fetchAll = useCallback(async () => {
-    setLoading(true);
-    setError("");
+  // Notify modal
+  const [notifyOpen,    setNotifyOpen]    = useState(false)
+  const [notifyTitle,   setNotifyTitle]   = useState('')
+  const [notifyMsg,     setNotifyMsg]     = useState('')
+  const [notifyType,    setNotifyType]    = useState('info')
+  const [notifySending, setNotifySending] = useState(false)
 
-    // Profile + student row
-    const { data: prof, error: profErr } = await supabase
-      .from("profiles")
-      .select(`
-        id, full_name, email, avatar_url, created_at, role,
-        students(
-          student_id, year_level, target_exam, program_id,
-          programs(name),
-          schools(name)
-        )
-      `)
-      .eq("id", id)
-      .single();
+  // ── Auth guard ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (authLoading) return
+    if (!user) router.replace('/login')
+  }, [authLoading, user, router])
 
-    if (profErr || !prof) {
-      setError(profErr?.message ?? "Student not found.");
-      setLoading(false);
-      return;
+  // ── Fetch all student data ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (!studentId) return
+    let cancelled = false
+
+    async function load() {
+      setLoading(true)
+      setError(null)
+
+      // ── 1. Profile + student + program (single join) ──────────────────
+      const { data: profileData, error: profileErr } = await supabase
+        .from('profiles')
+        .select(`
+          id, full_name, email, avatar_url, created_at,
+          students!inner (
+            student_id, year_level, program_id, school, target_exam,
+            programs ( id, code, name )
+          )
+        `)
+        .eq('id', studentId)
+        .eq('role', 'student')
+        .single()
+
+      if (profileErr || !profileData) {
+        if (!cancelled) { setError('Student not found.'); setLoading(false) }
+        return
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pd = profileData as any
+      const st = pd.students
+      const pg = st?.programs
+
+      if (!cancelled) {
+        setProfile({
+          id:           pd.id,
+          full_name:    pd.full_name   ?? null,
+          email:        pd.email,
+          avatar_url:   pd.avatar_url  ?? null,
+          student_id:   st?.student_id ?? null,
+          year_level:   st?.year_level ?? null,
+          program_id:   st?.program_id ?? null,
+          program_code: pg?.code       ?? null,
+          program_name: pg?.name       ?? null,
+          school:       st?.school     ?? null,
+          target_exam:  st?.target_exam ?? null,
+          created_at:   pd.created_at,
+        })
+      }
+
+      // ── 2. Assigned exams ─────────────────────────────────────────────
+      const { data: examAssign } = await supabase
+        .from('exam_assignments')
+        .select(`
+          id, exam_id, is_active, assigned_at, deadline,
+          exams ( title, exam_type )
+        `)
+        .eq('student_id', studentId)
+        .order('assigned_at', { ascending: false })
+
+      if (!cancelled && examAssign) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setAssignedExams(examAssign.map((r: any) => ({
+          id:          r.id,
+          exam_id:     r.exam_id,
+          exam_title:  r.exams?.title     ?? 'Untitled',
+          exam_type:   r.exams?.exam_type ?? 'mock',
+          is_active:   r.is_active,
+          assigned_at: r.assigned_at,
+          deadline:    r.deadline,
+        })))
+      }
+
+      // ── 3. Submissions ────────────────────────────────────────────────
+      const { data: subs } = await supabase
+        .from('submissions')
+        .select(`
+          id, status, percentage, passed, submitted_at,
+          exams ( title, exam_type )
+        `)
+        .eq('student_id', studentId)
+        .order('submitted_at', { ascending: false })
+        .limit(20)
+
+      if (!cancelled && subs) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setSubmissions(subs.map((r: any) => ({
+          id:           r.id,
+          exam_title:   r.exams?.title     ?? 'Untitled',
+          exam_type:    r.exams?.exam_type  ?? 'mock',
+          status:       r.status,
+          percentage:   r.percentage,
+          passed:       r.passed,
+          submitted_at: r.submitted_at,
+        })))
+      }
+
+      // ── 4. Notifications ──────────────────────────────────────────────
+      const { data: notifs } = await supabase
+        .from('notifications')
+        .select('id, title, message, type, is_read, created_at')
+        .eq('user_id', studentId)
+        .order('created_at', { ascending: false })
+        .limit(20)
+
+      if (!cancelled && notifs) setNotifications(notifs as Notification[])
+      if (!cancelled) setLoading(false)
     }
 
-    const raw = prof as unknown as {
-      id: string; full_name: string | null; email: string;
-      avatar_url: string | null; created_at: string; role: string;
-      students: {
-        student_id: string | null; year_level: number | null;
-        target_exam: string | null; program_id: string | null;
-        programs: { name: string } | { name: string }[] | null;
-        schools:  { name: string } | { name: string }[] | null;
-      } | null;
-    };
+    void load()
+    return () => { cancelled = true }
+  }, [studentId, supabase])
 
-    const s = raw.students;
-    const prog = s?.programs ? (Array.isArray(s.programs) ? s.programs[0] : s.programs) : null;
-    const sch  = s?.schools  ? (Array.isArray(s.schools)  ? s.schools[0]  : s.schools)  : null;
+  // ── Send notification ───────────────────────────────────────────────────────
+  async function handleSendNotification() {
+    if (!notifyTitle.trim() || !notifyMsg.trim()) return
+    setNotifySending(true)
 
-    setStudent({
-      id:           raw.id,
-      full_name:    raw.full_name,
-      email:        raw.email,
-      avatar_url:   raw.avatar_url,
-      created_at:   raw.created_at,
-      role:         raw.role,
-      student_id:   s?.student_id  ?? null,
-      year_level:   s?.year_level  ?? null,
-      target_exam:  s?.target_exam ?? null,
-      program_name: prog?.name ?? null,
-      school_name:  sch?.name  ?? null,
-      program_id:   s?.program_id ?? null,
-    });
+    await supabase.from('notifications').insert({
+      user_id: studentId,
+      title:   notifyTitle.trim(),
+      message: notifyMsg.trim(),
+      type:    notifyType,
+      is_read: false,
+    })
 
-    // Exam assignments
-    const { data: assign } = await supabase
-      .from("exam_assignments")
-      .select("id, assigned_at, deadline, is_active, exam_id, exams(title)")
-      .eq("student_id", id)
-      .order("assigned_at", { ascending: false });
+    setNotifySending(false)
+    setNotifyOpen(false)
+    setNotifyTitle('')
+    setNotifyMsg('')
 
-    setAssignments(
-      ((assign ?? []) as unknown as Array<{
-        id: string; assigned_at: string; deadline: string | null;
-        is_active: boolean; exam_id: string | null;
-        exams: { title: string } | { title: string }[] | null;
-      }>).map((a) => ({
-        id:          a.id,
-        assigned_at: a.assigned_at,
-        deadline:    a.deadline,
-        is_active:   a.is_active,
-        exam_id:     a.exam_id,
-        exam_title:  a.exams
-          ? Array.isArray(a.exams) ? a.exams[0]?.title : a.exams.title
-          : null,
-      }))
-    );
-
-    // Submissions
-    const { data: subs } = await supabase
-      .from("submissions")
-      .select("id, submitted_at, score, percentage, passed, status, exam_id, exams(title)")
-      .eq("student_id", id)
-      .order("submitted_at", { ascending: false });
-
-    setSubmissions(
-      ((subs ?? []) as unknown as Array<{
-        id: string; submitted_at: string | null; score: number | null;
-        percentage: number | null; passed: boolean | null; status: string;
-        exam_id: string | null;
-        exams: { title: string } | { title: string }[] | null;
-      }>).map((s) => ({
-        id:           s.id,
-        submitted_at: s.submitted_at,
-        score:        s.score,
-        percentage:   s.percentage,
-        passed:       s.passed,
-        status:       s.status,
-        exam_id:      s.exam_id,
-        exam_title:   s.exams
-          ? Array.isArray(s.exams) ? s.exams[0]?.title : s.exams.title
-          : null,
-      }))
-    );
-
-    // Notifications
-    const { data: notifs } = await supabase
-      .from("notifications")
-      .select("id, title, message, type, is_read, created_at")
-      .eq("user_id", id)
-      .order("created_at", { ascending: false });
-
-    setNotifications(notifs ?? []);
-    setLoading(false);
-  }, [id, supabase]);
-
-  useEffect(() => { void fetchAll(); }, [fetchAll]);
-
-  // ── Derived stats ──────────────────────────────────────────────────────────
-  const avgScore   = submissions.length
-    ? Math.round(submissions.reduce((sum, s) => sum + (s.percentage ?? 0), 0) / submissions.length)
-    : null;
-  const passedCount = submissions.filter((s) => s.passed === true).length;
-
-  // ── Loading ────────────────────────────────────────────────────────────────
-  if (loading) {
-    return (
-      <div className={styles.loadingScreen}>
-        <Loader2 size={28} className={styles.spinnerLarge} />
-        <p>Loading student profile…</p>
-      </div>
-    );
+    // Refresh notifications list
+    const { data } = await supabase
+      .from('notifications')
+      .select('id, title, message, type, is_read, created_at')
+      .eq('user_id', studentId)
+      .order('created_at', { ascending: false })
+      .limit(20)
+    if (data) setNotifications(data as Notification[])
   }
 
-  if (error || !student) {
+  // ── Derived stats ───────────────────────────────────────────────────────────
+  const releasedSubs = submissions.filter(s => s.status === 'released')
+  const scores       = releasedSubs.map(s => s.percentage).filter((v): v is number => v !== null)
+  const avgScore     = scores.length > 0
+    ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+    : null
+  const passedCount  = releasedSubs.filter(s => s.passed === true).length
+
+  const STATS = [
+    { iconBg: '#eff6ff', iconColor: '#2563eb', Icon: FileText,      label: 'Exams Assigned', value: assignedExams.length },
+    { iconBg: '#f0fdf4', iconColor: '#059669', Icon: CheckCircle2,  label: 'Submissions',    value: submissions.length  },
+    { iconBg: '#fffbeb', iconColor: '#d97706', Icon: ClipboardList, label: 'Avg Score',      value: avgScore !== null ? `${avgScore}%` : '—' },
+    { iconBg: '#f0fdf4', iconColor: '#059669', Icon: BookOpen,      label: 'Passed',         value: passedCount },
+    { iconBg: '#f5f3ff', iconColor: '#7c3aed', Icon: Clock,         label: 'Notifications',  value: notifications.length },
+  ]
+
+  // ── Guards ──────────────────────────────────────────────────────────────────
+  if (authLoading || loading) {
     return (
-      <div className={styles.errorScreen}>
-        <AlertTriangle size={28} color="#dc2626" />
-        <p>{error || "Student not found."}</p>
-        <button className={styles.btnSecondary} onClick={() => router.back()}>
-          Go back
+      <div className={styles.loadingWrap}>
+        <div className={styles.loadingSpinner} />
+        <p>Loading student…</p>
+      </div>
+    )
+  }
+
+  if (error || !profile) {
+    return (
+      <div className={styles.errorWrap}>
+        <AlertCircle size={28} color="#dc2626" />
+        <p style={{ color: '#991b1b' }}>{error ?? 'Student not found.'}</p>
+        <button className={styles.btnBack} onClick={() => router.push('/admin/students')}>
+          Back to Students
         </button>
       </div>
-    );
+    )
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  const initials = getInitials(profile.full_name, profile.email)
+
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className={styles.page}>
 
-      {/* Back */}
+      {/* ── Back link ── */}
       <Link href="/admin/students" className={styles.backLink}>
-        <ArrowLeft size={14} /> All Students
+        <ArrowLeft size={14} /> Back to Students
       </Link>
 
-      {/* Profile Hero */}
-      <div className={styles.profileHero}>
-        <div className={styles.profileHeroLeft}>
-          <div className={styles.avatarLg}>
-            {student.avatar_url
-              ? <img src={student.avatar_url} alt="" className={styles.avatarImg} />
-              : <span className={styles.avatarInitials}>
-                  {getInitials(student.full_name, student.email)}
-                </span>
-            }
-          </div>
-          <div className={styles.profileInfo}>
-            <h1 className={styles.profileName}>{student.full_name ?? "—"}</h1>
-            <div className={styles.profileMeta}>
-              <span className={styles.metaItem}><Mail size={12} />{student.email}</span>
-              {student.student_id && (
-                <span className={styles.metaItem}><User size={12} />ID: {student.student_id}</span>
-              )}
-              {student.program_name && (
-                <span className={styles.metaItem}><GraduationCap size={12} />{student.program_name}</span>
-              )}
-              {student.year_level && (
-                <span className={styles.metaItem}><BookOpen size={12} />Year {student.year_level}</span>
-              )}
-              <span className={styles.metaItem}><Calendar size={12} />Joined {formatDate(student.created_at)}</span>
-            </div>
-            {student.target_exam && (
-              <div className={styles.targetBadge}>
-                <Trophy size={11} /> Target: {student.target_exam}
-              </div>
+      {/* ── Profile card ── */}
+      <div className={styles.profileCard}>
+        <div className={styles.profileLeft}>
+          <div className={styles.profileAvatar}>
+            {profile.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={profile.avatar_url} alt={profile.full_name ?? ''} className={styles.avatarImg} />
+            ) : (
+              <span className={styles.avatarInitials}>{initials}</span>
             )}
           </div>
+          <div>
+            <h1 className={styles.profileName}>{profile.full_name ?? '—'}</h1>
+            <div className={styles.profileMeta}>
+              <span>{profile.email}</span>
+              {profile.student_id  && <span>· ID: {profile.student_id}</span>}
+              {profile.program_code && <span className={styles.programChip}>{profile.program_code}</span>}
+              {profile.year_level  && <span className={styles.yearChip}>{yearLabel(profile.year_level)}</span>}
+              {profile.school      && <span>· {profile.school}</span>}
+              <span style={{ color: '#9ca3af' }}>· Joined {formatDate(profile.created_at)}</span>
+            </div>
+          </div>
         </div>
-
-        <div className={styles.profileHeroActions}>
-          <Link href={`/admin/students/${id}/edit`} className={styles.btnSecondary}>
-            <Pencil size={13} /> Edit Profile
-          </Link>
-          <Link href={`/admin/notifications?student=${id}`} className={styles.btnOutline}>
-            <Send size={13} /> Send Notification
-          </Link>
-          <Link href={`/admin/exams/assign?student=${id}`} className={styles.btnPrimary}>
-            <PlusCircle size={13} /> Assign Exam
+        <div className={styles.profileActions}>
+          <button className={styles.btnOutline} onClick={() => setNotifyOpen(true)}>
+            <Bell size={14} /> Notify
+          </button>
+          <Link href={`/admin/students/${studentId}/edit`} className={styles.btnOutline}>
+            <Pencil size={14} /> Edit
           </Link>
         </div>
       </div>
 
-      {/* Stats Row */}
-      <div className={styles.statsRow}>
-        <StatMini
-          icon={<ClipboardList size={15} />}
-          label="Assigned Exams"
-          value={assignments.length}
-          color="#0d2540"
-        />
-        <StatMini
-          icon={<FileText size={15} />}
-          label="Submissions"
-          value={submissions.length}
-          color="#7c3aed"
-        />
-        <StatMini
-          icon={<CheckCircle2 size={15} />}
-          label="Passed"
-          value={passedCount}
-          color="#059669"
-        />
-        <StatMini
-          icon={<BarChart2 size={15} />}
-          label="Avg Score"
-          value={avgScore !== null ? `${avgScore}%` : "—"}
-          color="#d97706"
-        />
-        <StatMini
-          icon={<Bell size={15} />}
-          label="Notifications"
-          value={notifications.length}
-          color="#0891b2"
-        />
+      {/* ── Stats ── */}
+      <div className={styles.statsGrid}>
+        {STATS.map(s => (
+          <div key={s.label} className={styles.statCard}>
+            <div className={styles.statIconWrap} style={{ background: s.iconBg }}>
+              <s.Icon size={18} color={s.iconColor} strokeWidth={2} />
+            </div>
+            <div>
+              <div className={styles.statValue}>{s.value}</div>
+              <div className={styles.statLabel}>{s.label}</div>
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* Tabs */}
-      <div className={styles.tabs}>
-        {(["exams", "submissions", "notifications"] as const).map((tab) => (
+      {/* ── Tabs ── */}
+      <div className={styles.tabBar}>
+        {([
+          { key: 'exams',         label: 'Assigned Exams', count: assignedExams.length  },
+          { key: 'submissions',   label: 'Submissions',    count: submissions.length    },
+          { key: 'notifications', label: 'Notifications',  count: notifications.length  },
+        ] as { key: ActiveTab; label: string; count: number }[]).map(t => (
           <button
-            key={tab}
-            className={`${styles.tab} ${activeTab === tab ? styles.tabActive : ""}`}
-            onClick={() => setActiveTab(tab)}
+            key={t.key}
+            className={`${styles.tabItem} ${activeTab === t.key ? styles.tabItemActive : ''}`}
+            onClick={() => setActiveTab(t.key)}
           >
-            {tab === "exams"         && <ClipboardList size={13} />}
-            {tab === "submissions"   && <FileText size={13} />}
-            {tab === "notifications" && <Bell size={13} />}
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
-            <span className={styles.tabCount}>
-              {tab === "exams"         ? assignments.length
-               : tab === "submissions" ? submissions.length
-               : notifications.length}
-            </span>
+            {t.label}
+            <span className={styles.tabCount}>{t.count}</span>
           </button>
         ))}
       </div>
 
-      {/* Tab Content */}
-      <div className={styles.tabContent}>
-
-        {/* ── Assigned Exams ── */}
-        {activeTab === "exams" && (
-          <div className={styles.card}>
-            <div className={styles.cardHead}>
-              <span className={styles.cardTitle}>
-                <span className={styles.cardTitleIcon}><ClipboardList size={14} /></span>
-                Assigned Exams
-              </span>
-              <Link href={`/admin/exams/assign?student=${id}`} className={styles.cardAction}>
-                <PlusCircle size={12} /> Assign New
-              </Link>
-            </div>
-
-            {assignments.length === 0 ? (
-              <div className={styles.emptyState}>
-                <div className={styles.emptyIcon}><ClipboardList size={20} color="var(--text-muted)" /></div>
-                <p className={styles.emptyTitle}>No exams assigned</p>
-                <p className={styles.emptySub}>Assign a mock exam to get this student started.</p>
+      {/* ── Tab: Assigned Exams ── */}
+      {activeTab === 'exams' && (
+        <div className={styles.tabContent}>
+          <div className={styles.tableCard}>
+            {assignedExams.length === 0 ? (
+              <div className={styles.emptyTab}>
+                <BookOpen size={32} strokeWidth={1.3} color="#cbd5e1" />
+                <p className={styles.emptyTabTitle}>No exams assigned</p>
+                <p className={styles.emptyTabText}>This student has no exam assignments yet.</p>
               </div>
             ) : (
-              <div className={styles.assignList}>
-                {assignments.map((a) => (
-                  <div key={a.id} className={styles.assignItem}>
-                    <div className={styles.assignLeft}>
-                      <div className={`${styles.assignStatus} ${a.is_active ? styles.assignStatusActive : styles.assignStatusInactive}`} />
-                      <div>
-                        <div className={styles.assignTitle}>{a.exam_title ?? "Untitled Exam"}</div>
-                        <div className={styles.assignMeta}>
-                          <Clock size={10} /> Assigned {formatDate(a.assigned_at)}
-                          {a.deadline && <> · Due {formatDate(a.deadline)}</>}
-                        </div>
-                      </div>
-                    </div>
-                    <div className={styles.assignRight}>
-                      <span className={a.is_active ? styles.badgeActive : styles.badgeInactive}>
-                        {a.is_active ? "Active" : "Inactive"}
-                      </span>
-                      {a.exam_id && (
-                        <Link href={`/admin/exams/${a.exam_id}`} className={styles.viewLink}>
-                          View <ChevronRight size={11} />
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── Submissions ── */}
-        {activeTab === "submissions" && (
-          <div className={styles.card}>
-            <div className={styles.cardHead}>
-              <span className={styles.cardTitle}>
-                <span className={styles.cardTitleIcon}><FileText size={14} /></span>
-                Exam Submissions
-              </span>
-            </div>
-
-            {submissions.length === 0 ? (
-              <div className={styles.emptyState}>
-                <div className={styles.emptyIcon}><FileText size={20} color="var(--text-muted)" /></div>
-                <p className={styles.emptyTitle}>No submissions yet</p>
-                <p className={styles.emptySub}>This student hasn&apos;t submitted any exams.</p>
-              </div>
-            ) : (
-              <div className={styles.tableWrap}>
+              <>
+                <div className={styles.tableCardHeader}>
+                  <h3 className={styles.tableCardTitle}>Assigned Exams</h3>
+                </div>
                 <table className={styles.table}>
                   <thead>
                     <tr>
                       <th>Exam</th>
-                      <th>Submitted</th>
-                      <th>Score</th>
-                      <th>Result</th>
+                      <th>Type</th>
+                      <th>Assigned</th>
+                      <th>Deadline</th>
                       <th>Status</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {submissions.map((sub) => (
-                      <tr key={sub.id} className={styles.tableRow}>
+                    {assignedExams.map(e => (
+                      <tr key={e.id}>
+                        <td className={styles.cellBold}>{e.exam_title}</td>
                         <td>
-                          <span className={styles.submissionExam}>
-                            {sub.exam_title ?? "—"}
+                          <span className={`${styles.typeBadge} ${e.exam_type === 'mock' ? styles.typeMock : styles.typePractice}`}>
+                            {e.exam_type}
                           </span>
                         </td>
+                        <td>{formatDate(e.assigned_at)}</td>
                         <td>
-                          <span className={styles.submissionDate}>
-                            {formatDateTime(sub.submitted_at)}
-                          </span>
+                          {e.deadline
+                            ? formatDate(e.deadline)
+                            : <span className={styles.cellMuted}>No deadline</span>}
                         </td>
                         <td>
-                          {sub.percentage !== null
-                            ? <span className={styles.scoreChip} style={{
-                                color: sub.percentage >= 75 ? "var(--success)" : "var(--danger)",
-                              }}>
-                                {sub.percentage.toFixed(1)}%
-                              </span>
-                            : <span className={styles.cellMuted}>—</span>
-                          }
-                        </td>
-                        <td>
-                          {sub.passed === true  && <span className={styles.badgePassed}><CheckCircle2 size={10} /> Passed</span>}
-                          {sub.passed === false && <span className={styles.badgeFailed}><XCircle size={10} /> Failed</span>}
-                          {sub.passed === null  && <span className={styles.badgePending}>Pending</span>}
-                        </td>
-                        <td>
-                          <span className={styles.statusChip}>
-                            {sub.status.replace("_", " ")}
+                          <span className={`${styles.statusDot} ${e.is_active ? styles.statusActive : styles.statusInactive}`}>
+                            {e.is_active ? 'Active' : 'Inactive'}
                           </span>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </>
             )}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* ── Notifications ── */}
-        {activeTab === "notifications" && (
-          <div className={styles.card}>
-            <div className={styles.cardHead}>
-              <span className={styles.cardTitle}>
-                <span className={styles.cardTitleIcon}><Bell size={14} /></span>
-                Notifications Sent
-              </span>
-              <Link href={`/admin/notifications?student=${id}`} className={styles.cardAction}>
-                <Send size={12} /> Send New
-              </Link>
+      {/* ── Tab: Submissions ── */}
+      {activeTab === 'submissions' && (
+        <div className={styles.tabContent}>
+          <div className={styles.tableCard}>
+            {submissions.length === 0 ? (
+              <div className={styles.emptyTab}>
+                <FileText size={32} strokeWidth={1.3} color="#cbd5e1" />
+                <p className={styles.emptyTabTitle}>No submissions yet</p>
+                <p className={styles.emptyTabText}>This student hasn&apos;t submitted any exams.</p>
+              </div>
+            ) : (
+              <>
+                <div className={styles.tableCardHeader}>
+                  <h3 className={styles.tableCardTitle}>Exam Submissions</h3>
+                </div>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Exam</th>
+                      <th>Type</th>
+                      <th>Score</th>
+                      <th>Result</th>
+                      <th>Status</th>
+                      <th>Submitted</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {submissions.map(s => (
+                      <tr key={s.id}>
+                        <td className={styles.cellBold}>{s.exam_title}</td>
+                        <td>
+                          <span className={`${styles.typeBadge} ${s.exam_type === 'mock' ? styles.typeMock : styles.typePractice}`}>
+                            {s.exam_type}
+                          </span>
+                        </td>
+                        <td>
+                          {s.status === 'released' && s.percentage !== null
+                            ? <strong style={{ color: s.percentage >= 75 ? '#059669' : '#dc2626' }}>
+                                {Math.round(s.percentage)}%
+                              </strong>
+                            : <span className={styles.cellMuted}>—</span>}
+                        </td>
+                        <td>
+                          {s.status === 'released'
+                            ? s.passed === true
+                              ? <span style={{ color: '#059669', fontWeight: 700, fontSize: '0.78rem' }}>✓ Passed</span>
+                              : s.passed === false
+                                ? <span style={{ color: '#dc2626', fontWeight: 700, fontSize: '0.78rem' }}>✗ Failed</span>
+                                : <span className={styles.cellMuted}>—</span>
+                            : <span className={styles.cellMuted}>Pending</span>}
+                        </td>
+                        <td>
+                          <span className={styles.statusBadge} style={{
+                            background:
+                              s.status === 'released'  ? '#f0fdf4' :
+                              s.status === 'graded'    ? '#f5f3ff' :
+                              s.status === 'submitted' ? '#fffbeb' : '#f0f9ff',
+                            color:
+                              s.status === 'released'  ? '#059669' :
+                              s.status === 'graded'    ? '#7c3aed' :
+                              s.status === 'submitted' ? '#d97706' : '#0369a1',
+                          }}>
+                            {s.status}
+                          </span>
+                        </td>
+                        <td>{formatDate(s.submitted_at)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Tab: Notifications ── */}
+      {activeTab === 'notifications' && (
+        <div className={styles.tabContent}>
+          <div className={styles.tableCard}>
+            <div className={styles.tableCardHeader}>
+              <h3 className={styles.tableCardTitle}>Notifications Sent</h3>
+              <button className={styles.btnSmall} onClick={() => setNotifyOpen(true)}>
+                <Send size={13} /> Send Notification
+              </button>
             </div>
-
             {notifications.length === 0 ? (
-              <div className={styles.emptyState}>
-                <div className={styles.emptyIcon}><Bell size={20} color="var(--text-muted)" /></div>
-                <p className={styles.emptyTitle}>No notifications sent</p>
-                <p className={styles.emptySub}>Send a notification to keep this student informed.</p>
+              <div className={styles.emptyTab}>
+                <Bell size={32} strokeWidth={1.3} color="#cbd5e1" />
+                <p className={styles.emptyTabTitle}>No notifications</p>
+                <p className={styles.emptyTabText}>No notifications have been sent to this student.</p>
+                <button className={styles.emptyTabBtn} onClick={() => setNotifyOpen(true)}>
+                  <Send size={13} /> Send First Notification
+                </button>
               </div>
             ) : (
               <div className={styles.notifList}>
-                {notifications.map((n) => (
-                  <div key={n.id} className={`${styles.notifItem} ${!n.is_read ? styles.notifUnread : ""}`}>
-                    <div className={`${styles.notifDot} ${n.is_read ? styles.notifDotRead : styles.notifDotUnread}`} />
-                    <div className={styles.notifContent}>
-                      <div className={styles.notifHeader}>
-                        <span className={styles.notifTitle}>{n.title ?? "—"}</span>
-                        <span className={`${styles.notifTypeBadge} ${
-                          n.type === "exam"   ? styles.typeExam   :
-                          n.type === "result" ? styles.typeResult :
-                                               styles.typeGeneral
-                        }`}>{n.type ?? "general"}</span>
-                        {!n.is_read && <span className={styles.newTag}>New</span>}
-                      </div>
-                      <p className={styles.notifMsg}>{n.message ?? "—"}</p>
-                      <span className={styles.notifTime}><Clock size={10} /> {formatDateTime(n.created_at)}</span>
+                {notifications.map(n => (
+                  <div key={n.id} className={`${styles.notifRow} ${!n.is_read ? styles.notifUnread : ''}`}>
+                    <div className={styles.notifDot} style={{ background: n.is_read ? '#cbd5e1' : '#3b82f6' }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p className={styles.notifTitle}>{n.title ?? 'Notification'}</p>
+                      <p className={styles.notifMsg}>{n.message}</p>
+                    </div>
+                    <div className={styles.notifMeta}>
+                      {n.type && <span className={styles.notifType}>{n.type}</span>}
+                      <span className={styles.notifTime}>{formatDate(n.created_at)}</span>
                     </div>
                   </div>
                 ))}
               </div>
             )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* ── Send Notification Modal ── */}
+      {notifyOpen && (
+        <div className={styles.overlay} onClick={e => { if (e.target === e.currentTarget) setNotifyOpen(false) }}>
+          <div className={styles.modal}>
+            <h2 className={styles.modalTitle}>Send Notification</h2>
+            <p className={styles.modalSub}>
+              This will appear in {profile.full_name ?? 'the student'}&apos;s notification inbox.
+            </p>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>Title <span className={styles.req}>*</span></label>
+              <input className={styles.formInput} placeholder="Notification title"
+                value={notifyTitle} onChange={e => setNotifyTitle(e.target.value)} />
+            </div>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>Message <span className={styles.req}>*</span></label>
+              <textarea className={styles.formTextarea} rows={3} placeholder="Write your message…"
+                value={notifyMsg} onChange={e => setNotifyMsg(e.target.value)} />
+            </div>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>Type</label>
+              <select className={styles.formSelect} value={notifyType} onChange={e => setNotifyType(e.target.value)}>
+                <option value="info">Info</option>
+                <option value="success">Success</option>
+                <option value="warning">Warning</option>
+                <option value="error">Error</option>
+              </select>
+            </div>
+            <div className={styles.modalActions}>
+              <button className={styles.btnModalCancel} onClick={() => setNotifyOpen(false)}>Cancel</button>
+              <button
+                className={styles.btnModalPrimary}
+                onClick={handleSendNotification}
+                disabled={notifySending || !notifyTitle.trim() || !notifyMsg.trim()}
+              >
+                <Send size={13} />
+                {notifySending ? 'Sending…' : 'Send'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-  );
+  )
 }

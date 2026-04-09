@@ -11,6 +11,7 @@ import {
 import styles from './mock-exams.module.css'
 import { createClient } from '@/lib/supabase/client'
 import { EXAM_TYPE_META } from '@/lib/types/database'
+import { useUser } from '@/lib/context/AuthContext'   
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -25,8 +26,6 @@ interface MockExam {
   questions?: number
   duration?:  string
 }
-
-// ── Supabase raw shapes ────────────────────────────────────────────────────
 
 type CategoryShape = { id: string; name: string; icon: string | null }
 type ProgramShape  = { id: string; code: string; name: string } | null
@@ -61,12 +60,8 @@ function formatDuration(minutes: number): string {
   return `${h} hr${h > 1 ? 's' : ''} ${m} min`
 }
 
-// ── Constants ──────────────────────────────────────────────────────────────
-
 const ALL_CATEGORIES = 'All Categories'
 const PAGE_SIZE = 12
-
-// ── Sub-components ─────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: ExamStatus }) {
   return (
@@ -134,54 +129,54 @@ function ExamCard({ exam, onStart }: { exam: MockExam; onStart: (id: string) => 
   )
 }
 
-// ── Page ───────────────────────────────────────────────────────────────────
-
 export default function MockExamsPage() {
   const router = useRouter()
 
-  const [allExams, setAllExams] = useState<MockExam[]>([])
-  const [loading,  setLoading]  = useState(true)
-  const [error,    setError]    = useState<string | null>(null)
-  const [search,   setSearch]   = useState('')
-  const [category, setCategory] = useState(ALL_CATEGORIES)
-  const [page,     setPage]     = useState(1)
+  // ── Auth from context — matches the pattern in [examId]/page.tsx ──────
+  const { user, loading: authLoading, error: authError } = useUser()
 
+  const [allExams,    setAllExams]    = useState<MockExam[]>([])
+  const [dataLoading, setDataLoading] = useState(false)
+  const [dataError,   setDataError]   = useState<string | null>(null)
+  const [search,      setSearch]      = useState('')
+  const [category,    setCategory]    = useState(ALL_CATEGORIES)
+  const [page,        setPage]        = useState(1)
+  const [programId,   setProgramId]   = useState<string | null>(null)
+
+  // ── Load student's program_id once we have a user ─────────────────────
   useEffect(() => {
+    if (!user) return
+    const supabase   = createClient()
+    const controller = new AbortController()
+
+    supabase
+      .from('students')
+      .select('program_id')
+      .eq('id', user.id)
+      .single()
+      .abortSignal(controller.signal)
+      .then(({ data }) => {
+        if (data?.program_id) setProgramId(data.program_id)
+      })
+
+    return () => controller.abort()
+  }, [user?.id])
+
+  // ── Fetch mock exams once user + programId are ready ──────────────────
+  useEffect(() => {
+    if (!user) return
+
     let cancelled = false
+    const supabase = createClient()
 
     async function fetchExams() {
-      setLoading(true)
-      setError(null)
-      const supabase = createClient()
+      setDataLoading(true)
+      setDataError(null)
 
-      // ── 1. Auth ────────────────────────────────────────────────────────
-      const { data: { user }, error: authErr } = await supabase.auth.getUser()
-      if (authErr || !user) {
-        if (!cancelled) setError('You must be logged in to view exams.')
-        setLoading(false)
-        return
-      }
-
-      // ── 2. Student profile → program_id ───────────────────────────────
-      const { data: student, error: stuErr } = await supabase
-        .from('students')
-        .select('id, program_id')
-        .eq('id', user.id)
-        .single()
-
-      if (stuErr || !student) {
-        if (!cancelled) setError('Could not load your student profile.')
-        setLoading(false)
-        return
-      }
-
-      const studentId: string        = student.id
-      const programId: string | null = student.program_id ?? null
-
-      // ── 3. Assigned exam IDs for this student ─────────────────────────
+      // ── 1. Assigned exam IDs ─────────────────────────────────────────
       const orFilter = programId
-        ? `student_id.eq.${studentId},program_id.eq.${programId}`
-        : `student_id.eq.${studentId}`
+        ? `student_id.eq.${user.id},program_id.eq.${programId}`
+        : `student_id.eq.${user.id}`
 
       const { data: assignments, error: asnErr } = await supabase
         .from('exam_assignments')
@@ -190,8 +185,8 @@ export default function MockExamsPage() {
         .or(orFilter)
 
       if (asnErr) {
-        if (!cancelled) setError('Could not load exam assignments.')
-        setLoading(false)
+        if (!cancelled) setDataError('Could not load exam assignments.')
+        setDataLoading(false)
         return
       }
 
@@ -201,7 +196,7 @@ export default function MockExamsPage() {
           .filter((id): id is string => id !== null)
       )
 
-      // ── 4. Published MOCK exams only ──────────────────────────────────
+      // ── 2. Published MOCK exams ──────────────────────────────────────
       const { data: examData, error: examErr } = await supabase
         .from('exams')
         .select(`
@@ -218,14 +213,14 @@ export default function MockExamsPage() {
         .order('created_at', { ascending: false })
 
       if (examErr) {
-        if (!cancelled) setError('Could not load exams.')
-        setLoading(false)
+        if (!cancelled) setDataError('Could not load exams.')
+        setDataLoading(false)
         return
       }
 
       const exams = (examData ?? []) as unknown as ExamRaw[]
 
-      // ── 5. Question counts (batch) ─────────────────────────────────────
+      // ── 3. Question counts (batch) ───────────────────────────────────
       const examIds = exams.map(e => e.id)
       const qCountMap: Record<string, number> = {}
       if (examIds.length > 0) {
@@ -238,7 +233,7 @@ export default function MockExamsPage() {
         })
       }
 
-      // ── 6. Map → MockExam ──────────────────────────────────────────────
+      // ── 4. Map → MockExam ────────────────────────────────────────────
       const mapped: MockExam[] = exams.map(exam => {
         const cat  = unwrapCategory(exam.exam_categories)
         const prog = unwrapProgram(exam.programs)
@@ -253,12 +248,15 @@ export default function MockExamsPage() {
         }
       })
 
-      if (!cancelled) { setAllExams(mapped); setLoading(false) }
+      if (!cancelled) {
+        setAllExams(mapped)
+        setDataLoading(false)
+      }
     }
 
-    fetchExams()
+    void fetchExams()
     return () => { cancelled = true }
-  }, [])
+  }, [user?.id, programId])
 
   // ── Derived ────────────────────────────────────────────────────────────
   const categories = useMemo(() => {
@@ -290,6 +288,9 @@ export default function MockExamsPage() {
     if (safePage < totalPages - 2) pageNums.push('…')
     pageNums.push(totalPages)
   }
+
+  const loading = authLoading || dataLoading
+  const error   = authError   ?? dataError
 
   // ── Render ─────────────────────────────────────────────────────────────
   return (
@@ -336,8 +337,21 @@ export default function MockExamsPage() {
       </div>
 
       {loading ? (
-        <div className={styles.emptyState}>
-          <p className={styles.emptyTitle}>Loading mock exams…</p>
+        <div className={styles.grid}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className={styles.examCard} style={{ minHeight: 260 }}>
+              <div style={{ height: 4, background: '#e4ecf3', borderRadius: '13px 13px 0 0' }} />
+              <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 10, background: '#f0f4f8' }} />
+                  <div style={{ width: 80, height: 20, borderRadius: 99, background: '#f0f4f8' }} />
+                </div>
+                <div style={{ width: '40%', height: 12, borderRadius: 6, background: '#f0f4f8' }} />
+                <div style={{ width: '80%', height: 16, borderRadius: 6, background: '#f0f4f8' }} />
+                <div style={{ width: '55%', height: 12, borderRadius: 99, background: '#f0f4f8' }} />
+              </div>
+            </div>
+          ))}
         </div>
       ) : error ? (
         <div className={styles.emptyState}>

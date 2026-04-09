@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import { AuthProvider } from "@/lib/context/AuthContext";
 import AdminSidebar from "@/components/dashboard/admin/AdminSideBar";
 import AdminTopbar  from "@/components/dashboard/admin/AdminTopbar";
 import styles from "./layout.module.css";
@@ -14,17 +15,19 @@ export default function AdminLayoutClient({
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div
-      className={styles.shell}
-      data-collapsed={collapsed ? "true" : "false"}
-    >
-      <AdminSidebar collapsed={collapsed} onCollapse={setCollapsed} />
-      <div className={styles.body}>
-        <AdminTopbar />
-        <main className={styles.content}>
-          {children}
-        </main>
+    <AuthProvider>
+      <div
+        className={styles.shell}
+        data-collapsed={collapsed ? "true" : "false"}
+      >
+        <AdminSidebar collapsed={collapsed} onCollapse={setCollapsed} />
+        <div className={styles.body}>
+          <AdminTopbar />
+          <main className={styles.content}>
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </AuthProvider>
   );
 }

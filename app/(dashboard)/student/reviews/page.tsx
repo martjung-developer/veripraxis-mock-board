@@ -1,7 +1,7 @@
-// app/(dashboard)/student/reviews/page.tsx — Practice Exam page
+// app/(dashboard)/student/reviews/page.tsx - This is Practice Exams page
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Clock, BookOpen, GraduationCap,
@@ -11,8 +11,9 @@ import {
 import styles from './reviews.module.css'
 import { createClient } from '@/lib/supabase/client'
 import { EXAM_TYPE_META } from '@/lib/types/database'
+import { useUser } from '@/lib/context/AuthContext'  
 
-// ── Types ─────────────────────────────────────────────────────────────
+// ── Types ──────────────────────────────────────────────────────────────────
 
 type ExamStatus = 'available' | 'coming_soon'
 
@@ -26,8 +27,6 @@ interface Review {
   duration?:  string
 }
 
-// ── Supabase raw shapes ────────────────────────────────────────────────
-
 type CategoryShape = { id: string; name: string; icon: string | null }
 type ProgramShape  = { id: string; code: string; name: string } | null
 
@@ -40,6 +39,8 @@ type ExamRaw = {
   exam_categories:  CategoryShape | CategoryShape[] | null
   programs:         ProgramShape  | ProgramShape[]  | null
 }
+
+// ── Helpers ────────────────────────────────────────────────────────────────
 
 function unwrapCategory(raw: CategoryShape | CategoryShape[] | null): CategoryShape | null {
   if (!raw) return null
@@ -61,12 +62,110 @@ function formatDuration(minutes: number): string {
   return `${h} hr${h > 1 ? 's' : ''} ${m} min`
 }
 
-// ── Constants ─────────────────────────────────────────────────────────
+// ── Pure data fetcher — receives IDs, never touches auth ──────────────────
+
+interface FetchResult {
+  reviews: Review[]
+  error:   string | null
+}
+
+async function fetchReviewsForStudent(
+  studentId: string,
+  programId: string | null,
+  signal:    AbortSignal,
+): Promise<FetchResult> {
+  const supabase = createClient()
+
+  try {
+    // ── 1. Assigned exam IDs ─────────────────────────────────────────────
+    const orFilter = programId
+      ? `student_id.eq.${studentId},program_id.eq.${programId}`
+      : `student_id.eq.${studentId}`
+
+    const { data: assignments, error: asnErr } = await supabase
+      .from('exam_assignments')
+      .select('exam_id')
+      .eq('is_active', true)
+      .or(orFilter)
+      .abortSignal(signal)           // ← cancel if component unmounts
+
+    if (asnErr) return { reviews: [], error: 'Could not load assignments.' }
+
+    const assignedIds = new Set<string>(
+      (assignments ?? [])
+        .map((a: { exam_id: string | null }) => a.exam_id)
+        .filter((id): id is string => id !== null),
+    )
+
+    // ── 2. Published PRACTICE exams ─────────────────────────────────────
+    const { data: examData, error: examErr } = await supabase
+      .from('exams')
+      .select(`
+        id,
+        title,
+        duration_minutes,
+        is_published,
+        exam_type,
+        exam_categories ( id, name, icon ),
+        programs ( id, code, name )
+      `)
+      .eq('is_published', true)
+      .eq('exam_type', 'practice')
+      .order('created_at', { ascending: false })
+      .abortSignal(signal)
+
+    if (examErr) return { reviews: [], error: 'Could not load practice exams.' }
+
+    const exams = (examData ?? []) as unknown as ExamRaw[]
+
+    // ── 3. Question counts (batch) ───────────────────────────────────────
+    const examIds = exams.map(e => e.id)
+    const qCountMap: Record<string, number> = {}
+
+    if (examIds.length > 0) {
+      const { data: qRows } = await supabase
+        .from('questions')
+        .select('exam_id')
+        .in('exam_id', examIds)
+        .abortSignal(signal)
+
+      ;(qRows ?? []).forEach((q: { exam_id: string | null }) => {
+        if (q.exam_id) qCountMap[q.exam_id] = (qCountMap[q.exam_id] ?? 0) + 1
+      })
+    }
+
+    // ── 4. Map → Review ─────────────────────────────────────────────────
+    const mapped: Review[] = exams.map(exam => {
+      const cat  = unwrapCategory(exam.exam_categories)
+      const prog = unwrapProgram(exam.programs)
+      return {
+        id:        exam.id,
+        title:     exam.title,
+        shortCode: prog?.code ?? (cat?.name?.match(/\b([A-Z])/g)?.join('') ?? 'EXAM'),
+        category:  cat?.name ?? 'Uncategorized',
+        status:    assignedIds.has(exam.id) ? 'available' : 'coming_soon',
+        questions: qCountMap[exam.id],
+        duration:  formatDuration(exam.duration_minutes),
+      }
+    })
+
+    return { reviews: mapped, error: null }
+
+  } catch (err) {
+    if ((err as Error).name === 'AbortError') {
+      // Fetch was cancelled — not a real error
+      return { reviews: [], error: null }
+    }
+    return { reviews: [], error: 'Unexpected error loading reviews.' }
+  }
+}
+
+// ── Constants ──────────────────────────────────────────────────────────────
 
 const ALL_CATEGORIES = 'All Categories'
-const PAGE_SIZE = 12
+const PAGE_SIZE      = 12
 
-// ── Sub-components ────────────────────────────────────────────────────
+// ── Sub-components (unchanged from original) ───────────────────────────────
 
 function StatusBadge({ status }: { status: ExamStatus }) {
   return (
@@ -132,10 +231,7 @@ function ReviewCard({
 
       <div className={styles.cardFooter}>
         {isAvailable ? (
-          <button
-            className={styles.startBtn}
-            onClick={() => onStart(item.id)}
-          >
+          <button className={styles.startBtn} onClick={() => onStart(item.id)}>
             <PlayCircle size={15} strokeWidth={2} /> Start Review
           </button>
         ) : (
@@ -148,138 +244,70 @@ function ReviewCard({
   )
 }
 
-// ── Page ──────────────────────────────────────────────────────────────
+// ── Page ───────────────────────────────────────────────────────────────────
 
 export default function ReviewsPage() {
   const router = useRouter()
 
-  const [allReviews, setAllReviews] = useState<Review[]>([])
-  const [loading,    setLoading]    = useState(true)
-  const [error,      setError]      = useState<string | null>(null)
-  const [search,     setSearch]     = useState('')
-  const [category,   setCategory]   = useState(ALL_CATEGORIES)
-  const [page,       setPage]       = useState(1)
+  // ── Auth: one hook call, zero network requests ─────────────────────────
+  const { user, loading: authLoading, error: authError } = useUser()
 
+  const [allReviews,  setAllReviews]  = useState<Review[]>([])
+  const [dataLoading, setDataLoading] = useState(false)
+  const [dataError,   setDataError]   = useState<string | null>(null)
+  const [search,      setSearch]      = useState('')
+  const [category,    setCategory]    = useState(ALL_CATEGORIES)
+  const [page,        setPage]        = useState(1)
+  const [programId,   setProgramId]   = useState<string | null>(null)
+
+  // ── Load student's program_id once we have a user ─────────────────────
   useEffect(() => {
-    let cancelled = false
+    if (!user) return
+    const supabase   = createClient()
+    const controller = new AbortController()
 
-    async function fetchReviews() {
-      setLoading(true)
-      setError(null)
-      const supabase = createClient()
-
-      // ── 1. Auth ────────────────────────────────────────────────────────
-      const { data: { user }, error: authErr } = await supabase.auth.getUser()
-      if (authErr || !user) {
-        if (!cancelled) setError('You must be logged in to view practice exams.')
-        setLoading(false)
-        return
-      }
-
-      // ── 2. Student profile → program_id ───────────────────────────────
-      const { data: student, error: stuErr } = await supabase
-        .from('students')
-        .select('id, program_id')
-        .eq('id', user.id)
-        .single()
-
-      if (stuErr || !student) {
-        if (!cancelled) setError('Could not load your student profile.')
-        setLoading(false)
-        return
-      }
-
-      const studentId: string        = student.id
-      const programId: string | null = student.program_id ?? null
-
-      // ── 3. Assigned exam IDs for this student ─────────────────────────
-      const orFilter = programId
-        ? `student_id.eq.${studentId},program_id.eq.${programId}`
-        : `student_id.eq.${studentId}`
-
-      const { data: assignments, error: asnErr } = await supabase
-        .from('exam_assignments')
-        .select('exam_id')
-        .eq('is_active', true)
-        .or(orFilter)
-
-      if (asnErr) {
-        if (!cancelled) setError('Could not load assignments.')
-        setLoading(false)
-        return
-      }
-
-      const assignedIds = new Set<string>(
-        (assignments ?? [])
-          .map((a: { exam_id: string | null }) => a.exam_id)
-          .filter((id): id is string => id !== null)
-      )
-
-      // ── 4. Published PRACTICE exams only ─────────────────────────────
-      const { data: examData, error: examErr } = await supabase
-        .from('exams')
-        .select(`
-          id,
-          title,
-          duration_minutes,
-          is_published,
-          exam_type,
-          exam_categories ( id, name, icon ),
-          programs ( id, code, name )
-        `)
-        .eq('is_published', true)
-        .eq('exam_type', 'practice')
-        .order('created_at', { ascending: false })
-
-      if (examErr) {
-        if (!cancelled) setError('Could not load practice exams.')
-        setLoading(false)
-        return
-      }
-
-      const exams = (examData ?? []) as unknown as ExamRaw[]
-
-      // ── 5. Question counts (batch) ─────────────────────────────────────
-      const examIds = exams.map(e => e.id)
-      const qCountMap: Record<string, number> = {}
-      if (examIds.length > 0) {
-        const { data: qRows } = await supabase
-          .from('questions')
-          .select('exam_id')
-          .in('exam_id', examIds)
-        ;(qRows ?? []).forEach((q: { exam_id: string | null }) => {
-          if (q.exam_id) qCountMap[q.exam_id] = (qCountMap[q.exam_id] ?? 0) + 1
-        })
-      }
-
-      // ── 6. Map → Review ────────────────────────────────────────────────
-      const mapped: Review[] = exams.map(exam => {
-        const cat  = unwrapCategory(exam.exam_categories)
-        const prog = unwrapProgram(exam.programs)
-        return {
-          id:        exam.id,
-          title:     exam.title,
-          shortCode: prog?.code ?? (cat?.name?.match(/\b([A-Z])/g)?.join('') ?? 'EXAM'),
-          category:  cat?.name ?? 'Uncategorized',
-          status:    assignedIds.has(exam.id) ? 'available' : 'coming_soon',
-          questions: qCountMap[exam.id],
-          duration:  formatDuration(exam.duration_minutes),
-        }
+    supabase
+      .from('students')
+      .select('program_id')
+      .eq('id', user.id)
+      .single()
+      .abortSignal(controller.signal)
+      .then(({ data }) => {
+        if (data?.program_id) setProgramId(data.program_id)
       })
 
-      if (!cancelled) { setAllReviews(mapped); setLoading(false) }
-    }
+    return () => controller.abort()
+  }, [user?.id]) // only re-run if the user changes
 
-    fetchReviews()
-    return () => { cancelled = true }
-  }, [])
+  // ── Load reviews once user + programId are ready ──────────────────────
+  useEffect(() => {
+    if (!user) return
 
-  // ── Navigation handler ─────────────────────────────────────────────────
-  function handleStartReview(examId: string) {
-    router.push(`/student/reviews/${examId}`)
-  }
+    const controller = new AbortController()
+    setDataLoading(true)
+    setDataError(null)
 
-  // ── Derived ────────────────────────────────────────────────────────────
+    fetchReviewsForStudent(user.id, programId, controller.signal).then(
+      ({ reviews, error }) => {
+        if (controller.signal.aborted) return   // stale fetch, ignore
+        setAllReviews(reviews)
+        setDataError(error)
+        setDataLoading(false)
+      },
+    )
+
+    return () => controller.abort()
+  }, [user?.id, programId])
+
+  // ── Handlers ───────────────────────────────────────────────────────────
+
+  const handleStartReview = useCallback(
+    (examId: string) => router.push(`/student/reviews/${examId}`),
+    [router],
+  )
+
+  // ── Derived state ──────────────────────────────────────────────────────
+
   const categories = useMemo(() => {
     const unique = Array.from(new Set(allReviews.map(r => r.category))).sort()
     return [ALL_CATEGORIES, ...unique]
@@ -310,7 +338,11 @@ export default function ReviewsPage() {
     pageNums.push(totalPages)
   }
 
+  const loading = authLoading || dataLoading
+  const error   = authError   ?? dataError
+
   // ── Render ─────────────────────────────────────────────────────────────
+
   return (
     <div className={styles.page}>
       <div className={styles.header}>
@@ -378,11 +410,7 @@ export default function ReviewsPage() {
       ) : paginated.length > 0 ? (
         <div className={styles.grid}>
           {paginated.map(item => (
-            <ReviewCard
-              key={item.id}
-              item={item}
-              onStart={handleStartReview}
-            />
+            <ReviewCard key={item.id} item={item} onStart={handleStartReview} />
           ))}
         </div>
       ) : (

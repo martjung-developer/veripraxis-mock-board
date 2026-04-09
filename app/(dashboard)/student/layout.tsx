@@ -3,6 +3,7 @@ import { redirect }     from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import StudentSidebar   from '@/components/dashboard/student/StudentSidebar'
 import StudentTopbar    from '@/components/dashboard/student/StudentTopbar'
+import { AuthProvider } from '@/lib/context/AuthContext'   // ← ADD THIS
 import type { Profile } from '@/lib/types/auth'
 
 export default async function StudentLayout({
@@ -11,9 +12,9 @@ export default async function StudentLayout({
   children: React.ReactNode
 }) {
   const supabase = await createClient()
-const { data: { session } } = await supabase.auth.getSession()
+  const { data: { session } } = await supabase.auth.getSession()
 
-const user = session?.user
+  const user = session?.user
 
   if (!user) redirect('/login')
 
@@ -31,7 +32,7 @@ const user = session?.user
     <div style={{
       display:    'flex',
       minHeight:  '100vh',
-      background: '#eef2f7',   
+      background: '#eef2f7',
       fontFamily: "'Plus Jakarta Sans', 'DM Sans', sans-serif",
     }}>
       <StudentSidebar profile={profile} />
@@ -49,7 +50,9 @@ const user = session?.user
           padding:   '1.75rem 2rem',
           overflowY: 'auto',
         }}>
-          {children}
+          <AuthProvider>        
+            {children}
+          </AuthProvider>
         </main>
       </div>
     </div>

@@ -1,16 +1,17 @@
-// student/reviews/[examId]/page.tsx - Practice Exam
+// student/reviews/[examId]/page.tsx — Practice / Review Mode
 
 'use client'
 
-import { useState, useEffect, useCallback, useMemo, use } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ChevronLeft, ChevronRight,
   CheckCircle2, XCircle, BookOpen, RotateCcw, ArrowLeft,
 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
-import { AUTO_GRADE_QUESTION_TYPES, QuestionType, QuestionOption } from '@/lib/types/database'
-import styles from './practice.module.css'
+import { createClient }       from '@/lib/supabase/client'
+import { QuestionType, QuestionOption } from '@/lib/types/database'
+import { useUser }            from '@/lib/context/AuthContext'
+import styles                 from './practice.module.css'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -32,7 +33,7 @@ interface ExamMeta {
 
 interface FeedbackEntry {
   submitted:     boolean
-  isCorrect:     boolean | null   // null = manual type
+  isCorrect:     boolean | null   // null = manual type, no auto-grade
   correctAnswer: string | null
   explanation:   string | null
 }
@@ -49,7 +50,8 @@ function stripDiffTag(raw: string | null): string {
   return raw.replace(/^\[(easy|medium|hard)\]\s*/i, '')
 }
 
-function grade(q: Question, answer: string): boolean | null {
+// ✅ Grade only the auto-gradable types — no imported constant needed
+function gradeAnswer(q: Question, answer: string): boolean | null {
   if (!q.correct_answer) return null
   if (q.question_type === 'multiple_choice' || q.question_type === 'true_false') {
     return answer.toLowerCase() === q.correct_answer.toLowerCase()
@@ -57,34 +59,44 @@ function grade(q: Question, answer: string): boolean | null {
   if (q.question_type === 'fill_blank') {
     return answer.trim().toLowerCase() === q.correct_answer.trim().toLowerCase()
   }
-  return null  // matching, short_answer, essay — no auto-grade
+  return null  // essay, short_answer, matching — manual only
 }
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
-export default function PracticeExamPage({ params }: { params: Promise<{ examId: string }> }) {
+// ✅ Next.js 14: params is a plain object
+export default function PracticeExamPage({ params }: { params: { examId: string } }) {
   const router   = useRouter()
   const supabase = useMemo(() => createClient(), [])
-  const { examId } = use(params)
 
-  // ── State ────────────────────────────────────────────────────────────────────
-  const [exam,       setExam]       = useState<ExamMeta | null>(null)
-  const [questions,  setQuestions]  = useState<Question[]>([])
-  const [loading,    setLoading]    = useState(true)
-  const [error,      setError]      = useState<string | null>(null)
-  const [current,    setCurrent]    = useState(0)
-  const [answers,    setAnswers]    = useState<Record<string, string>>({})
-  const [feedbacks,  setFeedbacks]  = useState<Record<string, FeedbackEntry>>({})
-  const [completed,  setCompleted]  = useState(false)
+  // ✅ Auth from context — no extra network call
+  const { user, loading: authLoading } = useUser()
+  const examId = params.examId
 
-  // ── Fetch ────────────────────────────────────────────────────────────────────
+  // ── State ─────────────────────────────────────────────────────────────────────
+  const [exam,      setExam]      = useState<ExamMeta | null>(null)
+  const [questions, setQuestions] = useState<Question[]>([])
+  const [loading,   setLoading]   = useState(true)
+  const [error,     setError]     = useState<string | null>(null)
+  const [current,   setCurrent]   = useState(0)
+  const [answers,   setAnswers]   = useState<Record<string, string>>({})
+  const [feedbacks, setFeedbacks] = useState<Record<string, FeedbackEntry>>({})
+  const [completed, setCompleted] = useState(false)
+
+  // ── Fetch ─────────────────────────────────────────────────────────────────────
   useEffect(() => {
+    if (authLoading) return
+    // Practice exam doesn't strictly require auth (all published are open),
+    // but we still check to maintain consistency.
+    if (!user) { setError('Not authenticated.'); setLoading(false); return }
+
     let cancelled = false
 
     async function load() {
       setLoading(true)
       setError(null)
 
+      // Fetch practice exam (exam_type = 'practice')
       const { data: examRow, error: eErr } = await supabase
         .from('exams')
         .select('id, title, exam_type')
@@ -92,7 +104,10 @@ export default function PracticeExamPage({ params }: { params: Promise<{ examId:
         .eq('is_published', true)
         .single()
 
-      if (eErr || !examRow) { setError('Reviewer not found or unavailable.'); setLoading(false); return }
+      if (eErr || !examRow) {
+        if (!cancelled) { setError('Reviewer not found or unavailable.'); setLoading(false) }
+        return
+      }
 
       const { data: qRows, error: qErr } = await supabase
         .from('questions')
@@ -100,29 +115,35 @@ export default function PracticeExamPage({ params }: { params: Promise<{ examId:
         .eq('exam_id', examId)
         .order('order_number', { ascending: true, nullsFirst: false })
 
-      if (qErr || !qRows?.length) { setError('No questions found for this reviewer.'); setLoading(false); return }
+      if (qErr || !qRows?.length) {
+        if (!cancelled) { setError('No questions found for this reviewer.'); setLoading(false) }
+        return
+      }
 
       if (!cancelled) {
         setExam({ id: examRow.id, title: examRow.title })
-        setQuestions(
-          (qRows ?? []).map((q) => ({
-            ...q,
-            question_type: q.question_type as QuestionType,
-            options: parseOptions(q.options),
-          }))
-        )
+        setQuestions(qRows.map((q) => ({
+          id:             q.id,
+          question_text:  q.question_text,
+          question_type:  q.question_type as QuestionType,
+          points:         q.points,
+          options:        parseOptions(q.options),
+          correct_answer: q.correct_answer,
+          explanation:    q.explanation,
+          order_number:   q.order_number,
+        })))
         setLoading(false)
       }
     }
 
-    load()
+    void load()
     return () => { cancelled = true }
-  }, [examId, supabase])
+  }, [authLoading, user, examId, supabase])
 
-  // ── Handlers ─────────────────────────────────────────────────────────────────
+  // ── Handlers ──────────────────────────────────────────────────────────────────
 
   const handleAnswer = useCallback((qId: string, value: string) => {
-    if (feedbacks[qId]?.submitted) return
+    if (feedbacks[qId]?.submitted) return   // locked after check
     setAnswers((prev) => ({ ...prev, [qId]: value }))
   }, [feedbacks])
 
@@ -130,7 +151,7 @@ export default function PracticeExamPage({ params }: { params: Promise<{ examId:
     const q = questions[current]
     if (!q) return
     const studentAnswer = answers[q.id] ?? ''
-    const isCorrect     = grade(q, studentAnswer)
+    const isCorrect     = gradeAnswer(q, studentAnswer)
 
     setFeedbacks((prev) => ({
       ...prev,
@@ -157,15 +178,15 @@ export default function PracticeExamPage({ params }: { params: Promise<{ examId:
     setCompleted(false)
   }, [])
 
-  // ── Derived ──────────────────────────────────────────────────────────────────
+  // ── Derived ───────────────────────────────────────────────────────────────────
   const q            = questions[current]
   const fb           = q ? feedbacks[q.id] : undefined
   const pct          = questions.length > 0 ? ((current + 1) / questions.length) * 100 : 0
   const correctCount = Object.values(feedbacks).filter((f) => f.isCorrect === true).length
   const canCheck     = !!(answers[q?.id ?? '']?.trim()) && !fb?.submitted
 
-  // ── Loading / Error ──────────────────────────────────────────────────────────
-  if (loading) return <div className={styles.center}>Loading reviewer…</div>
+  // ── Guards ────────────────────────────────────────────────────────────────────
+  if (authLoading || loading) return <div className={styles.center}>Loading reviewer…</div>
 
   if (error) {
     return (
@@ -177,7 +198,7 @@ export default function PracticeExamPage({ params }: { params: Promise<{ examId:
     )
   }
 
-  // ── Completion ───────────────────────────────────────────────────────────────
+  // ── Completion screen ─────────────────────────────────────────────────────────
   if (completed) {
     const gradable = Object.values(feedbacks).filter((f) => f.isCorrect !== null).length
     const accuracy = gradable > 0 ? Math.round((correctCount / gradable) * 100) : null
@@ -191,7 +212,6 @@ export default function PracticeExamPage({ params }: { params: Promise<{ examId:
           <p className={styles.completionSub}>
             You've finished all {questions.length} question{questions.length !== 1 ? 's' : ''}.
           </p>
-
           <div className={styles.completionGrid}>
             <div className={styles.completionGridItem}>
               <span className={styles.completionGridVal}>{questions.length}</span>
@@ -214,7 +234,6 @@ export default function PracticeExamPage({ params }: { params: Promise<{ examId:
               <span className={styles.completionGridLbl}>Accuracy</span>
             </div>
           </div>
-
           <div className={styles.completionActions}>
             <button className={styles.btnRetryAll} onClick={handleRestart}>
               <RotateCcw size={14} /> Try again
@@ -230,7 +249,7 @@ export default function PracticeExamPage({ params }: { params: Promise<{ examId:
 
   if (!q || !exam) return null
 
-  // ── Practice UI ──────────────────────────────────────────────────────────────
+  // ── Practice UI ───────────────────────────────────────────────────────────────
   return (
     <div className={styles.shell}>
 
@@ -251,7 +270,7 @@ export default function PracticeExamPage({ params }: { params: Promise<{ examId:
       {/* ── Main ── */}
       <div className={styles.main}>
 
-        {/* ── Sidebar ── */}
+        {/* ── Sidebar palette ── */}
         <div className={styles.sidebar}>
           <div className={styles.sidebarHead}>
             <div className={styles.sidebarHeading}>Questions</div>
@@ -269,7 +288,6 @@ export default function PracticeExamPage({ params }: { params: Promise<{ examId:
               ))}
             </div>
           </div>
-
           <div className={styles.palette}>
             {questions.map((pq, idx) => {
               const pfb   = feedbacks[pq.id]
@@ -294,10 +312,9 @@ export default function PracticeExamPage({ params }: { params: Promise<{ examId:
           </div>
         </div>
 
-        {/* ── Question ── */}
+        {/* ── Question card ── */}
         <div className={styles.content}>
           <div className={styles.questionCard} key={q.id}>
-
             <div className={styles.questionMeta}>
               <span className={styles.qNumber}>Question {current + 1} of {questions.length}</span>
               <div className={styles.qBadges}>
@@ -329,19 +346,15 @@ export default function PracticeExamPage({ params }: { params: Promise<{ examId:
                     >
                       <span className={styles.optLabel}>{opt.label}</span>
                       <span className={styles.optText}>{opt.text}</span>
-                      {isChecked && isCorrectO && (
-                        <span className={styles.optIcon}><CheckCircle2 size={16} color="#059669" /></span>
-                      )}
-                      {isChecked && isWrongO && (
-                        <span className={styles.optIcon}><XCircle size={16} color="#dc2626" /></span>
-                      )}
+                      {isChecked && isCorrectO && <span className={styles.optIcon}><CheckCircle2 size={16} color="#059669" /></span>}
+                      {isChecked && isWrongO   && <span className={styles.optIcon}><XCircle      size={16} color="#dc2626" /></span>}
                     </button>
                   )
                 })}
               </div>
             )}
 
-            {/* True/False */}
+            {/* True / False */}
             {q.question_type === 'true_false' && (
               <div className={styles.tfRow}>
                 {(['true', 'false'] as const).map((v) => {
@@ -422,11 +435,7 @@ export default function PracticeExamPage({ params }: { params: Promise<{ examId:
             {/* Action bar */}
             <div className={styles.answerBar}>
               {!fb?.submitted ? (
-                <button
-                  className={styles.btnCheck}
-                  onClick={handleCheck}
-                  disabled={!canCheck}
-                >
+                <button className={styles.btnCheck} onClick={handleCheck} disabled={!canCheck}>
                   <CheckCircle2 size={14} /> Check Answer
                 </button>
               ) : (
@@ -436,15 +445,13 @@ export default function PracticeExamPage({ params }: { params: Promise<{ examId:
               )}
             </div>
 
-            {/* Feedback */}
+            {/* Feedback box */}
             {fb?.submitted && (
-              <div
-                className={`${styles.feedback} ${
-                  fb.isCorrect === true  ? styles.feedbackCorrect  :
-                  fb.isCorrect === false ? styles.feedbackWrong    :
-                  styles.feedbackNeutral
-                }`}
-              >
+              <div className={`${styles.feedback} ${
+                fb.isCorrect === true  ? styles.feedbackCorrect  :
+                fb.isCorrect === false ? styles.feedbackWrong    :
+                styles.feedbackNeutral
+              }`}>
                 <div className={`${styles.feedbackHeader} ${
                   fb.isCorrect === true  ? styles.feedbackHeaderCorrect  :
                   fb.isCorrect === false ? styles.feedbackHeaderWrong    :
@@ -454,13 +461,11 @@ export default function PracticeExamPage({ params }: { params: Promise<{ examId:
                   {fb.isCorrect === false && <><XCircle      size={15} /> Incorrect</>}
                   {fb.isCorrect === null  && <><BookOpen     size={15} /> Recorded — requires manual review</>}
                 </div>
-
                 {fb.isCorrect === false && fb.correctAnswer && (
                   <p className={styles.feedbackAnswer}>
                     Correct answer: <strong>{fb.correctAnswer}</strong>
                   </p>
                 )}
-
                 {fb.explanation && (
                   <p className={styles.feedbackExplanation}>{fb.explanation}</p>
                 )}
@@ -473,21 +478,13 @@ export default function PracticeExamPage({ params }: { params: Promise<{ examId:
       {/* ── Nav Bar ── */}
       <div className={styles.navBar}>
         <div className={styles.navLeft}>
-          <button
-            className={styles.btnNav}
-            onClick={() => setCurrent((c) => Math.max(0, c - 1))}
-            disabled={current === 0}
-          >
+          <button className={styles.btnNav} onClick={() => setCurrent((c) => Math.max(0, c - 1))} disabled={current === 0}>
             <ChevronLeft size={15} /> Previous
           </button>
         </div>
-
         <div className={styles.navRight}>
           {current < questions.length - 1 ? (
-            <button
-              className={styles.btnNav}
-              onClick={() => setCurrent((c) => c + 1)}
-            >
+            <button className={styles.btnNav} onClick={() => setCurrent((c) => c + 1)}>
               Next <ChevronRight size={15} />
             </button>
           ) : (

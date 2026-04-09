@@ -1,7 +1,4 @@
 // lib/types/database.ts
-// Regenerate anytime:
-//   pnpm dlx supabase@latest gen types typescript --project-id YOUR_PROJECT_ID \
-//     > lib/types/database.ts
 
 export type Json =
   | string
