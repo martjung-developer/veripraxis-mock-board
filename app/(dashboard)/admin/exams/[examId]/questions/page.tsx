@@ -1,107 +1,116 @@
 // app/(dashboard)/admin/exams/[examId]/questions/page.tsx
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import {
   HelpCircle, ArrowLeft, Plus, Search, X, Pencil, Trash2,
-  AlertCircle, Loader2, ChevronLeft, ChevronRight, Filter,
-  CheckSquare, AlignLeft, List, ToggleLeft, Hash, Save,
+  AlertCircle, Loader2, Filter, ChevronDown, ChevronRight,
+  CheckSquare, AlignLeft, List, ToggleLeft, Hash, FileText,
+  Save, GripVertical, Key,
 } from 'lucide-react'
 import s from './questions.module.css'
 import { createClient } from '@/lib/supabase/client'
 import type { QuestionType, QuestionOption } from '@/lib/types/database'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+
 interface Question {
-  id: string
-  question_text: string
-  question_type: QuestionType
-  points: number
-  order_number: number | null
-  options: QuestionOption[] | null
+  id:             string
+  question_text:  string
+  question_type:  QuestionType
+  points:         number
+  order_number:   number | null
+  options:        QuestionOption[] | null
   correct_answer: string | null
-  explanation: string | null
-  created_at: string
+  explanation:    string | null
+  created_at:     string
 }
 
-// Blank form state
 interface QuestionForm {
-  question_text: string
-  question_type: QuestionType
-  points: number
-  options: QuestionOption[]
+  question_text:  string
+  question_type:  QuestionType
+  points:         number
+  options:        QuestionOption[]
   correct_answer: string
-  explanation: string
+  explanation:    string
 }
 
 const BLANK_FORM: QuestionForm = {
-  question_text: '',
-  question_type: 'multiple_choice',
-  points: 1,
-  options: [
+  question_text:  '',
+  question_type:  'multiple_choice',
+  points:         1,
+  options:        [
     { label: 'A', text: '' },
     { label: 'B', text: '' },
     { label: 'C', text: '' },
     { label: 'D', text: '' },
   ],
   correct_answer: '',
-  explanation: '',
+  explanation:    '',
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-const TYPE_LABELS: Record<QuestionType, string> = {
-  multiple_choice: 'Multiple Choice',
-  true_false:      'True / False',
-  short_answer:    'Short Answer',
-  essay:           'Essay',
-  matching:        'Matching',
-  fill_blank:      'Fill in the Blank',
+// ── Meta ───────────────────────────────────────────────────────────────────────
+
+const TYPE_META: Record<QuestionType, {
+  label:       string
+  icon:        React.ElementType
+  color:       string
+  description: string
+  autoGrade:   boolean
+}> = {
+  multiple_choice: { label: 'Multiple Choice', icon: CheckSquare, color: 'blue',   description: 'Students pick one correct option (A–D)',      autoGrade: true  },
+  true_false:      { label: 'True / False',    icon: ToggleLeft,  color: 'green',  description: 'Binary True/False question',                  autoGrade: true  },
+  fill_blank:      { label: 'Fill in Blank',   icon: Hash,        color: 'rose',   description: 'Student fills a blank; exact match graded',   autoGrade: true  },
+  short_answer:    { label: 'Short Answer',    icon: AlignLeft,   color: 'amber',  description: 'Brief written response; manual/AI graded',    autoGrade: false },
+  matching:        { label: 'Matching',        icon: List,        color: 'teal',   description: 'Match column A to column B; manual graded',   autoGrade: false },
+  essay:           { label: 'Essay',           icon: FileText,    color: 'violet', description: 'Extended response; rubric + AI assisted',     autoGrade: false },
 }
 
-const TYPE_ICONS: Record<QuestionType, React.ElementType> = {
-  multiple_choice: CheckSquare,
-  true_false:      ToggleLeft,
-  short_answer:    AlignLeft,
-  essay:           AlignLeft,
-  matching:        List,
-  fill_blank:      Hash,
-}
+const GROUP_ORDER: QuestionType[] = [
+  'multiple_choice', 'true_false', 'fill_blank',
+  'short_answer', 'matching', 'essay',
+]
 
-const TYPE_COLORS: Record<QuestionType, string> = {
-  multiple_choice: 'blue',
-  true_false:      'green',
-  short_answer:    'amber',
-  essay:           'violet',
-  matching:        'teal',
-  fill_blank:      'rose',
-}
-
-// These types are auto-gradable
 const AUTO_GRADE_TYPES: QuestionType[] = ['multiple_choice', 'true_false', 'fill_blank']
 
-const PAGE_SIZE = 10
+// ── Toast ─────────────────────────────────────────────────────────────────────
+
+function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onClose, 3000)
+    return () => clearTimeout(t)
+  }, [onClose])
+  return (
+    <div className={`${s.toast} ${type === 'success' ? s.toastSuccess : s.toastError}`}>
+      {type === 'success' ? '✓' : '✕'} {message}
+      <button onClick={onClose} className={s.toastClose}><X size={11} /></button>
+    </div>
+  )
+}
 
 // ── Component ─────────────────────────────────────────────────────────────────
+
 export default function QuestionsPage() {
   const { examId } = useParams<{ examId: string }>()
 
-  const [questions,    setQuestions]    = useState<Question[]>([])
-  const [loading,      setLoading]      = useState(true)
-  const [error,        setError]        = useState<string | null>(null)
-  const [search,       setSearch]       = useState('')
-  const [typeFilter,   setTypeFilter]   = useState<QuestionType | 'all'>('all')
-  const [page,         setPage]         = useState(1)
+  const [questions,     setQuestions]     = useState<Question[]>([])
+  const [loading,       setLoading]       = useState(true)
+  const [error,         setError]         = useState<string | null>(null)
+  const [search,        setSearch]        = useState('')
+  const [typeFilter,    setTypeFilter]    = useState<QuestionType | 'all'>('all')
+  const [expandedTypes, setExpandedTypes] = useState<Set<QuestionType>>(new Set(GROUP_ORDER))
+  const [toast,         setToast]         = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
-  // Modal state
+  // Modal
   const [modalOpen,    setModalOpen]    = useState(false)
-  const [editTarget,   setEditTarget]   = useState<Question | null>(null) // null = create mode
+  const [editTarget,   setEditTarget]   = useState<Question | null>(null)
   const [form,         setForm]         = useState<QuestionForm>(BLANK_FORM)
   const [saving,       setSaving]       = useState(false)
   const [formError,    setFormError]    = useState<string | null>(null)
 
-  // Delete modal
+  // Delete
   const [deleteTarget, setDeleteTarget] = useState<Question | null>(null)
   const [deleting,     setDeleting]     = useState(false)
 
@@ -127,10 +136,41 @@ export default function QuestionsPage() {
 
   useEffect(() => { fetchQuestions() }, [fetchQuestions])
 
-  // ── Open modal helpers ─────────────────────────────────────────────────────
-  const openCreateModal = () => {
+  // ── Grouped + filtered ─────────────────────────────────────────────────────
+  const grouped = useMemo(() => {
+    const q = search.toLowerCase()
+    const filtered = questions.filter(qn => {
+      const matchSearch = !search || qn.question_text.toLowerCase().includes(q)
+      const matchType   = typeFilter === 'all' || qn.question_type === typeFilter
+      return matchSearch && matchType
+    })
+
+    const map: Partial<Record<QuestionType, Question[]>> = {}
+    for (const qn of filtered) {
+      ;(map[qn.question_type] ??= []).push(qn)
+    }
+    return map
+  }, [questions, search, typeFilter])
+
+  const totalQuestions = questions.length
+  const totalPoints    = questions.reduce((s, q) => s + q.points, 0)
+
+  // ── Expand/collapse ────────────────────────────────────────────────────────
+  const toggleExpand = (type: QuestionType) => {
+    setExpandedTypes(prev => {
+      const next = new Set(prev)
+      next.has(type) ? next.delete(type) : next.add(type)
+      return next
+    })
+  }
+
+  const expandAll  = () => setExpandedTypes(new Set(GROUP_ORDER))
+  const collapseAll = () => setExpandedTypes(new Set())
+
+  // ── Modal helpers ──────────────────────────────────────────────────────────
+  const openCreateModal = (defaultType?: QuestionType) => {
     setEditTarget(null)
-    setForm(BLANK_FORM)
+    setForm({ ...BLANK_FORM, question_type: defaultType ?? 'multiple_choice' })
     setFormError(null)
     setModalOpen(true)
   }
@@ -138,14 +178,12 @@ export default function QuestionsPage() {
   const openEditModal = (q: Question) => {
     setEditTarget(q)
     setForm({
-      question_text: q.question_text,
-      question_type: q.question_type,
-      points:        q.points,
-      options:       (q.options as QuestionOption[]) ?? [
-        { label: 'A', text: '' },
-        { label: 'B', text: '' },
-        { label: 'C', text: '' },
-        { label: 'D', text: '' },
+      question_text:  q.question_text,
+      question_type:  q.question_type,
+      points:         q.points,
+      options:        (q.options as QuestionOption[]) ?? [
+        { label: 'A', text: '' }, { label: 'B', text: '' },
+        { label: 'C', text: '' }, { label: 'D', text: '' },
       ],
       correct_answer: q.correct_answer ?? '',
       explanation:    q.explanation ?? '',
@@ -154,27 +192,18 @@ export default function QuestionsPage() {
     setModalOpen(true)
   }
 
-  const closeModal = () => {
-    setModalOpen(false)
-    setEditTarget(null)
-    setFormError(null)
-  }
+  const closeModal = () => { setModalOpen(false); setEditTarget(null); setFormError(null) }
 
-  // ── Form field handlers ────────────────────────────────────────────────────
+  // ── Form handlers ──────────────────────────────────────────────────────────
   const handleTypeChange = (type: QuestionType) => {
     setForm(prev => ({
       ...prev,
-      question_type: type,
+      question_type:  type,
       correct_answer: '',
-      // Reset options when switching to MCQ
-      options: type === 'multiple_choice'
-        ? (prev.options.length > 0 ? prev.options : [
-            { label: 'A', text: '' },
-            { label: 'B', text: '' },
-            { label: 'C', text: '' },
-            { label: 'D', text: '' },
-          ])
-        : prev.options,
+      options: type === 'multiple_choice' ? (prev.options.length > 0 ? prev.options : [
+        { label: 'A', text: '' }, { label: 'B', text: '' },
+        { label: 'C', text: '' }, { label: 'D', text: '' },
+      ]) : prev.options,
     }))
   }
 
@@ -189,7 +218,7 @@ export default function QuestionsPage() {
   const addOption = () => {
     setForm(prev => {
       const labels = ['A','B','C','D','E','F']
-      const label = labels[prev.options.length] ?? String(prev.options.length + 1)
+      const label  = labels[prev.options.length] ?? String(prev.options.length + 1)
       return { ...prev, options: [...prev.options, { label, text: '' }] }
     })
   }
@@ -204,11 +233,11 @@ export default function QuestionsPage() {
 
   // ── Validate ───────────────────────────────────────────────────────────────
   const validate = (): string | null => {
-    if (!form.question_text.trim()) return 'Question text is required.'
-    if (form.points < 1) return 'Points must be at least 1.'
+    if (!form.question_text.trim())   return 'Question text is required.'
+    if (form.points < 1)              return 'Points must be at least 1.'
     if (form.question_type === 'multiple_choice') {
       if (form.options.some(o => !o.text.trim())) return 'All option texts are required.'
-      if (!form.correct_answer) return 'Please select the correct answer.'
+      if (!form.correct_answer)                   return 'Please select the correct answer.'
     }
     if (form.question_type === 'true_false' && !form.correct_answer) {
       return 'Please select True or False as the correct answer.'
@@ -216,7 +245,7 @@ export default function QuestionsPage() {
     return null
   }
 
-  // ── Save (create or update) ────────────────────────────────────────────────
+  // ── Save ───────────────────────────────────────────────────────────────────
   const handleSave = async () => {
     const validationErr = validate()
     if (validationErr) { setFormError(validationErr); return }
@@ -225,42 +254,30 @@ export default function QuestionsPage() {
     setFormError(null)
     const supabase = createClient()
 
-    // Build payload
     const payload = {
       question_text:  form.question_text.trim(),
       question_type:  form.question_type,
       points:         form.points,
       options:        form.question_type === 'multiple_choice' ? form.options : null,
-      // correct_answer is null for essay/short_answer (manual grading)
-      correct_answer: AUTO_GRADE_TYPES.includes(form.question_type)
-        ? form.correct_answer || null
-        : null,
+      correct_answer: AUTO_GRADE_TYPES.includes(form.question_type) ? form.correct_answer || null : null,
       explanation:    form.explanation.trim() || null,
     }
 
     if (editTarget) {
-      // UPDATE
       const { error: updateErr } = await supabase
-        .from('questions')
-        .update(payload)
-        .eq('id', editTarget.id)
-
+        .from('questions').update(payload).eq('id', editTarget.id)
       if (updateErr) {
-        setFormError('Could not update question. Please try again.')
-      } else {
-        setQuestions(prev =>
-          prev.map(q =>
-            q.id === editTarget.id
-              ? { ...q, ...payload, options: payload.options as QuestionOption[] | null }
-              : q
-          )
-        )
-        closeModal()
+        setFormError('Could not update question.')
+        setSaving(false)
+        return
       }
+      setQuestions(prev => prev.map(q =>
+        q.id === editTarget.id ? { ...q, ...payload, options: payload.options as QuestionOption[] | null } : q
+      ))
+      closeModal()
+      setToast({ message: 'Question updated.', type: 'success' })
     } else {
-      // INSERT — auto-assign order_number as max + 1
       const maxOrder = questions.reduce((m, q) => Math.max(m, q.order_number ?? 0), 0)
-
       const { data: inserted, error: insertErr } = await supabase
         .from('questions')
         .insert({ ...payload, exam_id: examId, order_number: maxOrder + 1 })
@@ -268,13 +285,14 @@ export default function QuestionsPage() {
         .single()
 
       if (insertErr || !inserted) {
-        setFormError('Could not create question. Please try again.')
-      } else {
-        setQuestions(prev => [...prev, inserted as Question])
-        closeModal()
+        setFormError('Could not create question.')
+        setSaving(false)
+        return
       }
+      setQuestions(prev => [...prev, inserted as Question])
+      closeModal()
+      setToast({ message: 'Question added.', type: 'success' })
     }
-
     setSaving(false)
   }
 
@@ -283,43 +301,23 @@ export default function QuestionsPage() {
     if (!deleteTarget) return
     setDeleting(true)
     const supabase = createClient()
-    const { error: delErr } = await supabase
-      .from('questions')
-      .delete()
-      .eq('id', deleteTarget.id)
+    const { error: delErr } = await supabase.from('questions').delete().eq('id', deleteTarget.id)
     if (delErr) {
       setError('Could not delete question.')
     } else {
       setQuestions(prev => prev.filter(q => q.id !== deleteTarget.id))
+      setToast({ message: 'Question deleted.', type: 'success' })
     }
     setDeleting(false)
     setDeleteTarget(null)
   }
 
-  // ── Filter + Paginate ──────────────────────────────────────────────────────
-  const filtered = questions.filter(q => {
-    const matchSearch = !search || q.question_text.toLowerCase().includes(search.toLowerCase())
-    const matchType   = typeFilter === 'all' || q.question_type === typeFilter
-    return matchSearch && matchType
-  })
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-
-  const pageNums = (() => {
-    const nums: (number | '…')[] = []
-    if (totalPages <= 7) { for (let i = 1; i <= totalPages; i++) nums.push(i); return nums }
-    nums.push(1)
-    if (page > 3) nums.push('…')
-    for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) nums.push(i)
-    if (page < totalPages - 2) nums.push('…')
-    nums.push(totalPages)
-    return nums
-  })()
-
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className={s.page}>
+
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
       {/* Header */}
       <div className={s.header}>
         <Link href={`/admin/exams/${examId}`} className={s.backBtn}><ArrowLeft size={14} /> Back to Exam</Link>
@@ -328,160 +326,268 @@ export default function QuestionsPage() {
             <div className={s.headerIcon}><HelpCircle size={20} color="#fff" /></div>
             <div>
               <h1 className={s.heading}>Questions</h1>
-              <p className={s.headingSub}>{questions.length} question{questions.length !== 1 ? 's' : ''} · Manage and add exam questions</p>
+              <p className={s.headingSub}>
+                {totalQuestions} question{totalQuestions !== 1 ? 's' : ''} · {totalPoints} total pts
+              </p>
             </div>
           </div>
-          <button className={s.btnPrimary} onClick={openCreateModal}>
-            <Plus size={14} /> Add Question
-          </button>
+          <div className={s.headerActions}>
+            <Link href={`/admin/exams/${examId}/answer-key`} className={s.btnOutline}>
+              <Key size={13} /> Answer Key
+            </Link>
+            <button className={s.btnPrimary} onClick={() => openCreateModal()}>
+              <Plus size={14} /> Add Question
+            </button>
+          </div>
         </div>
       </div>
 
       {error && <div className={s.errorBanner}><AlertCircle size={14} />{error}</div>}
 
-      {/* Filters */}
-      <div className={s.filterBar}>
+      {/* Stats strip */}
+      {!loading && totalQuestions > 0 && (
+        <div className={s.statsStrip}>
+          {GROUP_ORDER.map(type => {
+            const count = questions.filter(q => q.question_type === type).length
+            if (count === 0) return null
+            const meta = TYPE_META[type]
+            const Icon = meta.icon
+            return (
+              <div key={type} className={`${s.statChip} ${s[`statChip_${meta.color}`]}`}>
+                <Icon size={11} />
+                <span>{meta.label}</span>
+                <strong>{count}</strong>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Filters + expand controls */}
+      <div className={s.toolbar}>
         <div className={s.searchWrap}>
           <Search size={14} className={s.searchIcon} />
-          <input className={s.searchInput} placeholder="Search questions…" value={search}
-            onChange={e => { setSearch(e.target.value); setPage(1) }} />
-          {search && <button className={s.searchClear} onClick={() => { setSearch(''); setPage(1) }}><X size={13} /></button>}
+          <input
+            className={s.searchInput}
+            placeholder="Search questions…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          {search && <button className={s.searchClear} onClick={() => setSearch('')}><X size={13} /></button>}
         </div>
+
         <div className={s.filterGroup}>
           <Filter size={13} className={s.filterIcon} />
           <select className={s.filterSelect} value={typeFilter}
-            onChange={e => { setTypeFilter(e.target.value as QuestionType | 'all'); setPage(1) }}>
+            onChange={e => setTypeFilter(e.target.value as QuestionType | 'all')}>
             <option value="all">All Types</option>
-            {Object.entries(TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            {GROUP_ORDER.map(t => (
+              <option key={t} value={t}>{TYPE_META[t].label}</option>
+            ))}
           </select>
         </div>
-      </div>
 
-      {/* Table */}
-      <div className={s.tableCard}>
-        <div className={s.tableWrap}>
-          <table className={s.table}>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Question</th>
-                <th>Type</th>
-                <th>Points</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                Array.from({ length: PAGE_SIZE }).map((_, i) => (
-                  <tr key={i} className={s.skeletonRow}>
-                    <td><div className={`${s.skeleton} ${s.skelText}`} style={{ width: 24 }} /></td>
-                    <td><div className={`${s.skeleton} ${s.skelText}`} style={{ width: '80%' }} /></td>
-                    <td><div className={`${s.skeleton} ${s.skelBadge}`} /></td>
-                    <td><div className={`${s.skeleton} ${s.skelText}`} style={{ width: 30 }} /></td>
-                    <td><div className={s.skelActions}><div className={`${s.skeleton} ${s.skelBtn}`} /><div className={`${s.skeleton} ${s.skelBtn}`} /></div></td>
-                  </tr>
-                ))
-              ) : paginated.length === 0 ? (
-                <tr><td colSpan={5}>
-                  <div className={s.emptyState}>
-                    <div className={s.emptyIcon}><HelpCircle size={22} color="var(--text-muted)" /></div>
-                    <p className={s.emptyTitle}>No questions found</p>
-                    <p className={s.emptySub}>Add your first question or adjust the filters.</p>
-                  </div>
-                </td></tr>
-              ) : (
-                paginated.map(q => {
-                  const Icon  = TYPE_ICONS[q.question_type]
-                  const color = TYPE_COLORS[q.question_type]
-                  return (
-                    <tr key={q.id} className={s.tableRow}>
-                      <td><span className={s.orderChip}>{q.order_number ?? '—'}</span></td>
-                      <td><div className={s.questionText}>{q.question_text}</div></td>
-                      <td>
-                        <span className={`${s.typeBadge} ${s[`typeBadge_${color}`]}`}>
-                          <Icon size={11} />{TYPE_LABELS[q.question_type]}
-                        </span>
-                      </td>
-                      <td><span className={s.pointsChip}>{q.points} pt{q.points !== 1 ? 's' : ''}</span></td>
-                      <td>
-                        <div className={s.actions}>
-                          <button className={s.actionEdit} title="Edit" onClick={() => openEditModal(q)}>
-                            <Pencil size={13} />
-                          </button>
-                          <button className={s.actionDelete} title="Delete" onClick={() => setDeleteTarget(q)}>
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
+        <div className={s.expandControls}>
+          <button className={s.expandBtn} onClick={expandAll}>Expand All</button>
+          <span className={s.expandDivider} />
+          <button className={s.expandBtn} onClick={collapseAll}>Collapse All</button>
         </div>
-
-        {!loading && filtered.length > 0 && (
-          <div className={s.pagination}>
-            <span className={s.pageInfo}>
-              Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
-            </span>
-            <div className={s.pageButtons}>
-              <button className={s.pageBtn} disabled={page === 1} onClick={() => setPage(p => p - 1)}><ChevronLeft size={14} /></button>
-              {pageNums.map((n, i) => n === '…'
-                ? <span key={`d${i}`} className={s.pageDots}>…</span>
-                : <button key={n} className={`${s.pageBtn} ${page === n ? s.pageBtnActive : ''}`} onClick={() => setPage(n as number)}>{n}</button>
-              )}
-              <button className={s.pageBtn} disabled={page === totalPages} onClick={() => setPage(p => p + 1)}><ChevronRight size={14} /></button>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* ── Question Create/Edit Modal ── */}
+      {/* Grouped sections */}
+      {loading ? (
+        <div className={s.loadingState}>
+          <Loader2 size={22} className={s.spinner} />
+          <p>Loading questions…</p>
+        </div>
+      ) : totalQuestions === 0 ? (
+        <div className={s.emptyState}>
+          <div className={s.emptyIcon}><HelpCircle size={24} color="var(--text-muted)" /></div>
+          <p className={s.emptyTitle}>No questions yet</p>
+          <p className={s.emptySub}>Click "Add Question" to create your first question.</p>
+          <button className={s.btnPrimary} style={{ marginTop: '1rem' }} onClick={() => openCreateModal()}>
+            <Plus size={14} /> Add First Question
+          </button>
+        </div>
+      ) : (
+        <div className={s.groups}>
+          {GROUP_ORDER.map(type => {
+            const typeQuestions = grouped[type]
+            if (!typeQuestions?.length && (search || typeFilter !== 'all')) return null
+            if (!questions.some(q => q.question_type === type)) return null
+
+            const meta       = TYPE_META[type]
+            const Icon       = meta.icon
+            const isExpanded = expandedTypes.has(type)
+            const count      = questions.filter(q => q.question_type === type).length
+            const pts        = questions.filter(q => q.question_type === type).reduce((s, q) => s + q.points, 0)
+            const visibleQ   = typeQuestions ?? []
+
+            return (
+              <div key={type} className={`${s.group} ${s[`group_${meta.color}`]}`}>
+                {/* Group header */}
+                <div className={s.groupHeader}>
+                  <button className={s.groupToggle} onClick={() => toggleExpand(type)}>
+                    {isExpanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                    <div className={`${s.groupIcon} ${s[`groupIcon_${meta.color}`]}`}>
+                      <Icon size={15} />
+                    </div>
+                    <div className={s.groupTitleBlock}>
+                      <span className={s.groupTitle}>{meta.label}</span>
+                      <span className={s.groupMeta}>{meta.description}</span>
+                    </div>
+                  </button>
+
+                  <div className={s.groupHeaderRight}>
+                    <div className={`${s.groupModeBadge} ${meta.autoGrade ? s.groupModeBadgeAuto : s.groupModeBadgeManual}`}>
+                      {meta.autoGrade ? '⚡ Auto' : '✍ Manual'}
+                    </div>
+                    <div className={s.groupStats}>
+                      <span className={s.groupCount}>{count} question{count !== 1 ? 's' : ''}</span>
+                      <span className={s.groupPts}>{pts} pts</span>
+                    </div>
+                    <button
+                      className={s.addInGroupBtn}
+                      onClick={() => openCreateModal(type)}
+                      title={`Add ${meta.label} question`}
+                    >
+                      <Plus size={13} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Questions list */}
+                {isExpanded && (
+                  <div className={s.groupBody}>
+                    {visibleQ.length === 0 ? (
+                      <div className={s.groupEmpty}>
+                        <p>No questions match your search in this category.</p>
+                      </div>
+                    ) : (
+                      visibleQ.map((q, idx) => (
+                        <div key={q.id} className={s.questionRow}>
+                          <div className={s.questionDragHandle}>
+                            <GripVertical size={14} />
+                          </div>
+
+                          <div className={s.questionNum}>
+                            {q.order_number ?? idx + 1}
+                          </div>
+
+                          <div className={s.questionContent}>
+                            <p className={s.questionText}>{q.question_text}</p>
+
+                            {/* MCQ options preview */}
+                            {q.question_type === 'multiple_choice' && q.options && (
+                              <div className={s.optionsPreview}>
+                                {(q.options as QuestionOption[]).map(opt => (
+                                  <span
+                                    key={opt.label}
+                                    className={`${s.optPreview} ${q.correct_answer === opt.label ? s.optPreviewCorrect : ''}`}
+                                  >
+                                    {opt.label}: {opt.text.length > 25 ? opt.text.slice(0, 25) + '…' : opt.text}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* T/F answer preview */}
+                            {q.question_type === 'true_false' && q.correct_answer && (
+                              <span className={s.tfPreview}>
+                                Answer: <strong>{q.correct_answer === 'true' ? 'True' : 'False'}</strong>
+                              </span>
+                            )}
+
+                            {/* Fill blank preview */}
+                            {q.question_type === 'fill_blank' && q.correct_answer && (
+                              <span className={s.fillPreview}>
+                                Expected: <strong>{q.correct_answer}</strong>
+                              </span>
+                            )}
+
+                            {/* Manual types note */}
+                            {!meta.autoGrade && (
+                              <span className={s.manualNote}>
+                                ✍ {meta.label === 'Essay' ? 'Rubric + AI-assisted grading' : 'Manual grading required'}
+                              </span>
+                            )}
+
+                            {q.explanation && (
+                              <span className={s.hasExplanation}>💡 Has explanation</span>
+                            )}
+                          </div>
+
+                          <div className={s.questionMeta}>
+                            <span className={s.pointsPill}>{q.points} pt{q.points !== 1 ? 's' : ''}</span>
+                          </div>
+
+                          <div className={s.questionActions}>
+                            <button className={s.actionEdit} title="Edit" onClick={() => openEditModal(q)}>
+                              <Pencil size={13} />
+                            </button>
+                            <button className={s.actionDelete} title="Delete" onClick={() => setDeleteTarget(q)}>
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+
+                    {/* Add in group footer */}
+                    <button
+                      className={s.addInGroupFooter}
+                      onClick={() => openCreateModal(type)}
+                    >
+                      <Plus size={13} /> Add {meta.label} Question
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* ── Question Modal ─────────────────────────────────────────────────── */}
       {modalOpen && (
         <div className={s.modalOverlay} onClick={e => { if (e.target === e.currentTarget) closeModal() }}>
           <div className={s.modal}>
-            {/* Modal Header */}
             <div className={s.modalHeader}>
               <div className={s.modalHeaderLeft}>
-                <div className={s.modalHeaderIcon}>
-                  <HelpCircle size={16} color="#fff" />
-                </div>
+                <div className={s.modalHeaderIcon}><HelpCircle size={16} color="#fff" /></div>
                 <h2 className={s.modalTitle}>{editTarget ? 'Edit Question' : 'Add Question'}</h2>
               </div>
               <button className={s.modalClose} onClick={closeModal}><X size={16} /></button>
             </div>
 
-            {/* Modal Body */}
             <div className={s.modalBody}>
               {formError && (
                 <div className={s.formError}><AlertCircle size={13} />{formError}</div>
               )}
 
-              {/* Question Type Selector */}
+              {/* Type selector */}
               <div className={s.formGroup}>
                 <label className={s.label}>Question Type</label>
                 <div className={s.typeGrid}>
-                  {(Object.entries(TYPE_LABELS) as [QuestionType, string][]).map(([type, label]) => {
-                    const Icon = TYPE_ICONS[type]
-                    const color = TYPE_COLORS[type]
+                  {GROUP_ORDER.map(type => {
+                    const meta = TYPE_META[type]
+                    const Icon = meta.icon
                     return (
                       <button
                         key={type}
                         type="button"
-                        className={`${s.typeOption} ${form.question_type === type ? s.typeOptionActive : ''} ${s[`typeOption_${color}`]}`}
+                        className={`${s.typeOption} ${form.question_type === type ? s.typeOptionActive : ''} ${s[`typeOption_${meta.color}`]}`}
                         onClick={() => handleTypeChange(type)}
                       >
                         <Icon size={13} />
-                        <span>{label}</span>
+                        <span>{meta.label}</span>
                       </button>
                     )
                   })}
                 </div>
               </div>
 
-              {/* Question Text */}
+              {/* Question text */}
               <div className={s.formGroup}>
                 <label className={s.label}>Question Text <span className={s.required}>*</span></label>
                 <textarea
@@ -498,17 +604,14 @@ export default function QuestionsPage() {
                 <div className={s.formGroup}>
                   <label className={s.label}>Points <span className={s.required}>*</span></label>
                   <input
-                    type="number"
-                    className={s.input}
-                    min={1}
-                    max={100}
+                    type="number" className={s.input} min={1} max={100}
                     value={form.points}
                     onChange={e => setForm(prev => ({ ...prev, points: Number(e.target.value) }))}
                   />
                 </div>
               </div>
 
-              {/* ── MCQ Options ── */}
+              {/* MCQ options */}
               {form.question_type === 'multiple_choice' && (
                 <div className={s.formGroup}>
                   <label className={s.label}>Answer Options <span className={s.required}>*</span></label>
@@ -518,7 +621,7 @@ export default function QuestionsPage() {
                         <button
                           type="button"
                           className={`${s.optionLabel} ${form.correct_answer === opt.label ? s.optionLabelCorrect : ''}`}
-                          title="Set as correct answer"
+                          title="Set as correct"
                           onClick={() => setForm(prev => ({ ...prev, correct_answer: opt.label }))}
                         >
                           {opt.label}
@@ -548,68 +651,59 @@ export default function QuestionsPage() {
                 </div>
               )}
 
-              {/* ── True/False ── */}
+              {/* True/False */}
               {form.question_type === 'true_false' && (
                 <div className={s.formGroup}>
                   <label className={s.label}>Correct Answer <span className={s.required}>*</span></label>
                   <div className={s.tfRow}>
-                    <button
-                      type="button"
+                    <button type="button"
                       className={`${s.tfBtn} ${form.correct_answer === 'true' ? s.tfBtnActive : ''}`}
-                      onClick={() => setForm(prev => ({ ...prev, correct_answer: 'true' }))}
-                    >
+                      onClick={() => setForm(prev => ({ ...prev, correct_answer: 'true' }))}>
                       True
                     </button>
-                    <button
-                      type="button"
+                    <button type="button"
                       className={`${s.tfBtn} ${form.correct_answer === 'false' ? s.tfBtnActive : ''}`}
-                      onClick={() => setForm(prev => ({ ...prev, correct_answer: 'false' }))}
-                    >
+                      onClick={() => setForm(prev => ({ ...prev, correct_answer: 'false' }))}>
                       False
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* ── Fill in the Blank ── */}
+              {/* Fill blank */}
               {form.question_type === 'fill_blank' && (
                 <div className={s.formGroup}>
                   <label className={s.label}>Correct Answer <span className={s.required}>*</span></label>
-                  <input
-                    className={s.input}
-                    placeholder="Expected answer text…"
+                  <input className={s.input} placeholder="Expected answer…"
                     value={form.correct_answer}
-                    onChange={e => setForm(prev => ({ ...prev, correct_answer: e.target.value }))}
-                  />
+                    onChange={e => setForm(prev => ({ ...prev, correct_answer: e.target.value }))} />
                 </div>
               )}
 
-              {/* ── Essay / Short Answer notice ── */}
-              {(form.question_type === 'essay' || form.question_type === 'short_answer') && (
+              {/* Manual grading notice */}
+              {(form.question_type === 'essay' || form.question_type === 'short_answer' || form.question_type === 'matching') && (
                 <div className={s.manualNotice}>
-                  <AlertCircle size={13} />
-                  <span>
-                    {form.question_type === 'essay'
-                      ? 'Essay questions require manual grading by a faculty member.'
-                      : 'Short answer questions will be flagged for manual review.'}
-                  </span>
+                  <Pencil size={13} />
+                  <div>
+                    <strong>{TYPE_META[form.question_type].label}</strong> — {TYPE_META[form.question_type].description}
+                    <br />
+                    <span className={s.manualNoticeSub}>
+                      Set scoring rubrics on the <Link href={`/admin/exams/${examId}/answer-key`} className={s.answerKeyLink} target="_blank">Answer Key</Link> page.
+                    </span>
+                  </div>
                 </div>
               )}
 
               {/* Explanation */}
               <div className={s.formGroup}>
                 <label className={s.label}>Explanation <span className={s.optional}>(optional)</span></label>
-                <textarea
-                  className={s.textarea}
-                  rows={2}
+                <textarea className={s.textarea} rows={2}
                   placeholder="Shown to students after submission…"
                   value={form.explanation}
-                  onChange={e => setForm(prev => ({ ...prev, explanation: e.target.value }))}
-                />
+                  onChange={e => setForm(prev => ({ ...prev, explanation: e.target.value }))} />
               </div>
             </div>
 
-            {/* Modal Footer */}
             <div className={s.modalFooter}>
               <button className={s.btnSecondary} onClick={closeModal} disabled={saving}>Cancel</button>
               <button className={s.btnPrimary} onClick={handleSave} disabled={saving}>
@@ -622,7 +716,7 @@ export default function QuestionsPage() {
         </div>
       )}
 
-      {/* ── Delete Confirmation Modal ── */}
+      {/* ── Delete Modal ───────────────────────────────────────────────────── */}
       {deleteTarget && (
         <div className={s.modalOverlay}>
           <div className={s.deleteModal}>

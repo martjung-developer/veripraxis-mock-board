@@ -2,7 +2,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import {
   ChevronLeft, ChevronRight, Flag, SkipForward,
   Clock, AlertTriangle, Send, XCircle, CheckCircle2,
@@ -11,7 +11,6 @@ import { createClient }              from '@/lib/supabase/client'
 import { QuestionType, QuestionOption } from '@/lib/types/database'
 import { useUser }                   from '@/lib/context/AuthContext'
 import styles                        from './mock.module.css'
-import { useUser } from '@/lib/context/AuthContext'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -86,12 +85,15 @@ function SubmittedScreen({ examTitle, onBack }: { examTitle: string; onBack: () 
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
-export default function MockExamPage({ params }: { params: { examId: string } }) {
-  const router   = useRouter()
-  const supabase = useMemo(() => createClient(), [])
+// ✅ No params prop at all — useParams() reads the segment from the URL directly,
+//    bypassing the async-params issue entirely. Works in Next.js 14, 15, and 16.
+export default function MockExamPage() {
+  const router  = useRouter()
+  const params  = useParams()
+  const examId  = params.examId as string   // ← from URL, no Promise involved
 
+  const supabase = useMemo(() => createClient(), [])
   const { user, loading: authLoading } = useUser()
-  const examId = params.examId
 
   // ── Data ─────────────────────────────────────────────────────────────────────
   const [exam,         setExam]         = useState<ExamMeta | null>(null)
@@ -149,12 +151,11 @@ export default function MockExamPage({ params }: { params: { examId: string } })
       }
 
       // ── 3. Resume: look for existing in-progress submission ─────────────────
-      // ✅ maybeSingle() — returns null (not an error) when no row found
       const { data: inProg } = await supabase
         .from('submissions')
         .select('id, started_at')
         .eq('exam_id', examId)
-        .eq('student_id', user.id)   // ← security: own data only
+        .eq('student_id', user.id)
         .eq('status', 'in_progress')
         .order('created_at', { ascending: false })
         .limit(1)
@@ -193,7 +194,7 @@ export default function MockExamPage({ params }: { params: { examId: string } })
           .from('submissions')
           .insert({
             exam_id:    examId,
-            student_id: user.id,   // ← always tied to the logged-in student
+            student_id: user.id,
             started_at: now,
             status:     'in_progress',
           })
@@ -221,7 +222,6 @@ export default function MockExamPage({ params }: { params: { examId: string } })
         })))
         setSubmissionId(subId)
 
-        // Compute remaining time (handles resume correctly)
         const totalSecs = (examRow as ExamMeta).duration_minutes * 60
         const elapsed   = startedAt.current
           ? Math.floor((Date.now() - new Date(startedAt.current).getTime()) / 1000)
@@ -236,7 +236,6 @@ export default function MockExamPage({ params }: { params: { examId: string } })
   }, [authLoading, user, examId, supabase])
 
   // ── Auto-save answer ──────────────────────────────────────────────────────────
-  // ✅ Upsert uses typed fields — no `as unknown` casts
   const saveAnswer = useCallback(async (qId: string, text: string) => {
     if (!submissionId) return
     await supabase
@@ -248,7 +247,6 @@ export default function MockExamPage({ params }: { params: { examId: string } })
   }, [submissionId, supabase])
 
   // ── Submit ────────────────────────────────────────────────────────────────────
-  // ✅ Stable ref prevents stale-closure issues in the timer callback
   const submittingRef    = useRef(submitting)
   const answersRef       = useRef(answers)
   const questionsRef     = useRef(questions)
@@ -261,8 +259,6 @@ export default function MockExamPage({ params }: { params: { examId: string } })
   useEffect(() => { submissionIdRef.current = submissionId }, [submissionId])
   useEffect(() => { examRef.current         = exam         }, [exam])
 
-  // ✅ MOCK EXAM RULE: save answers, set status = 'submitted', show waiting screen
-  // NO score / percentage / passed computed here — faculty does that
   const doSubmit = useCallback(async () => {
     const sid  = submissionIdRef.current
     const ex   = examRef.current
@@ -277,7 +273,6 @@ export default function MockExamPage({ params }: { params: { examId: string } })
       ? Math.floor((Date.now() - new Date(startedAt.current).getTime()) / 1000)
       : null
 
-    // Save all answers — no grading, no is_correct
     const answerRows = qs.map((q) => ({
       submission_id: sid,
       question_id:   q.id,
@@ -288,7 +283,6 @@ export default function MockExamPage({ params }: { params: { examId: string } })
       .from('answers')
       .upsert(answerRows, { onConflict: 'submission_id,question_id' })
 
-    // ✅ status = 'submitted', scores null — faculty reviews and grades
     await supabase
       .from('submissions')
       .update({
@@ -310,7 +304,6 @@ export default function MockExamPage({ params }: { params: { examId: string } })
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timerRef.current!)
-          // ✅ doSubmit reads from refs — no stale closure problem
           void doSubmit()
           return 0
         }
@@ -319,7 +312,7 @@ export default function MockExamPage({ params }: { params: { examId: string } })
     }, 1000)
 
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
-  }, [exam, submitted, loading, doSubmit]) // doSubmit is stable (useCallback)
+  }, [exam, submitted, loading, doSubmit])
 
   // ── Answer handlers ───────────────────────────────────────────────────────────
   const handleAnswer = useCallback((qId: string, value: string) => {
