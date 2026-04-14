@@ -1,0 +1,332 @@
+/**
+ * hooks/usePrograms.ts
+ *
+ * Single source of truth for the Programs admin page.
+ * Owns all state, derived state, and actions.
+ *
+ * Rules:
+ *   - No JSX / no UI logic
+ *   - All Supabase access goes through the service layer
+ *   - Heavy computations are memoised
+ *   - Actions are stabilised with useCallback
+ */
+
+'use client'
+
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useRouter }   from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { useUser }      from '@/lib/context/AuthContext'
+
+import {
+  fetchAllProgramData,
+  updateProgramDescription,
+} from '@/lib/services/admin/programs/programs.service'
+
+import type {
+  ProgramDisplay,
+  ProgramFilters,
+  ProgramStats,
+  DescriptionEditState,
+  EditingId,
+} from '@/lib/types/admin/programs/programs.types'
+
+// ── Mapping helper (pure function, not a hook) ────────────────────────────────
+
+import type { FetchAllProgramDataResult } from '@/lib/types/admin/programs/programs.types'
+
+function mapToDisplayPrograms(raw: FetchAllProgramDataResult): ProgramDisplay[] {
+  return raw.programs.map((prog) => {
+    const progStudents = raw.students
+      .filter((s) => s.program_id === prog.id)
+      .map((s) => ({
+        id:         s.profiles.id,
+        full_name:  s.profiles.full_name,
+        email:      s.profiles.email,
+        year_level: s.year_level,
+      }))
+
+    const progExams = raw.exams
+      .filter((e) => e.program_id === prog.id)
+      .map((e) => ({
+        id:           e.id,
+        title:        e.title,
+        is_published: e.is_published,
+        exam_type:    e.exam_type,
+      }))
+
+    return {
+      ...prog,
+      studentCount: progStudents.length,
+      examCount:    progExams.length,
+      students:     progStudents,
+      exams:        progExams,
+    }
+  })
+}
+
+// ── Hook return type ──────────────────────────────────────────────────────────
+
+export interface UseProgramsReturn {
+  // Data
+  programs:         ProgramDisplay[]
+  filteredPrograms: ProgramDisplay[]
+  stats:            ProgramStats
+  degreeTypes:      string[]   // ['all', ...unique degree_type values]
+
+  // Async state
+  loading: boolean
+  error:   string | null
+
+  // Filters
+  filters:        ProgramFilters
+  setSearch:      (q: string) => void
+  setFilterDeg:   (deg: string) => void
+
+  // Modal
+  selectedProgram: ProgramDisplay | null
+  openModal:       (prog: ProgramDisplay) => void
+  closeModal:      () => void
+
+  // Description editing
+  editState:           DescriptionEditState
+  startEditDescription:(id: EditingId, currentDesc: string | null) => void
+  setEditDesc:         (value: string) => void
+  saveDescription:     (programId: string) => Promise<void>
+  cancelEdit:          () => void
+
+  // Refresh
+  refreshPrograms: () => void
+}
+
+// ── Hook ──────────────────────────────────────────────────────────────────────
+
+export function usePrograms(): UseProgramsReturn {
+  const router              = useRouter()
+  const { user, loading: authLoading } = useUser()
+
+  // Stable client instance for the lifetime of this hook
+  const supabase = useMemo(() => createClient(), [])
+
+  // ── Core data state ────────────────────────────────────────────────────────
+  const [programs, setPrograms] = useState<ProgramDisplay[]>([])
+  const [loading,  setLoading]  = useState(true)
+  const [error,    setError]    = useState<string | null>(null)
+
+  // ── Filter state ──────────────────────────────────────────────────────────
+  const [filters, setFilters] = useState<ProgramFilters>({
+    search:    '',
+    filterDeg: 'all',
+  })
+
+  // ── Modal state ───────────────────────────────────────────────────────────
+  const [selectedProgram, setSelectedProgram] = useState<ProgramDisplay | null>(null)
+
+  // ── Edit description state ────────────────────────────────────────────────
+  const [editState, setEditState] = useState<DescriptionEditState>({
+    editingId:     null,
+    editDesc:      '',
+    savingDesc:    false,
+    saveDescError: '',
+    saveDescOk:    false,
+  })
+
+  // ── Role guard ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (authLoading) {
+      return
+    }
+    if (!user) {
+      router.replace('/login')
+      return
+    }
+
+    const role =
+      (user.user_metadata?.role as string | undefined) ??
+      (user.app_metadata?.role  as string | undefined)
+
+    if (role !== 'admin' && role !== 'faculty') {
+      router.replace('/unauthorized')
+    }
+  }, [user, authLoading, router])
+
+  // ── Data fetching ─────────────────────────────────────────────────────────
+  const loadPrograms = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+
+    const raw = await fetchAllProgramData(supabase)
+
+    if (raw.error) {
+      setError('Could not load programs. Please try again.')
+      setLoading(false)
+      return
+    }
+
+    setPrograms(mapToDisplayPrograms(raw))
+    setLoading(false)
+  }, [supabase])
+
+  // Fire on mount (deferred by one tick to avoid blocking the initial paint)
+  useEffect(() => {
+    const t = window.setTimeout(() => { void loadPrograms() }, 0)
+    return () => window.clearTimeout(t)
+  }, [loadPrograms])
+
+  // ── Derived: degree type list ─────────────────────────────────────────────
+  const degreeTypes = useMemo<string[]>(() => {
+    const types = Array.from(new Set(programs.map((p) => p.degree_type))).sort()
+    return ['all', ...types]
+  }, [programs])
+
+  // ── Derived: filtered programs ────────────────────────────────────────────
+  const filteredPrograms = useMemo<ProgramDisplay[]>(() => {
+    const q = filters.search.toLowerCase().trim()
+
+    return programs.filter((p) => {
+      if (filters.filterDeg !== 'all' && p.degree_type !== filters.filterDeg) {
+        return false
+      }
+      if (
+        q &&
+        !p.name.toLowerCase().includes(q) &&
+        !p.code.toLowerCase().includes(q) &&
+        !p.full_name.toLowerCase().includes(q)
+      ) {
+        return false
+      }
+      return true
+    })
+  }, [programs, filters])
+
+  // ── Derived: stats ────────────────────────────────────────────────────────
+  const stats = useMemo<ProgramStats>(
+    () => ({
+      total:    programs.length,
+      students: programs.reduce((s, p) => s + p.studentCount, 0),
+      exams:    programs.reduce((s, p) => s + p.examCount,    0),
+      active:   programs.filter((p) => p.studentCount > 0).length,
+    }),
+    [programs],
+  )
+
+  // ── Filter actions ────────────────────────────────────────────────────────
+  const setSearch = useCallback((q: string) => {
+    setFilters((prev) => ({ ...prev, search: q }))
+  }, [])
+
+  const setFilterDeg = useCallback((deg: string) => {
+    setFilters((prev) => ({ ...prev, filterDeg: deg }))
+  }, [])
+
+  // ── Modal actions ─────────────────────────────────────────────────────────
+  const openModal = useCallback((prog: ProgramDisplay) => {
+    setSelectedProgram(prog)
+  }, [])
+
+  const closeModal = useCallback(() => {
+    setSelectedProgram(null)
+  }, [])
+
+  // ── Edit description actions ──────────────────────────────────────────────
+
+  const startEditDescription = useCallback(
+    (id: EditingId, currentDesc: string | null) => {
+      setEditState({
+        editingId:     id,
+        editDesc:      currentDesc ?? '',
+        savingDesc:    false,
+        saveDescError: '',
+        saveDescOk:    false,
+      })
+    },
+    [],
+  )
+
+  const setEditDesc = useCallback((value: string) => {
+    setEditState((prev) => ({ ...prev, editDesc: value }))
+  }, [])
+
+  const cancelEdit = useCallback(() => {
+    setEditState({
+      editingId:     null,
+      editDesc:      '',
+      savingDesc:    false,
+      saveDescError: '',
+      saveDescOk:    false,
+    })
+  }, [])
+
+  const saveDescription = useCallback(
+    async (programId: string) => {
+      setEditState((prev) => ({ ...prev, savingDesc: true, saveDescError: '', saveDescOk: false }))
+
+      const trimmed = editState.editDesc.trim() || null
+      const result  = await updateProgramDescription(supabase, programId, trimmed)
+
+      if (result.error) {
+        setEditState((prev) => ({
+          ...prev,
+          savingDesc:    false,
+          saveDescError: result.error ?? '',
+        }))
+        return
+      }
+
+      // Optimistic update: patch programs list and open modal (if any)
+      setPrograms((prev) =>
+        prev.map((p) =>
+          p.id === programId ? { ...p, description: trimmed } : p,
+        ),
+      )
+      setSelectedProgram((prev) =>
+        prev?.id === programId ? { ...prev, description: trimmed } : prev,
+      )
+
+      setEditState((prev) => ({
+        ...prev,
+        savingDesc: false,
+        saveDescOk: true,
+      }))
+
+      // Auto-close edit mode after brief success flash
+      setTimeout(() => {
+        setEditState({
+          editingId:     null,
+          editDesc:      '',
+          savingDesc:    false,
+          saveDescError: '',
+          saveDescOk:    false,
+        })
+      }, 1200)
+    },
+    [supabase, editState.editDesc],
+  )
+
+  // ── Public API ────────────────────────────────────────────────────────────
+  return {
+    programs,
+    filteredPrograms,
+    stats,
+    degreeTypes,
+
+    loading,
+    error,
+
+    filters,
+    setSearch,
+    setFilterDeg,
+
+    selectedProgram,
+    openModal,
+    closeModal,
+
+    editState,
+    startEditDescription,
+    setEditDesc,
+    saveDescription,
+    cancelEdit,
+
+    refreshPrograms: loadPrograms,
+  }
+}

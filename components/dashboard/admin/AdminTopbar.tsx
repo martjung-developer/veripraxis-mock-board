@@ -3,7 +3,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import {
   Search,
   Bell,
@@ -15,7 +14,9 @@ import { createClient } from "@/lib/supabase/client";
 import styles from "./AdminTopbar.module.css";
 
 function getInitials(name: string | null): string {
-  if (!name) return "FA";
+  if (!name) {
+    return "FA";
+  }
   return name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
 }
 
@@ -31,7 +32,9 @@ export default function AdminTopbar() {
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) return;
+      if (!data.user) {
+        return;
+      }
       supabase
         .from("profiles")
         .select("full_name, role")

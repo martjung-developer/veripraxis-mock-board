@@ -91,25 +91,22 @@ export interface GradingResult {
   // ai_grade?: { score: number; feedback: string; confidence: number }
 }
 
-export interface Database {
+export type Database = {
   public: {
     Tables: {
 
-      // ── profiles ──────────────────────────────────────────────────────────────
-      // One row per authenticated user regardless of role.
-      // FK → auth.users(id)
       profiles: {
         Row: {
-          id:         string          // uuid; mirrors auth.users.id
+          id:         string
           email:      string
           full_name:  string | null
           role:       UserRole
           avatar_url: string | null
-          created_at: string          // timestamptz
-          updated_at: string          // timestamptz
+          created_at: string
+          updated_at: string
         }
         Insert: {
-          id:          string          // required: must match auth.users.id
+          id:          string
           email:       string
           full_name?:  string | null
           role:        UserRole
@@ -126,22 +123,19 @@ export interface Database {
         }
       }
 
-      // ── students ──────────────────────────────────────────────────────────────
-      // Only users with role === 'student' get a row here.
-      // FK → profiles(id), programs(id), schools(id)
       students: {
         Row: {
-          id:          string          // uuid; mirrors profiles.id
-          student_id:  string | null   // e.g. school-assigned ID number
-          school:      string | null   // legacy text field (prefer school_id)
+          id:          string
+          student_id:  string | null
+          school:      string | null
           year_level:  number | null
-          target_exam: string | null   // e.g. "Nursing Board", "Bar Exam"
-          program_id:  string | null   // FK → programs.id
-          school_id:   string | null   // FK → schools.id
+          target_exam: string | null
+          program_id:  string | null
+          school_id:   string | null
           created_at:  string
         }
         Insert: {
-          id:           string          // required: must match profiles.id
+          id:           string
           student_id?:  string | null
           school?:      string | null
           year_level?:  number | null
@@ -160,13 +154,12 @@ export interface Database {
         }
       }
 
-      // ── schools ───────────────────────────────────────────────────────────────
       schools: {
         Row: {
           id:          string
-          code:        string          // unique short code e.g. "UPD"
-          name:        string          // abbreviated e.g. "UP Diliman"
-          full_name:   string          // e.g. "University of the Philippines Diliman"
+          code:        string
+          name:        string
+          full_name:   string
           description: string | null
           created_at:  string
         }
@@ -186,17 +179,16 @@ export interface Database {
         }
       }
 
-      // ── programs ──────────────────────────────────────────────────────────────
       programs: {
         Row: {
           id:          string
-          school_id:   string | null   // FK → schools.id
-          code:        string          // e.g. "BSPsych", "BEEd", "BSEd-MATH"
-          name:        string          // short display name e.g. "Psychology"
-          full_name:   string          // e.g. "Bachelor of Science in Psychology"
-          degree_type: string          // e.g. "Bachelor", "Master", "Doctorate"
-          major:       string | null   // e.g. "Mathematics" for BSEd-MATH; null for non-major programs
-          years:       number | null   // default 4
+          school_id:   string | null
+          code:        string
+          name:        string
+          full_name:   string
+          degree_type: string
+          major:       string | null
+          years:       number | null
           description: string | null
           created_at:  string
         }
@@ -224,13 +216,12 @@ export interface Database {
         }
       }
 
-      // ── exam_categories ───────────────────────────────────────────────────────
       exam_categories: {
         Row: {
           id:          string
-          name:        string          // unique
+          name:        string
           description: string | null
-          icon:        string | null   // icon name/slug or URL
+          icon:        string | null
           created_at:  string
         }
         Insert: {
@@ -247,38 +238,37 @@ export interface Database {
         }
       }
 
-      // ── exams ─────────────────────────────────────────────────────────────────
       exams: {
         Row: {
           id:               string
           title:            string
           description:      string | null
-          category_id:      string | null   // FK → exam_categories.id
-          program_id:       string | null   // FK → programs.id; null = not program-specific
-          exam_type:        ExamType        // 'mock' | 'practice'
+          category_id:      string | null
+          program_id:       string | null
+          exam_type:        ExamType
           duration_minutes: number
-          passing_score:    number          // percentage threshold e.g. 75
+          passing_score:    number
           total_points:     number
-          is_published:     boolean         // default false
-          created_by:       string | null   // FK → profiles.id (faculty/admin)
+          is_published:     boolean
+          created_by:       string | null
           created_at:       string
           updated_at:       string
         }
         Insert: {
-          id?:               string
-          title:             string
-          description?:      string | null
-          category_id?:      string | null
-          program_id?:       string | null
-          exam_type?:        ExamType
-          duration_minutes:  number
-          passing_score:     number
-          total_points:      number
-          is_published?:     boolean
-          created_by?:       string | null
-          created_at?:       string
-          updated_at?:       string
-        }
+  id?: string
+  title: string
+  description?: string | null
+  category_id?: string | null
+  program_id?: string | null
+  exam_type?: ExamType
+  duration_minutes: number
+  passing_score: number
+  total_points: number
+  is_published?: boolean
+  created_by?: string | null
+  created_at?: string
+  updated_at?: string
+}
         Update: {
           title?:            string
           description?:      string | null
@@ -293,35 +283,18 @@ export interface Database {
         }
       }
 
-      // ── questions ─────────────────────────────────────────────────────────────
-      // Managed by faculty or admin.
-      // FK → exams(id), profiles(id)
-      //
-      // options shape for multiple_choice: QuestionOption[]
-      //
-      // correct_answer usage:
-      //   multiple_choice → option label ("A", "B", etc.)
-      //   true_false      → "true" | "false"
-      //   fill_blank      → exact text answer
-      //   matching        → JSON string of pairs (app-defined format)
-      //   essay           → NULL (manual grading only)
-      //   short_answer    → NULL (manual review required)
-      //
-      // explanation:
-      //   Shown to student after submission. Optionally prefix with
-      //   [EASY], [MEDIUM], or [HARD] to encode difficulty level.
       questions: {
         Row: {
           id:             string
-          exam_id:        string | null   // FK → exams.id
+          exam_id:        string | null
           question_text:  string
           question_type:  QuestionType
-          points:         number          // default 1
-          options:        Json | null     // QuestionOption[] for MC; null for essay/tf/etc.
-          correct_answer: string | null   // null for essay and short_answer
+          points:         number
+          options:        Json | null
+          correct_answer: string | null
           explanation:    string | null
           order_number:   number | null
-          created_by:     string | null   // FK → profiles.id (faculty/admin)
+          created_by:     string | null
           created_at:     string
         }
         Insert: {
@@ -332,12 +305,13 @@ export interface Database {
           points?:         number
           options?:        Json | null
           correct_answer?: string | null
-          explanation?:    string | null
+          explanation:    string | null
           order_number?:   number | null
           created_by?:     string | null
           created_at?:     string
         }
         Update: {
+          exam_id?:        string | null
           question_text?:  string
           question_type?:  QuestionType
           points?:         number
@@ -348,24 +322,18 @@ export interface Database {
         }
       }
 
-      // ── submissions ───────────────────────────────────────────────────────────
-      // One row per exam attempt by a student.
-      // FK → exams(id), students(id)
-      //
-      // status flow: in_progress → submitted → graded
-      // score/percentage/passed are null until graded
       submissions: {
         Row: {
           id:                 string
-          exam_id:            string | null   // FK → exams.id
-          student_id:         string | null   // FK → students.id (= profiles.id for students)
-          started_at:         string          // default now()
-          submitted_at:       string | null   // null while in_progress
+          exam_id:            string | null
+          student_id:         string | null
+          started_at:         string
+          submitted_at:       string | null
           time_spent_seconds: number | null
           status:             SubmissionStatus
-          score:              number | null   // raw points earned; null until graded
-          percentage:         number | null   // 0–100; null until graded
-          passed:             boolean | null  // null until graded
+          score:              number | null
+          percentage:         number | null
+          passed:             boolean | null
           created_at:         string
         }
         Insert: {
@@ -391,32 +359,16 @@ export interface Database {
         }
       }
 
-      // ── answers ───────────────────────────────────────────────────────────────
-      // One row per question per submission.
-      // FK → submissions(id), questions(id), profiles(id)
-      //
-      // Grading logic:
-      //   AUTO: is_correct is set immediately on submission for MCQ, T/F, fill_blank
-      //   MANUAL: is_correct remains null until a faculty member grades it
-      //           graded_by is set to the faculty member's profiles.id
-      //
-      // FUTURE: For essay/short_answer, a Python AI service will eventually
-      //         provide a preliminary score before manual review.
-      //         Placeholder in grading code:
-      //           if (question.type === 'essay') {
-      //             status = 'needs_review'
-      //             // FUTURE: sendToPythonService(answer_text)
-      //           }
       answers: {
         Row: {
           id:            string
-          submission_id: string | null   // FK → submissions.id
-          question_id:   string | null   // FK → questions.id
-          answer_text:   string | null   // student's raw answer
-          is_correct:    boolean | null  // null until graded (essays, short_answer)
-          points_earned: number | null   // null until graded
-          graded_by:     string | null   // FK → profiles.id; null if auto-graded
-          feedback:      string | null   // per-answer faculty feedback
+          submission_id: string | null
+          question_id:   string | null
+          answer_text:   string | null
+          is_correct:    boolean | null
+          points_earned: number | null
+          graded_by:     string | null
+          feedback:      string | null
           created_at:    string
         }
         Insert: {
@@ -439,26 +391,19 @@ export interface Database {
         }
       }
 
-      // ── analytics ─────────────────────────────────────────────────────────────
-      // Aggregated performance stats per student × exam (or category/program).
-      // Updated after every graded submission.
-      // FK → students(id), exams(id), exam_categories(id), programs(id)
-      //
-      // Exam-level aggregate row: student_id IS NULL, exam_id IS NOT NULL
-      // Student-level row:        student_id IS NOT NULL, exam_id IS NOT NULL
       analytics: {
         Row: {
           id:                       string
-          student_id:               string | null   // FK → students.id; null = exam-level rollup
-          exam_id:                  string | null   // FK → exams.id
-          category_id:              string | null   // FK → exam_categories.id
-          program_id:               string | null   // FK → programs.id
-          total_attempts:           number          // default 0
+          student_id:               string | null
+          exam_id:                  string | null
+          category_id:              string | null
+          program_id:               string | null
+          total_attempts:           number
           average_score:            number | null
           highest_score:            number | null
           lowest_score:             number | null
-          total_time_spent_minutes: number          // default 0
-          last_attempt_at:          string | null   // timestamptz
+          total_time_spent_minutes: number
+          last_attempt_at:          string | null
           created_at:               string
           updated_at:               string
         }
@@ -488,7 +433,6 @@ export interface Database {
         }
       }
 
-      // ── practice_exams ────────────────────────────────────────────────────────
       practice_exams: {
         Row: {
           id:           string
@@ -528,7 +472,6 @@ export interface Database {
         }
       }
 
-      // ── storage_files ─────────────────────────────────────────────────────────
       storage_files: {
         Row: {
           id:          string
@@ -559,7 +502,6 @@ export interface Database {
         }
       }
 
-      // ── exam_assignments ──────────────────────────────────────────────────────
       exam_assignments: {
         Row: {
           id:          string
@@ -592,7 +534,6 @@ export interface Database {
         }
       }
 
-      // ── notifications ─────────────────────────────────────────────────────────
       notifications: {
         Row: {
           id:         string
@@ -620,16 +561,72 @@ export interface Database {
           is_read?:  boolean
         }
       }
+      study_materials: {
+        Row: {
+          id:            string
+          title:         string
+          description:   string | null
+          type:          'document' | 'video' | 'notes'
+          file_url:      string | null
+          notes_content: string | null
+          program_id:    string | null
+          category:      string | null
+          is_published:  boolean
+          created_at:    string
+          updated_at:    string
+          created_by:    string | null
+        }
+        Insert: { 
+          id:            string
+          description:   string | null
+          file_url:      string | null
+          notes_content: string | null
+          program_id:    string | null
+          category:      string | null
+          is_published:  boolean
+          created_at:    string
+          updated_at:    string
+          created_by:    string | null
+        }  
+        Update: { 
+          id:            string
+          description:   string | null
+          file_url:      string | null
+          notes_content: string | null
+          program_id:    string | null
+          category:      string | null
+          is_published:  boolean
+          created_at:    string
+          updated_at:    string
+          created_by:    string | null
+        }
+}
 
     }
-
-    Views:     Record<string, never>
-    Functions: Record<string, never>
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+    Views:          {}
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+    Functions:      {}
     Enums: {
       user_role:         UserRole
       submission_status: SubmissionStatus
       storage_purpose:   StoragePurpose
       question_type:     QuestionType
+      exam_type: ExamType 
     }
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+    CompositeTypes: {}
   }
 }
+
+// -- Table Helpers ──────────────────────────────────────────────────────────────────────────── //
+
+export type Tables = {
+  [K in keyof Database['public']['Tables']]: Database['public']['Tables'][K]['Row']
+}[keyof Database['public']['Tables']]
+
+export type TablesInsert<T extends keyof Database['public']['Tables']> =
+  Database['public']['Tables'][T]['Insert']
+
+export type TablesUpdate<T extends keyof Database['public']['Tables']> =
+  Database['public']['Tables'][T]['Update']

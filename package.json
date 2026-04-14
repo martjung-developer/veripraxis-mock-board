@@ -21,7 +21,8 @@
     "react-dom": "19.2.3",
     "recharts": "^3.8.1",
     "sweetalert2": "^11.26.20",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^20.19.33",

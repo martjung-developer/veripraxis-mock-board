@@ -51,7 +51,9 @@ const BOTTOM_ITEMS = [
 ];
 
 function getInitials(name: string | null): string {
-  if (!name) return "FA";
+  if (!name) {
+    return "FA";
+  }
   return name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
 }
 
@@ -69,14 +71,18 @@ export default function AdminSidebar({ collapsed, onCollapse }: AdminSidebarProp
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) return;
+      if (!data.user) {
+        return;
+      }
       supabase
         .from("profiles")
         .select("full_name")
         .eq("id", data.user.id)
         .single()
         .then(({ data: profile }) => {
-          if (profile) setAdminName((profile as { full_name: string | null }).full_name ?? "Admin");
+          if (profile) {
+            setAdminName((profile as { full_name: string | null }).full_name ?? "Admin");
+          }
         });
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps

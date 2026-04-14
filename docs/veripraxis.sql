@@ -36,6 +36,21 @@ CREATE TABLE public.answers (
   CONSTRAINT answers_question_id_fkey FOREIGN KEY (question_id) REFERENCES public.questions(id),
   CONSTRAINT answers_graded_by_fkey FOREIGN KEY (graded_by) REFERENCES public.profiles(id)
 );
+CREATE TABLE public.exam_assignments (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  exam_id uuid,
+  student_id uuid,
+  program_id uuid,
+  assigned_by uuid,
+  assigned_at timestamp with time zone DEFAULT now(),
+  deadline timestamp with time zone,
+  is_active boolean DEFAULT true,
+  CONSTRAINT exam_assignments_pkey PRIMARY KEY (id),
+  CONSTRAINT exam_assignments_exam_id_fkey FOREIGN KEY (exam_id) REFERENCES public.exams(id),
+  CONSTRAINT exam_assignments_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id),
+  CONSTRAINT exam_assignments_program_id_fkey FOREIGN KEY (program_id) REFERENCES public.programs(id),
+  CONSTRAINT exam_assignments_assigned_by_fkey FOREIGN KEY (assigned_by) REFERENCES public.profiles(id)
+);
 CREATE TABLE public.exam_categories (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   name text NOT NULL UNIQUE,
@@ -56,9 +71,48 @@ CREATE TABLE public.exams (
   created_by uuid,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  exam_type text NOT NULL DEFAULT 'mock'::text CHECK (exam_type = ANY (ARRAY['mock'::text, 'practice'::text])),
+  program_id uuid,
+  grading_mode text DEFAULT 'auto'::text,
   CONSTRAINT exams_pkey PRIMARY KEY (id),
   CONSTRAINT exams_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.exam_categories(id),
-  CONSTRAINT exams_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
+  CONSTRAINT exams_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id),
+  CONSTRAINT exams_program_id_fkey FOREIGN KEY (program_id) REFERENCES public.programs(id)
+);
+CREATE TABLE public.notifications (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  user_id uuid,
+  title text,
+  message text,
+  type text,
+  is_read boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT notifications_pkey PRIMARY KEY (id),
+  CONSTRAINT notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.practice_completions (
+  student_id uuid NOT NULL,
+  exam_id uuid NOT NULL,
+  completed_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT practice_completions_pkey PRIMARY KEY (student_id, exam_id),
+  CONSTRAINT practice_completions_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.profiles(id),
+  CONSTRAINT practice_completions_exam_id_fkey FOREIGN KEY (exam_id) REFERENCES public.exams(id)
+);
+CREATE TABLE public.practice_exams (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  title text NOT NULL,
+  description text,
+  category_id uuid,
+  content text,
+  file_url text,
+  created_by uuid,
+  is_published boolean DEFAULT false,
+  view_count integer DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT practice_exams_pkey PRIMARY KEY (id),
+  CONSTRAINT reviewers_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.exam_categories(id),
+  CONSTRAINT reviewers_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
 );
 CREATE TABLE public.profiles (
   id uuid NOT NULL,
@@ -101,22 +155,6 @@ CREATE TABLE public.questions (
   CONSTRAINT questions_exam_id_fkey FOREIGN KEY (exam_id) REFERENCES public.exams(id),
   CONSTRAINT questions_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
 );
-CREATE TABLE public.reviewers (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  title text NOT NULL,
-  description text,
-  category_id uuid,
-  content text,
-  file_url text,
-  created_by uuid,
-  is_published boolean DEFAULT false,
-  view_count integer DEFAULT 0,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT reviewers_pkey PRIMARY KEY (id),
-  CONSTRAINT reviewers_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.exam_categories(id),
-  CONSTRAINT reviewers_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
-);
 CREATE TABLE public.schools (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   code text NOT NULL UNIQUE,
@@ -152,6 +190,23 @@ CREATE TABLE public.students (
   CONSTRAINT students_program_id_fkey FOREIGN KEY (program_id) REFERENCES public.programs(id),
   CONSTRAINT students_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
 );
+CREATE TABLE public.study_materials (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  title text NOT NULL,
+  description text,
+  type text NOT NULL CHECK (type = ANY (ARRAY['document'::text, 'video'::text, 'notes'::text])),
+  file_url text,
+  notes_content text,
+  program_id uuid,
+  category text,
+  is_published boolean NOT NULL DEFAULT false,
+  created_by uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT study_materials_pkey PRIMARY KEY (id),
+  CONSTRAINT study_materials_program_id_fkey FOREIGN KEY (program_id) REFERENCES public.programs(id),
+  CONSTRAINT study_materials_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
+);
 CREATE TABLE public.submissions (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   exam_id uuid,
@@ -159,11 +214,12 @@ CREATE TABLE public.submissions (
   started_at timestamp with time zone DEFAULT now(),
   submitted_at timestamp with time zone,
   time_spent_seconds integer,
-  status text DEFAULT 'in_progress'::text CHECK (status = ANY (ARRAY['in_progress'::text, 'submitted'::text, 'graded'::text])),
+  status text DEFAULT 'in_progress'::text CHECK (status = ANY (ARRAY['in_progress'::text, 'submitted'::text, 'graded'::text, 'reviewed'::text, 'released'::text])),
   score numeric,
   percentage numeric,
   passed boolean,
   created_at timestamp with time zone DEFAULT now(),
+  released_at timestamp with time zone,
   CONSTRAINT submissions_pkey PRIMARY KEY (id),
   CONSTRAINT submissions_exam_id_fkey FOREIGN KEY (exam_id) REFERENCES public.exams(id),
   CONSTRAINT submissions_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id)

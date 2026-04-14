@@ -10,7 +10,8 @@ import {
 } from 'lucide-react'
 import s from './create.module.css'
 import { createClient } from '@/lib/supabase/client'
-import { EXAM_TYPE_META, type ExamType } from '@/lib/types/database'
+import { EXAM_TYPE_META, type ExamType, Database } from '@/lib/types/database'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface FormData {
@@ -80,7 +81,7 @@ export default function CreateExamPage() {
   // Fetch live categories from exam_categories table
   useEffect(() => {
     async function loadCategories() {
-      const supabase = createClient()
+      const supabase: SupabaseClient<Database> = createClient()
       const { data, error } = await supabase
         .from('exam_categories')
         .select('id, name')
@@ -103,24 +104,26 @@ export default function CreateExamPage() {
     setSubmitting(true)
     setSubmitError(null)
 
-    const supabase = createClient()
+    const supabase: SupabaseClient<Database> = createClient()
 
     // Get current user so we can set created_by
     const { data: { user } } = await supabase.auth.getUser()
 
-    const { error: insertErr } = await supabase
-      .from('exams')
-      .insert({
-        title:            form.title.trim(),
-        description:      form.description.trim() || null,
-        category_id:      form.category_id,
-        exam_type:        form.exam_type,           // ← persisted to DB
-        duration_minutes: Number(form.duration_minutes),
-        total_points:     Number(form.total_points),
-        passing_score:    Number(form.passing_score),
-        is_published:     form.is_published,
-        created_by:       user?.id ?? null,
-      })
+const insertPayload: Database['public']['Tables']['exams']['Insert'] = {
+  title: form.title.trim(),
+  description: form.description.trim() || null,
+  category_id: form.category_id || null,
+  exam_type: form.exam_type,
+  duration_minutes: Number(form.duration_minutes),
+  total_points: Number(form.total_points),
+  passing_score: Number(form.passing_score),
+  is_published: form.is_published,
+  created_by: user?.id ?? null,
+}
+
+const { error: insertErr } = await supabase
+  .from('exams')
+  .insert(insertPayload)
 
     if (insertErr) {
       setSubmitError('Could not save exam. Please try again.')

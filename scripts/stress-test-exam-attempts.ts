@@ -1,4 +1,4 @@
-// scripts/stress-test-exam-attempts.ts
+/* scripts/stress-test-exam-attempts.ts
 
 import { createClient } from '@supabase/supabase-js'
 import 'dotenv/config'
@@ -27,12 +27,11 @@ interface AttemptResult {
  
 // ── Utilities ──────────────────────────────────────────────────────────────
 
-/** Pause execution for `ms` milliseconds. */
+ 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-/** Type definitions for database rows */
 interface Submission {
   id: string
   exam_id: string
@@ -148,7 +147,6 @@ async function simulateAttempt(
             : q.correct_answer === 'true' ? 'false' : 'true'
           break
         default:
-          // essay / short_answer — cannot auto-grade; submit placeholder
           answerText = answerCorrectly
             ? (q.correct_answer ?? 'Sample answer text')
             : 'I am not sure about this one.'
@@ -319,3 +317,5 @@ main().catch(err => {
   console.error('Fatal:', err)
   process.exit(1)
 })
+
+*/

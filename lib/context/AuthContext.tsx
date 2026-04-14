@@ -45,7 +45,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const supabase = createClient()
 
   async function loadSession() {
-    if (fetchingRef.current) return
+    if (fetchingRef.current) {
+      return
+    }
     fetchingRef.current = true
 
     try {

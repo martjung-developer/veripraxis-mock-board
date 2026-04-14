@@ -830,6 +830,88 @@
   background: #fff;
 }
 
+.dropZone {
+  margin-top: 0.5rem;
+  border: 2px dashed var(--q-border);
+  border-radius: 12px;
+  background: #fafbff;
+  padding: 2rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.dropZone:hover {
+  border-color: var(--q-indigo);
+  background: rgba(79, 95, 247, 0.02);
+}
+.dropZoneActive {
+  border-color: var(--q-indigo) !important;
+  background: rgba(79, 95, 247, 0.04) !important;
+}
+ 
+/* ── Faculty exam format hint banner ── */
+.facultyHint {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  background: rgba(124, 58, 237, 0.05);
+  border: 1px solid rgba(124, 58, 237, 0.15);
+  border-radius: 9px;
+  padding: 0.6rem 0.85rem;
+}
+.facultyHintIcon {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: rgba(124, 58, 237, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.facultyHintTitle {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #5b21b6;
+  margin-bottom: 2px;
+}
+.facultyHintDesc {
+  display: block;
+  font-size: 0.72rem;
+  color: #7c3aed;
+  line-height: 1.4;
+}
+ 
+/* ── Parse summary (type breakdown after file load) ── */
+.parseSummary {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.parseSummaryLabel {
+  font-size: 0.71rem;
+  font-weight: 700;
+  color: var(--q-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+.parseSummaryPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.parseSummaryPills span {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+  letter-spacing: 0.02em;
+}
+
 /* ═══════════════════════════════════════════
    RESPONSIVE
 ═══════════════════════════════════════════ */
