@@ -26,7 +26,7 @@ import styles           from './StudentSidebar.module.css'
 const NAV = [
   { href: '/student/dashboard',       icon: LayoutDashboard, label: 'Overview'        },
   { href: '/student/mock-exams',      icon: ClipboardList,   label: 'Mock Exam'      },
-  { href: '/student/reviews',         icon: BookOpen,        label: 'Practice Exam'       },
+  { href: '/student/practice-exams',         icon: BookOpen,        label: 'Practice Exam'       },
   { href: '/student/study-materials', icon: FileText,        label: 'Study Materials' },
   { href: '/student/progress',        icon: BarChart2,       label: 'My Progress'     },
   { href: '/student/results',         icon: GraduationCap,   label: 'Results'         },

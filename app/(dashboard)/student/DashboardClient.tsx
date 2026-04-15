@@ -41,7 +41,7 @@ interface RecentActivity {
 // ── Quick Actions ──────────────────────────────────────────────────────────────
 const QUICK_ACTIONS = [
   { href: '/student/mock-exams',      icon: ClipboardList, label: 'Take a Mock Exam',  desc: 'Timed simulation',   color: '#1d4ed8', bg: '#eff6ff' },
-  { href: '/student/reviews',         icon: BookOpen,      label: 'Start a Reviewer',  desc: 'Practice questions', color: '#047857', bg: '#ecfdf5' },
+  { href: '/student/practice-exams',         icon: BookOpen,      label: 'Start a Reviewer',  desc: 'Practice questions', color: '#047857', bg: '#ecfdf5' },
   { href: '/student/study-materials', icon: FileText,      label: 'Study Materials',   desc: 'Read & learn',       color: '#6d28d9', bg: '#f5f3ff' },
   { href: '/student/progress',        icon: TrendingUp,    label: 'View Progress',     desc: 'Track your growth',  color: '#b45309', bg: '#fffbeb' },
   { href: '/student/results',         icon: Trophy,        label: 'Past Results',      desc: 'See your scores',    color: '#be123c', bg: '#fff1f2' },

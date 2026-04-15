@@ -305,7 +305,7 @@ export type Database = {
           points?:         number
           options?:        Json | null
           correct_answer?: string | null
-          explanation:    string | null
+          explanation?:   string | null
           order_number?:   number | null
           created_by?:     string | null
           created_at?:     string
@@ -319,6 +319,8 @@ export type Database = {
           correct_answer?: string | null
           explanation?:    string | null
           order_number?:   number | null
+          created_by?:     string | null
+          created_at?:     string
         }
       }
 
@@ -577,28 +579,32 @@ export type Database = {
           created_by:    string | null
         }
         Insert: { 
-          id:            string
-          description:   string | null
-          file_url:      string | null
-          notes_content: string | null
-          program_id:    string | null
-          category:      string | null
-          is_published:  boolean
-          created_at:    string
-          updated_at:    string
-          created_by:    string | null
+          id?:           string
+          title:         string
+          type:          'document' | 'video' | 'notes'
+          description?:   string | null
+          file_url?:      string | null
+          notes_content?: string | null
+          program_id?:    string | null
+          category?:      string | null
+          is_published?:  boolean
+          created_at?:    string
+          updated_at?:    string
+          created_by?:    string | null
         }  
         Update: { 
-          id:            string
-          description:   string | null
-          file_url:      string | null
-          notes_content: string | null
-          program_id:    string | null
-          category:      string | null
-          is_published:  boolean
-          created_at:    string
-          updated_at:    string
-          created_by:    string | null
+          id?:            string
+          title?:         string
+          type?:          'document' | 'video' | 'notes'
+          description?:   string | null
+          file_url?:      string | null
+          notes_content?: string | null
+          program_id?:    string | null
+          category?:      string | null
+          is_published?:  boolean
+          created_at?:    string
+          updated_at?:    string
+          created_by?:    string | null
         }
 }
 

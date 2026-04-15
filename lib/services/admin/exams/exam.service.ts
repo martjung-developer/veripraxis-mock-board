@@ -1,0 +1,197 @@
+// services/admin/exams/exam.service.ts
+// ─────────────────────────────────────────────────────────────────────────────
+// All Supabase I/O for the exams feature.
+// Rules:
+//  • Every query uses .returns<T>() for compile-time safety.
+//  • No `as`, `any`, or `unknown` casts anywhere.
+//  • Transformer functions live here — they own the raw→domain mapping.
+//  • Service functions return domain types, never raw DB shapes.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database }       from '@/lib/types/database'
+import type {
+  Exam,
+  ExamUpdatePayload,
+  ProgramOption,
+  CategoryOption,
+  RawExamRow,
+  RawCategoryJoin,
+  RawProgramJoin,
+} from '@/lib/types/admin/exams/exam.types'
+import { EXAM_TYPE_META } from '@/lib/types/database'
+import type { ExamType } from '@/lib/types/database'
+
+// ── Convenience client alias ──────────────────────────────────────────────────
+type DB = SupabaseClient<Database>
+
+// ── Internal raw query types (not exported) ───────────────────────────────────
+// These match exactly what Supabase returns for the join query.
+type QuestionCountRow  = Pick<Database['public']['Tables']['questions']['Row'],      'exam_id'>
+type AssignmentCountRow = Pick<Database['public']['Tables']['exam_assignments']['Row'], 'exam_id'>
+
+// ── Transformers ──────────────────────────────────────────────────────────────
+
+/**
+ * Supabase may return a joined one-to-one as a single object OR an array.
+ * This unwraps both safely without casting.
+ */
+function unwrapCategory(raw: RawCategoryJoin): CategoryOption | null {
+  if (!raw) return null
+  if (Array.isArray(raw)) {
+    const first = raw[0]
+    return first ? { id: first.id, name: first.name } : null
+  }
+  return { id: raw.id, name: raw.name }
+}
+
+function unwrapProgram(raw: RawProgramJoin): ProgramOption | null {
+  if (!raw) return null
+  if (Array.isArray(raw)) {
+    const first = raw[0]
+    return first ? { id: first.id, code: first.code, name: first.name } : null
+  }
+  return { id: raw.id, code: raw.code, name: raw.name }
+}
+
+/**
+ * Coerce the nullable exam_type string coming from the DB into the ExamType union.
+ * Falls back to 'mock' if the value is unrecognised (defensive).
+ */
+function toExamType(raw: string | null): ExamType {
+  const keys = Object.keys(EXAM_TYPE_META) as ExamType[]
+  return keys.includes(raw as ExamType) ? (raw as ExamType) : 'mock'
+}
+
+function toExam(
+  raw:        RawExamRow,
+  qCountMap:  Record<string, number>,
+  aCountMap:  Record<string, number>,
+): Exam {
+  return {
+    id:               raw.id,
+    title:            raw.title,
+    description:      raw.description,
+    category:         unwrapCategory(raw.exam_categories),
+    program:          unwrapProgram(raw.programs),
+    exam_type:        toExamType(raw.exam_type),
+    duration_minutes: raw.duration_minutes,
+    total_points:     raw.total_points,
+    passing_score:    raw.passing_score,
+    is_published:     raw.is_published,
+    question_count:   qCountMap[raw.id] ?? 0,
+    assigned_count:   aCountMap[raw.id] ?? 0,
+    created_at:       raw.created_at,
+  }
+}
+
+// ── getPrograms ───────────────────────────────────────────────────────────────
+
+export async function getPrograms(supabase: DB): Promise<ProgramOption[]> {
+  const { data } = await supabase
+    .from('programs')
+    .select('id, code, name')
+    .order('code')
+    .returns<ProgramOption[]>()
+
+  return data ?? []
+}
+
+// ── getCategories ─────────────────────────────────────────────────────────────
+
+export async function getCategories(supabase: DB): Promise<CategoryOption[]> {
+  const { data } = await supabase
+    .from('exam_categories')
+    .select('id, name')
+    .order('name')
+    .returns<CategoryOption[]>()
+
+  return data ?? []
+}
+
+// ── getExamCounts ─────────────────────────────────────────────────────────────
+// Returns question counts and active-assignment counts keyed by exam_id.
+
+export interface ExamCounts {
+  qCountMap: Record<string, number>
+  aCountMap: Record<string, number>
+}
+
+export async function getExamCounts(
+  supabase: DB,
+  examIds:  string[],
+): Promise<ExamCounts> {
+  if (examIds.length === 0) return { qCountMap: {}, aCountMap: {} }
+
+  const [qRes, aRes] = await Promise.all([
+    supabase
+      .from('questions')
+      .select('exam_id')
+      .in('exam_id', examIds)
+      .returns<QuestionCountRow[]>(),
+
+    supabase
+      .from('exam_assignments')
+      .select('exam_id')
+      .in('exam_id', examIds)
+      .eq('is_active', true)
+      .returns<AssignmentCountRow[]>(),
+  ])
+
+  const qCountMap: Record<string, number> = {}
+  const aCountMap: Record<string, number> = {}
+
+  for (const q of qRes.data ?? []) {
+    if (q.exam_id) qCountMap[q.exam_id] = (qCountMap[q.exam_id] ?? 0) + 1
+  }
+  for (const a of aRes.data ?? []) {
+    if (a.exam_id) aCountMap[a.exam_id] = (aCountMap[a.exam_id] ?? 0) + 1
+  }
+
+  return { qCountMap, aCountMap }
+}
+
+// ── getAllExamsWithMeta ────────────────────────────────────────────────────────
+
+export async function getAllExamsWithMeta(supabase: DB): Promise<Exam[]> {
+  const { data: rawExams, error } = await supabase
+    .from('exams')
+    .select(`
+      id, title, description, duration_minutes, total_points, passing_score,
+      is_published, exam_type, created_at,
+      exam_categories ( id, name, icon ),
+      programs ( id, code, name )
+    `)
+    .order('created_at', { ascending: false })
+    .returns<RawExamRow[]>()
+
+  if (error) throw new Error(error.message)
+
+  const rows    = rawExams ?? []
+  const examIds = rows.map((e) => e.id)
+  const { qCountMap, aCountMap } = await getExamCounts(supabase, examIds)
+
+  return rows.map((raw) => toExam(raw, qCountMap, aCountMap))
+}
+
+// ── updateExam ────────────────────────────────────────────────────────────────
+
+export async function updateExam(
+  supabase: DB,
+  id:       string,
+  payload:  ExamUpdatePayload,
+): Promise<void> {
+  const { error } = await supabase
+    .from('exams')
+    .update(payload)
+    .eq('id', id)
+
+  if (error) throw new Error(error.message)
+}
+
+// ── deleteExam ────────────────────────────────────────────────────────────────
+
+export async function deleteExam(supabase: DB, id: string): Promise<void> {
+  const { error } = await supabase.from('exams').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+}
