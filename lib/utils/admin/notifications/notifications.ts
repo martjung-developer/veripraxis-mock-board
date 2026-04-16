@@ -1,4 +1,4 @@
-// lib/utils/notifications.ts
+// lib/utils/admin/notifications.ts
 
 import { createClient } from '@/lib/supabase/client'
 import type { Database } from '@/lib/types/database'

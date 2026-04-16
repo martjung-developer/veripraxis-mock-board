@@ -12,8 +12,8 @@ export type Json =
 // Matches: CHECK (role = ANY (ARRAY['student','admin','faculty']))
 export type UserRole = 'student' | 'admin' | 'faculty'
 
-// Matches: CHECK (status = ANY (ARRAY['in_progress','submitted','graded']))
-export type SubmissionStatus = 'in_progress' | 'submitted' | 'graded'
+// Matches: CHECK (status = ANY (ARRAY['in_progress','submitted','graded','released']))
+export type SubmissionStatus = 'in_progress' | 'submitted' | 'graded' | 'released'
 
 // ── ADDED: grading_status ─────────────────────────────────────────────────────
 // Derived at the application level (not a DB column).
@@ -542,25 +542,31 @@ export type Database = {
           user_id:    string | null
           title:      string | null
           message:    string | null
-          type:       string | null
+          type:       Database['public']['Enums']['notif_type'] | null
           is_read:    boolean
           created_at: string
+          link?:      string | null
+          cta_label?: string | null
         }
         Insert: {
           id?:         string
           user_id?:    string | null
           title?:      string | null
           message?:    string | null
-          type?:       string | null
+          type?:       Database['public']['Enums']['notif_type'] | null
           is_read?:    boolean
           created_at?: string
+          link?:      string | null
+          cta_label?: string | null
         }
         Update: {
           user_id?:  string | null
           title?:    string | null
           message?:  string | null
-          type?:     string | null
+          type?:       Database['public']['Enums']['notif_type'] | null
           is_read?:  boolean
+          link?:      string | null
+          cta_label?: string | null
         }
       }
       study_materials: {
@@ -618,7 +624,8 @@ export type Database = {
       submission_status: SubmissionStatus
       storage_purpose:   StoragePurpose
       question_type:     QuestionType
-      exam_type: ExamType 
+      exam_type:         ExamType
+      notif_type:        'info' | 'warning' | 'success' | 'error'
     }
     // eslint-disable-next-line @typescript-eslint/no-empty-object-type
     CompositeTypes: {}

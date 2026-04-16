@@ -28,7 +28,7 @@ export {
   createNotification as createNotificationUtil,
   createBulkNotifications as createBulkNotificationsUtil,
   NotifTemplates,
-} from "@/lib/utils/notifications";
+} from "@/lib/utils/admin/notifications/notifications";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // INTERNAL HELPERS

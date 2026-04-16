@@ -6,6 +6,7 @@
 
 import type { Database } from '@/lib/types/database'
 import type { QuestionType, QuestionOption } from '@/lib/types/database'
+export type { QuestionType, QuestionOption } from '@/lib/types/database'
 
 // ── Supabase row aliases ──────────────────────────────────────────────────────
 

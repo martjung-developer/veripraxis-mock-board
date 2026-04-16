@@ -5,11 +5,11 @@ import { X, Upload, ExternalLink, File as FileIcon } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { ProgramOption } from '@/lib/types/admin/study-materials/study-materials'
 import type { MaterialType } from '@/lib/types/admin/study-materials/study-materials'
-import type { RawFormState, ValidationErrors } from '@/lib/utils/study-materials/validators'
-import { extractYouTubeId } from '@/lib/utils/study-materials/youtube'
-import { TYPE_ICON_BG, TYPE_ICON_COLOR, typeLabel } from '@/lib/utils/study-materials/display'
+import type { RawFormState, ValidationErrors } from '@/lib/utils/admin/study-materials/validators'
+import { extractYouTubeId } from '@/lib/utils/admin/study-materials/youtube'
+import { TYPE_ICON_BG, TYPE_ICON_COLOR, typeLabel } from '@/lib/utils/admin/study-materials/display'
 import { TypeIconDisplay } from './TypeBadge'
-import styles from './study-materials.module.css'
+import styles from '@/app/(dashboard)/admin/study-materials/study-materials.module.css'
 import {
   overlayVariants,
   modalVariants,

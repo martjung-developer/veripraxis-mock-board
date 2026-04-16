@@ -27,7 +27,7 @@ import {
   buildBestSubmissionMap,
   toDisplayStatus,
   unwrapJoin,
-} from '@/lib/utils/assignments/assignment-helpers'
+} from '@/lib/utils/admin/assignments/assignment-helpers'
 
 type AppClient = SupabaseClient<Database>
 

@@ -9,7 +9,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { StudyMaterial, ProgramOption } from '@/lib/types/admin/study-materials/study-materials'
-import type { RawFormState } from '@/lib/utils/study-materials/validators'
+import type { RawFormState } from '@/lib/utils/admin/study-materials/validators'
 import {
   fetchStudyMaterials,
   fetchPrograms,

@@ -10,7 +10,7 @@ import { Users, Trash2 } from 'lucide-react'
 import { STATUS_CONFIG } from './StatusPills'
 import { Pagination }    from './Pagination'
 
-import { formatDate, getInitials } from '@/lib/utils/assignments/assignment-helpers'
+import { formatDate, getInitials } from '@/lib/utils/admin/assignments/assignment-helpers'
 import type { Assignment }         from '@/lib/types/admin/exams/assignments/assignments.types'
 
 import s from '@/app/(dashboard)/admin/exams/[examId]/assignments/assignments.module.css'

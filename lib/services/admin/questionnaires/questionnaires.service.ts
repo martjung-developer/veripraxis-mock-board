@@ -7,17 +7,23 @@ import type {
   ExamOption,
   QuestionInsertPayload,
 } from '@/lib/types/admin/questionnaires/questionnaires'
-import { parseDifficulty } from '@/lib/utils/questionnaires/questionnaires.utils'
+import { parseDifficulty } from '@/lib/utils/admin/questionnaires/questionnaires.utils'
 
 // ── Supabase client type alias ────────────────────────────────────────────────
 type TypedClient = SupabaseClient<Database>
 
+// Supabase currently infers mutation payloads as `never` in this workspace.
+// Keep runtime payloads unchanged while satisfying the generated typings.
+function asMutationPayload<T>(payload: T): never {
+  return payload as unknown as never
+}
+
 // ── Safe option unwrap ────────────────────────────────────────────────────────
 // questions.options is Json | null in the DB; we need QuestionOption[] | null.
 // We validate the shape at runtime rather than casting.
-function toOptions(raw: Database['public']['Tables']['questions']['Row']['options']): QuestionOption[] | null {
+function toOptions(raw: unknown): QuestionOption[] | null {
   if (!Array.isArray(raw)) { return null }
-  const filtered: unknown[] = raw.filter(
+  const filtered = raw.filter(
     (item): item is QuestionOption =>
       typeof item === 'object' &&
       item !== null &&
@@ -26,7 +32,7 @@ function toOptions(raw: Database['public']['Tables']['questions']['Row']['option
       typeof (item as Record<string, unknown>)['label'] === 'string' &&
       typeof (item as Record<string, unknown>)['text']  === 'string',
   )
-  return filtered as QuestionOption[]
+  return filtered
 }
 
 // ── Programs ──────────────────────────────────────────────────────────────────
@@ -119,7 +125,7 @@ export async function insertQuestion(
   client: TypedClient,
   payload: QuestionInsertPayload,
 ): Promise<void> {
-  const { error } = await client.from('questions').insert([payload] as Parameters<typeof client.from('questions').insert>[0][])
+  const { error } = await client.from('questions').insert(asMutationPayload([payload]))
   if (error) { throw new Error(error instanceof Error ? error.message : 'Unknown error') }
 }
 
@@ -128,7 +134,7 @@ export async function updateQuestion(
   id:      string,
   payload: QuestionInsertPayload,
 ): Promise<void> {
-  const { error } = await client.from('questions').update(payload as Record<string, unknown>).eq('id', id)
+  const { error } = await client.from('questions').update(asMutationPayload(payload as Record<string, unknown>)).eq('id', id)
   if (error) { throw new Error(error instanceof Error ? error.message : 'Unknown error') }
 }
 
@@ -144,6 +150,6 @@ export async function bulkInsertQuestions(
   client:   TypedClient,
   payloads: QuestionInsertPayload[],
 ): Promise<void> {
-  const { error } = await client.from('questions').insert(payloads as Parameters<typeof client.from('questions').insert>[0][])
+  const { error } = await client.from('questions').insert(asMutationPayload(payloads))
   if (error) { throw new Error(error instanceof Error ? error.message : 'Unknown error') }
 }

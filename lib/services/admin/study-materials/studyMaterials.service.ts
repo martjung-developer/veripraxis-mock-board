@@ -11,7 +11,7 @@ import type {
   StudyMaterialRow,
   ProgramOption,
 } from '@/lib/types/admin/study-materials/study-materials'
-import type { RawFormState } from '@/lib/utils/study-materials/validators'
+import type { RawFormState } from '@/lib/utils/admin/study-materials/validators'
 import { uploadMaterialFile } from './storage.service'
 
 type SupabaseDB = SupabaseClient<Database>

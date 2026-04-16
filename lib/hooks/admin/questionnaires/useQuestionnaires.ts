@@ -23,12 +23,12 @@ import {
   stripDifficultyTag,
   encodeDifficulty,
   validateImportRow,
-} from '@/lib/utils/questionnaires/questionnaires.utils'
+} from '@/lib/utils/admin/questionnaires/questionnaires.utils'
 import {
   parseFile,
   fetchAndParseLink,
   detectLinkSource,
-} from '@/lib/utils/questionnaires/questionnaires.parsers'
+} from '@/lib/utils/admin/questionnaires/questionnaires.parsers'
 import {
   BLANK_FORM,
   TYPE_ORDER,

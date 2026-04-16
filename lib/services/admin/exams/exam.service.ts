@@ -185,6 +185,7 @@ export async function updateExam(
     .from('exams')
     .update(payload)
     .eq('id', id)
+    .returns<void>()
 
   if (error) throw new Error(error.message)
 }

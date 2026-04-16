@@ -4,7 +4,7 @@
 import { BookOpen, FileText, Video, StickyNote } from 'lucide-react'
 import { motion } from 'framer-motion'
 import type { StudyMaterial } from '@/lib/types/admin/study-materials/study-materials'
-import styles from './study-materials.module.css'
+import styles from '@/app/(dashboard)/admin/study-materials/study-materials.module.css'
 import { itemVariants } from '@/animations/admin/study-materials/study-materials'
 
 interface Props {

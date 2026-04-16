@@ -7,7 +7,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database }       from '@/lib/types/database'
 import type { QuestionType }   from '@/lib/types/database'
-import { parseOptions }        from '@/lib/utils/answer-key/parseOptions'
+import { parseOptions }        from '@/lib/utils/admin/answer-key/parseOptions'
 import type {
   AnswerKeyEntry,
   ExamMeta,

@@ -8,9 +8,9 @@ import {
 } from 'lucide-react'
 import type { StudyMaterial } from '@/lib/types/admin/study-materials/study-materials'
 import { TypeBadge, TypeIconDisplay } from './TypeBadge'
-import { TYPE_ICON_BG } from '@/lib/utils/study-materials/display'
-import { formatDate } from '@/lib/utils/study-materials/display'
-import styles from './study-materials.module.css'
+import { TYPE_ICON_BG } from '@/lib/utils/admin/study-materials/display'
+import { formatDate } from '@/lib/utils/admin/study-materials/display'
+import styles from '@/app/(dashboard)/admin/study-materials/study-materials.module.css'
 import { tableRowVariants } from '@/animations/admin/study-materials/study-materials'
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────

@@ -13,7 +13,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion'
 import { useUser } from '@/lib/context/AuthContext'
 import { useQuestionnaires } from '@/lib/hooks/admin/questionnaires/useQuestionnaires'
-import { downloadTemplate } from '@/lib/utils/questionnaires/questionnaires.utils'
+import { downloadTemplate } from '@/lib/utils/admin/questionnaires/questionnaires.utils'
 import { TYPE_ORDER, TYPE_COLORS, PROGRAM_COLORS } from '@/lib/constants/admin/questionnaires/questionnaires.constants'
 import { ProgramCard }         from '@/components/dashboard/admin/questionnaires/ProgramCard'
 import { QuestionTypeSection } from '@/components/dashboard/admin/questionnaires/QuestionTypeSection'

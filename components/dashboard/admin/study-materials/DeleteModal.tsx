@@ -4,7 +4,7 @@
 import { Trash2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { StudyMaterial } from '@/lib/types/admin/study-materials/study-materials'
-import styles from './study-materials.module.css'
+import styles from '@/app/(dashboard)/admin/study-materials/study-materials.module.css'
 import {
   overlayVariants,
   modalVariants,

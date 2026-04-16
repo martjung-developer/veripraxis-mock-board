@@ -8,8 +8,8 @@
 
 import { FileText, Video, StickyNote } from 'lucide-react'
 import type { MaterialType } from '@/lib/types/admin/study-materials/study-materials'
-import { typeLabel, TYPE_ICON_COLOR, TYPE_BADGE_SUFFIX } from '@/lib/utils/study-materials/display'
-import styles from './study-materials.module.css'
+import { typeLabel, TYPE_ICON_COLOR, TYPE_BADGE_SUFFIX } from '@/lib/utils/admin/study-materials/display'
+import styles from '@/app/(dashboard)/admin/study-materials/study-materials.module.css'
 
 interface Props {
   type: MaterialType

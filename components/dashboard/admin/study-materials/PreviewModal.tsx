@@ -4,14 +4,14 @@
 import { X, Edit2, ExternalLink } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { StudyMaterial } from '@/lib/types/admin/study-materials/study-materials'
-import { getYouTubeEmbedUrl } from '@/lib/utils/study-materials/youtube'
+import { getYouTubeEmbedUrl } from '@/lib/utils/admin/study-materials/youtube'
 import {
   TYPE_ICON_BG,
   TYPE_ICON_COLOR,
   typeLabel,
-} from '@/lib/utils/study-materials/display'
+} from '@/lib/utils/admin/study-materials/display'
 import { TypeBadge } from './TypeBadge'
-import styles from './study-materials.module.css'
+import styles from '@/app/(dashboard)/admin/study-materials/study-materials.module.css'
 import {
   overlayVariants,
   modalVariants,

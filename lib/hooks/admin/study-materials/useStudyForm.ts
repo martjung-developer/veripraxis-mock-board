@@ -11,7 +11,7 @@ import {
   validateMaterialForm,
   type RawFormState,
   type ValidationErrors,
-} from '@/lib/utils/study-materials/validators'
+} from '@/lib/utils/admin/study-materials/validators'
 
 // ── State shape ───────────────────────────────────────────────────────────────
 
