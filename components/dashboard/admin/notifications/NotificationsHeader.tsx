@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Bell, Send, CheckCheck } from "lucide-react";
-import styles from "./notifications.module.css";
+import styles from "@/app/(dashboard)/admin/notifications/notifications.module.css";
 
 interface NotificationsHeaderProps {
   totalCount: number;

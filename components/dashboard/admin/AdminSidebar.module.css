@@ -6,7 +6,7 @@
 .sidebar {
   width: 240px;
   height: 100vh;              /* fill viewport */
-  background: #0f172a;
+  background: #02162e;
   display: flex;
   flex-direction: column;
   position: fixed;

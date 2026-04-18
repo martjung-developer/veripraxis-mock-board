@@ -8,7 +8,7 @@ import { STATUS_CONFIG }      from '@/lib/utils/admin/submissions/constants'
 import { fmtDate, initials }  from '@/lib/utils/admin/submissions/format'
 import { AnswerCard }         from './AnswerCard'
 import { EmptyAnswers }       from './SubmissionsUI'
-import s from './submissions.module.css'
+import s from '@/app/(dashboard)/admin/exams/[examId]/submissions/submissions.module.css'
 
 interface ViewSubmissionModalProps {
   target:           Submission

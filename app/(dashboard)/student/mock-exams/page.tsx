@@ -1,403 +1,78 @@
 // app/(dashboard)/student/mock-exams/page.tsx
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  Clock, BookOpen, GraduationCap,
-  Search, ChevronLeft, ChevronRight, X,
-  Lock, PlayCircle,
-} from 'lucide-react'
+import { useMockExams }         from '@/lib/hooks/student/mock-exams/useMockExams'
+import { MockExamsHeader }      from '@/components/dashboard/student/mock-exams/MockExamsHeader'
+import { MockExamsFilters }     from '@/components/dashboard/student/mock-exams/MockExamsFilters'
+import { MockExamsGrid }        from '@/components/dashboard/student/mock-exams/MockExamsGrid'
+import { MockExamsEmpty, MockExamsSkeleton } from '@/components/dashboard/student/mock-exams/MockExamsEmpty'
+import { MockExamsPagination }  from '@/components/dashboard/student/mock-exams/MockExamsPagination'
+import { ALL_CATEGORIES }       from '@/lib/constants/student/mock-exams/mock-exams'
 import styles from './mock-exams.module.css'
-import { createClient } from '@/lib/supabase/client'
-import { EXAM_TYPE_META } from '@/lib/types/database'
-import { useUser } from '@/lib/context/AuthContext'   
-
-// ── Types ──────────────────────────────────────────────────────────────────
-
-type ExamStatus = 'available' | 'coming_soon'
-
-interface MockExam {
-  id:        string
-  title:     string
-  shortCode: string
-  category:  string
-  status:    ExamStatus
-  questions?: number
-  duration?:  string
-}
-
-type CategoryShape = { id: string; name: string; icon: string | null }
-type ProgramShape  = { id: string; code: string; name: string } | null
-
-type ExamRaw = {
-  id:               string
-  title:            string
-  duration_minutes: number
-  is_published:     boolean
-  exam_type:        string | null
-  exam_categories:  CategoryShape | CategoryShape[] | null
-  programs:         ProgramShape  | ProgramShape[]  | null
-}
-
-function unwrapCategory(raw: CategoryShape | CategoryShape[] | null): CategoryShape | null {
-  if (!raw) return null
-  if (Array.isArray(raw)) return raw[0] ?? null
-  return raw
-}
-
-function unwrapProgram(raw: ProgramShape | ProgramShape[] | null): ProgramShape {
-  if (!raw) return null
-  if (Array.isArray(raw)) return raw[0] ?? null
-  return raw
-}
-
-function formatDuration(minutes: number): string {
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  if (h === 0) return `${m} min`
-  if (m === 0) return `${h} hr${h > 1 ? 's' : ''}`
-  return `${h} hr${h > 1 ? 's' : ''} ${m} min`
-}
-
-const ALL_CATEGORIES = 'All Categories'
-const PAGE_SIZE = 12
-
-function StatusBadge({ status }: { status: ExamStatus }) {
-  return (
-    <span className={`${styles.badge} ${status === 'available' ? styles.badgeAvailable : styles.badgeComingSoon}`}>
-      {status === 'available' ? 'Available' : 'Coming Soon'}
-    </span>
-  )
-}
-
-function ExamCard({ exam, onStart }: { exam: MockExam; onStart: (id: string) => void }) {
-  const isAvailable = exam.status === 'available'
-  return (
-    <div className={`${styles.examCard} ${isAvailable ? styles.examCardAvailable : ''}`}>
-      <div className={`${styles.cardAccent} ${isAvailable ? styles.cardAccentAvailable : styles.cardAccentSoon}`} />
-      <div className={styles.cardTop}>
-        <div className={`${styles.cardIconWrap} ${isAvailable ? styles.cardIconAvailable : styles.cardIconSoon}`}>
-          <GraduationCap size={20} strokeWidth={1.75} />
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.3rem' }}>
-          <span style={{
-            display: 'inline-block',
-            padding: '0.18rem 0.55rem',
-            borderRadius: '20px',
-            fontSize: '0.68rem',
-            fontWeight: 700,
-            letterSpacing: '0.03em',
-            background: 'rgba(13,37,64,0.08)',
-            color: '#0d2540',
-            whiteSpace: 'nowrap',
-          }}>
-            {EXAM_TYPE_META['mock'].label}
-          </span>
-          <StatusBadge status={exam.status} />
-        </div>
-      </div>
-      <div className={styles.cardBody}>
-        <p className={styles.shortCode}>{exam.shortCode}</p>
-        <h3 className={styles.programName}>{exam.title}</h3>
-        <span className={styles.categoryTag}>{exam.category}</span>
-      </div>
-      {isAvailable && (
-        <div className={styles.cardMeta}>
-          <span className={styles.metaItem}>
-            <BookOpen size={13} strokeWidth={2} />
-            {exam.questions ?? '—'} items
-          </span>
-          <span className={styles.metaItem}>
-            <Clock size={13} strokeWidth={2} />
-            {exam.duration ?? '—'}
-          </span>
-        </div>
-      )}
-      <div className={styles.cardFooter}>
-        {isAvailable ? (
-          <button className={styles.startBtn} onClick={() => onStart(exam.id)}>
-            <PlayCircle size={15} strokeWidth={2} /> Start Exam
-          </button>
-        ) : (
-          <button className={styles.disabledBtn} disabled>
-            <Lock size={13} strokeWidth={2} /> Waiting for Admin Assignment
-          </button>
-        )}
-      </div>
-    </div>
-  )
-}
 
 export default function MockExamsPage() {
-  const router = useRouter()
+  const router  = useRouter()
+  const exams   = useMockExams()
 
-  // ── Auth from context — matches the pattern in [examId]/page.tsx ──────
-  const { user, loading: authLoading, error: authError } = useUser()
+  const {
+    search, setSearch,
+    category, setCategory,
+    sort, setSort,
+    page, setPage, totalPages,
+    paginated, filtered,
+    categories,
+    availableCount, completedCount, inProgressCount, total,
+    loading, error,
+  } = exams
 
-  const [allExams,    setAllExams]    = useState<MockExam[]>([])
-  const [dataLoading, setDataLoading] = useState(false)
-  const [dataError,   setDataError]   = useState<string | null>(null)
-  const [search,      setSearch]      = useState('')
-  const [category,    setCategory]    = useState(ALL_CATEGORIES)
-  const [page,        setPage]        = useState(1)
-  const [programId,   setProgramId]   = useState<string | null>(null)
-
-  // ── Load student's program_id once we have a user ─────────────────────
-  useEffect(() => {
-    if (!user) return
-    const supabase   = createClient()
-    const controller = new AbortController()
-
-    supabase
-      .from('students')
-      .select('program_id')
-      .eq('id', user.id)
-      .single()
-      .abortSignal(controller.signal)
-      .then(({ data }) => {
-        if (data?.program_id) setProgramId(data.program_id)
-      })
-
-    return () => controller.abort()
-  }, [user?.id])
-
-  // ── Fetch mock exams once user + programId are ready ──────────────────
-  useEffect(() => {
-    if (!user) return
-
-    let cancelled = false
-    const supabase = createClient()
-
-    async function fetchExams() {
-      setDataLoading(true)
-      setDataError(null)
-
-      // ── 1. Assigned exam IDs ─────────────────────────────────────────
-      const orFilter = programId
-        ? `student_id.eq.${user.id},program_id.eq.${programId}`
-        : `student_id.eq.${user.id}`
-
-      const { data: assignments, error: asnErr } = await supabase
-        .from('exam_assignments')
-        .select('exam_id')
-        .eq('is_active', true)
-        .or(orFilter)
-
-      if (asnErr) {
-        if (!cancelled) setDataError('Could not load exam assignments.')
-        setDataLoading(false)
-        return
-      }
-
-      const assignedIds = new Set<string>(
-        (assignments ?? [])
-          .map((a: { exam_id: string | null }) => a.exam_id)
-          .filter((id): id is string => id !== null)
-      )
-
-      // ── 2. Published MOCK exams ──────────────────────────────────────
-      const { data: examData, error: examErr } = await supabase
-        .from('exams')
-        .select(`
-          id,
-          title,
-          duration_minutes,
-          is_published,
-          exam_type,
-          exam_categories ( id, name, icon ),
-          programs ( id, code, name )
-        `)
-        .eq('is_published', true)
-        .eq('exam_type', 'mock')
-        .order('created_at', { ascending: false })
-
-      if (examErr) {
-        if (!cancelled) setDataError('Could not load exams.')
-        setDataLoading(false)
-        return
-      }
-
-      const exams = (examData ?? []) as unknown as ExamRaw[]
-
-      // ── 3. Question counts (batch) ───────────────────────────────────
-      const examIds = exams.map(e => e.id)
-      const qCountMap: Record<string, number> = {}
-      if (examIds.length > 0) {
-        const { data: qRows } = await supabase
-          .from('questions')
-          .select('exam_id')
-          .in('exam_id', examIds)
-        ;(qRows ?? []).forEach((q: { exam_id: string | null }) => {
-          if (q.exam_id) qCountMap[q.exam_id] = (qCountMap[q.exam_id] ?? 0) + 1
-        })
-      }
-
-      // ── 4. Map → MockExam ────────────────────────────────────────────
-      const mapped: MockExam[] = exams.map(exam => {
-        const cat  = unwrapCategory(exam.exam_categories)
-        const prog = unwrapProgram(exam.programs)
-        return {
-          id:        exam.id,
-          title:     exam.title,
-          shortCode: prog?.code ?? (cat?.name?.match(/\b([A-Z])/g)?.join('') ?? 'EXAM'),
-          category:  cat?.name ?? 'Uncategorized',
-          status:    assignedIds.has(exam.id) ? 'available' : 'coming_soon',
-          questions: qCountMap[exam.id],
-          duration:  formatDuration(exam.duration_minutes),
-        }
-      })
-
-      if (!cancelled) {
-        setAllExams(mapped)
-        setDataLoading(false)
-      }
-    }
-
-    void fetchExams()
-    return () => { cancelled = true }
-  }, [user?.id, programId])
-
-  // ── Derived ────────────────────────────────────────────────────────────
-  const categories = useMemo(() => {
-    const unique = Array.from(new Set(allExams.map(e => e.category))).sort()
-    return [ALL_CATEGORIES, ...unique]
-  }, [allExams])
-
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim()
-    return allExams.filter(e => {
-      const matchCat = category === ALL_CATEGORIES || e.category === category
-      const matchQ   = !q || e.title.toLowerCase().includes(q) || e.shortCode.toLowerCase().includes(q)
-      return matchCat && matchQ
-    })
-  }, [allExams, search, category])
-
-  const totalPages     = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const safePage       = Math.min(page, totalPages)
-  const paginated      = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
-  const availableCount = allExams.filter(e => e.status === 'available').length
-
-  const pageNums: (number | '…')[] = []
-  if (totalPages <= 7) {
-    for (let i = 1; i <= totalPages; i++) pageNums.push(i)
-  } else {
-    pageNums.push(1)
-    if (safePage > 3) pageNums.push('…')
-    for (let i = Math.max(2, safePage - 1); i <= Math.min(totalPages - 1, safePage + 1); i++) pageNums.push(i)
-    if (safePage < totalPages - 2) pageNums.push('…')
-    pageNums.push(totalPages)
-  }
-
-  const loading = authLoading || dataLoading
-  const error   = authError   ?? dataError
-
-  // ── Render ─────────────────────────────────────────────────────────────
   return (
     <div className={styles.page}>
-      <div className={styles.header}>
-        <div>
-          <h1 className={styles.title}>Mock Exams</h1>
-          <p className={styles.subtitle}>Take board-style exams assigned by your faculty</p>
-        </div>
-        <span className={styles.availablePill}>
-          <span className={styles.dot} />
-          {availableCount} Available
-        </span>
-      </div>
+      <MockExamsHeader
+        availableCount={availableCount}
+        completedCount={completedCount}
+        inProgressCount={inProgressCount}
+        total={total}
+      />
 
-      <div className={styles.filterRow}>
-        <div className={styles.searchWrap}>
-          <Search size={15} strokeWidth={2.2} className={styles.searchIcon} />
-          <input
-            className={styles.searchInput}
-            type="text"
-            placeholder="Search mock exams…"
-            value={search}
-            onChange={e => { setSearch(e.target.value); setPage(1) }}
-          />
-          {search && (
-            <button className={styles.searchClear} onClick={() => setSearch('')} aria-label="Clear search">
-              <X size={13} strokeWidth={2.5} />
-            </button>
-          )}
-        </div>
-
-        <select
-          className={styles.categorySelect}
-          value={category}
-          onChange={e => { setCategory(e.target.value); setPage(1) }}
-        >
-          {categories.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-
-        <p className={styles.resultCount}>
-          <strong>{filtered.length}</strong> exam{filtered.length !== 1 ? 's' : ''} found
-        </p>
-      </div>
+      <MockExamsFilters
+        search={search}
+        setSearch={setSearch}
+        category={category}
+        setCategory={setCategory}
+        sort={sort}
+        setSort={setSort}
+        categories={categories}
+        totalFound={filtered.length}
+      />
 
       {loading ? (
-        <div className={styles.grid}>
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className={styles.examCard} style={{ minHeight: 260 }}>
-              <div style={{ height: 4, background: '#e4ecf3', borderRadius: '13px 13px 0 0' }} />
-              <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 10, background: '#f0f4f8' }} />
-                  <div style={{ width: 80, height: 20, borderRadius: 99, background: '#f0f4f8' }} />
-                </div>
-                <div style={{ width: '40%', height: 12, borderRadius: 6, background: '#f0f4f8' }} />
-                <div style={{ width: '80%', height: 16, borderRadius: 6, background: '#f0f4f8' }} />
-                <div style={{ width: '55%', height: 12, borderRadius: 99, background: '#f0f4f8' }} />
-              </div>
-            </div>
-          ))}
-        </div>
+        <MockExamsSkeleton />
       ) : error ? (
         <div className={styles.emptyState}>
           <p className={styles.emptyTitle}>Something went wrong</p>
           <p className={styles.emptyText}>{error}</p>
         </div>
       ) : paginated.length > 0 ? (
-        <div className={styles.grid}>
-          {paginated.map(exam => (
-            <ExamCard
-              key={exam.id}
-              exam={exam}
-              onStart={(id) => router.push(`/student/mock-exams/${id}`)}
-            />
-          ))}
-        </div>
+        <MockExamsGrid
+          exams={paginated}
+          onStart={(id) => router.push(`/student/mock-exams/${id}`)}
+          onContinue={(id) => router.push(`/student/mock-exams/${id}`)}
+          onViewAttempt={(id) => router.push(`/student/mock-exams/${id}`)}
+        />
       ) : (
-        <div className={styles.emptyState}>
-          <Search size={40} strokeWidth={1.4} color="#cbd5e1" />
-          <p className={styles.emptyTitle}>No mock exams found</p>
-          <p className={styles.emptyText}>Try adjusting your search or category filter.</p>
-          <button className={styles.emptyBtn} onClick={() => { setSearch(''); setCategory(ALL_CATEGORIES) }}>
-            Clear Filters
-          </button>
-        </div>
+        <MockExamsEmpty
+          onClear={() => { setSearch(''); setCategory(ALL_CATEGORIES) }}
+        />
       )}
 
       {!loading && !error && totalPages > 1 && (
-        <div className={styles.pagination}>
-          <span className={styles.pageInfo}>
-            Page {safePage} of {totalPages} &nbsp;·&nbsp; {filtered.length} total
-          </span>
-          <div className={styles.pageControls}>
-            <button className={styles.pageBtn} onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1} aria-label="Previous page">
-              <ChevronLeft size={15} strokeWidth={2.5} />
-            </button>
-            {pageNums.map((n, i) =>
-              n === '…'
-                ? <span key={`e-${i}`} className={styles.pageEllipsis}>…</span>
-                : <button key={n} className={`${styles.pageNum} ${safePage === n ? styles.pageNumActive : ''}`} onClick={() => setPage(n as number)}>{n}</button>
-            )}
-            <button className={styles.pageBtn} onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages} aria-label="Next page">
-              <ChevronRight size={15} strokeWidth={2.5} />
-            </button>
-          </div>
-        </div>
+        <MockExamsPagination
+          page={page}
+          totalPages={totalPages}
+          total={filtered.length}
+          setPage={setPage}
+        />
       )}
     </div>
   )

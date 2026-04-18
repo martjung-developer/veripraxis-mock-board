@@ -5,7 +5,7 @@
 import React from 'react'
 import { CheckCircle, AlertCircle } from 'lucide-react'
 import type { ExamFormData } from '@/lib/types/admin/exams/create/exam.types'
-import s from '../create.module.css'
+import s from '@/app/(dashboard)/admin/exams/create/create.module.css'
 
 interface ExamPublishCardProps {
   isPublished: ExamFormData['is_published']

@@ -5,7 +5,7 @@ import { Search, X, Filter, ChevronLeft, ChevronRight, ClipboardList, AlignLeft 
 import type { SubmissionStatus } from '@/lib/types/admin/exams/submissions/submission.types'
 import { STATUS_CONFIG, PAGE_SIZE } from '@/lib/utils/admin/submissions/constants'
 import type { Submission } from '@/lib/types/admin/exams/submissions/submission.types'
-import s from './submissions.module.css'
+import s from '@/app/(dashboard)/admin/exams/[examId]/submissions/submissions.module.css'
 
 // ── StatusPills ───────────────────────────────────────────────────────────────
 

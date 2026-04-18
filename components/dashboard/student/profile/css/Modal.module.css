@@ -1,0 +1,27 @@
+/* components/dashboard/student/profile/css/Modal.module.css */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(13, 17, 23, 0.52);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 1rem;
+}
+
+.panel {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 100%;
+  box-shadow:
+    0 0 0 1px rgba(13, 37, 64, 0.06),
+    0 24px 64px rgba(13, 17, 23, 0.2);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 2rem);
+}

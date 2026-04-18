@@ -2,7 +2,7 @@
 import { Settings, Zap, Pencil, Users, Send, Loader2, RotateCcw } from 'lucide-react'
 import type { GradingMode } from '@/lib/types/admin/exams/submissions/submission.types'
 import type { AnswerKeyEntry } from '@/lib/types/admin/exams/submissions/answer.types'
-import s from './submissions.module.css'
+import s from '@/app/(dashboard)/admin/exams/[examId]/submissions/submissions.module.css'
 
 // ── GradingPanel ──────────────────────────────────────────────────────────────
 

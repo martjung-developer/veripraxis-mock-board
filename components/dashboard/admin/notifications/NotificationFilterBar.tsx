@@ -7,7 +7,7 @@ import type {
   FilterType,
   NotifType,
 } from "@/lib/types/admin/notifications/notifications.types";
-import styles from "./notifications.module.css";
+import styles from "@/app/(dashboard)/admin/notifications/notifications.module.css";
 
 const TYPE_OPTIONS: NotifType[] = ["exam", "result", "general"];
 

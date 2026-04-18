@@ -440,7 +440,7 @@ const DashboardClient: FC<Props> = ({ firstName, greeting }) => {
             <p className={styles.tipText}>
               Consistent daily practice beats last-minute cramming. Aim for at least one reviewer per day!
             </p>
-            <Link href="/student/reviews" className={styles.tipBtn}>
+            <Link href="/student/practice-exams" className={styles.tipBtn}>
               Start Reviewing →
             </Link>
           </motion.div>

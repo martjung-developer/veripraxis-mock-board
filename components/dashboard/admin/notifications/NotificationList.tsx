@@ -10,7 +10,7 @@
 
 import { Bell, CheckCheck, Clock, Trash2 } from "lucide-react";
 import type { Notification } from "@/lib/types/admin/notifications/notifications.types";
-import styles from "./notifications.module.css";
+import styles from "@/app/(dashboard)/admin/notifications/notifications.module.css";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers

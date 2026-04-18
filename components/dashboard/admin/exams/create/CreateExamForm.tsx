@@ -10,7 +10,7 @@ import ExamSettingsSection  from './ExamSettingsSection'
 import ExamPublishCard      from './ExamPublishCard'
 import ExamSummaryCard      from './ExamSummaryCard'
 import type { ExamFormData, ExamFormErrors, CategoryOption } from '@/lib/types/admin/exams/create/exam.types'
-import s from '../create.module.css'
+import s from '@/app/(dashboard)/admin/exams/create/create.module.css'
 
 interface CreateExamFormProps {
   form:        ExamFormData

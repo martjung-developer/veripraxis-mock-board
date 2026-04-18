@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { FileText, Save, Loader2 } from 'lucide-react'
 import { EXAM_TYPE_META } from '@/lib/types/database'
 import type { ExamFormData, CategoryOption } from '@/lib/types/admin/exams/create/exam.types'
-import s from '../create.module.css'
+import s from '@/app/(dashboard)/admin/exams/create/create.module.css'
 
 interface ExamSummaryCardProps {
   form:       ExamFormData

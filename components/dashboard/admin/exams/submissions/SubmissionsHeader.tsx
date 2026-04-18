@@ -1,7 +1,7 @@
 // components/dashboard/admin/exams/submissions/SubmissionsHeader.tsx
 import Link from 'next/link'
 import { ClipboardList, ArrowLeft, RefreshCw } from 'lucide-react'
-import s from './submissions.module.css'
+import s from '@/app/(dashboard)/admin/exams/[examId]/submissions/submissions.module.css'
 
 interface SubmissionsHeaderProps {
   examId:     string

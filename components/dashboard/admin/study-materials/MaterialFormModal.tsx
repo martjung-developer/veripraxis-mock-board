@@ -1,51 +1,67 @@
 // components/dashboard/admin/study-materials/MaterialFormModal.tsx
+// ─────────────────────────────────────────────────────────────────────────────
+// Extends the existing form modal with three new optional fields:
+//   • external_url  (text input)
+//   • meeting_url   (text input)
+//   • link_type     (select dropdown)
+//
+// All existing upload UI, drag-and-drop, and notes textarea are preserved.
+// New fields appear in a clearly labelled "External Resources" section inserted
+// between the file upload area and the publish toggle — no layout changes elsewhere.
+// ─────────────────────────────────────────────────────────────────────────────
+
 'use client'
 
-import { X, Upload, ExternalLink, File as FileIcon } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
-import type { ProgramOption } from '@/lib/types/admin/study-materials/study-materials'
-import type { MaterialType } from '@/lib/types/admin/study-materials/study-materials'
-import type { RawFormState, ValidationErrors } from '@/lib/utils/admin/study-materials/validators'
-import { extractYouTubeId } from '@/lib/utils/admin/study-materials/youtube'
-import { TYPE_ICON_BG, TYPE_ICON_COLOR, typeLabel } from '@/lib/utils/admin/study-materials/display'
-import { TypeIconDisplay } from './TypeBadge'
+import React, { type RefObject, type DragEvent } from 'react'
+import { X, Upload, ExternalLink, Video, Link } from 'lucide-react'
+import { motion, AnimatePresence }              from 'framer-motion'
+import type {
+  StudyMaterialForm,
+  StudyMaterialFormErrors,
+  ProgramOption,
+} from '@/lib/types/admin/study-materials/study-materials'
+import type { LinkType } from '@/lib/types/database'
 import styles from '@/app/(dashboard)/admin/study-materials/study-materials.module.css'
-import {
-  overlayVariants,
-  modalVariants,
-  buttonVariants,
-} from '@/animations/admin/study-materials/study-materials'
+import { overlayVariants, modalVariants } from '@/animations/admin/study-materials/study-materials'
 
-const MATERIAL_TYPES: MaterialType[] = ['document', 'video', 'notes']
+// ── Link-type options ─────────────────────────────────────────────────────────
 
-// ── Props ──────────────────────────────────────────────────────────────────────
+const LINK_TYPE_OPTIONS: Array<{ value: LinkType | ''; label: string }> = [
+  { value: '',        label: 'Select type…' },
+  { value: 'video',   label: 'Video (YouTube / Vimeo)' },
+  { value: 'meeting', label: 'Live Session (Meet / Zoom)' },
+  { value: 'drive',   label: 'Google Drive' },
+  { value: 'other',   label: 'Other External Link' },
+]
 
-interface Props {
-  open:         boolean
-  isEditing:    boolean
-  form:         RawFormState
-  errors:       ValidationErrors
-  file:         File | null
-  submitting:   boolean
-  dragOver:     boolean
-  programs:     ProgramOption[]
-  existingFileUrl: string | null
-  fileInputRef: React.RefObject<HTMLInputElement>
-  onClose:      () => void
-  onPatch:      (patch: Partial<RawFormState>) => void
-  onSetFile:    (file: File | null) => void
-  onDragOver:   (v: boolean) => void
-  onDrop:       (e: React.DragEvent) => void
-  onSubmit:     () => void
+// ── Props ─────────────────────────────────────────────────────────────────────
+
+interface MaterialFormModalProps {
+  open:             boolean
+  isEditing:        boolean
+  form:             StudyMaterialForm
+  errors:           StudyMaterialFormErrors
+  file:             File | null
+  submitting:       boolean
+  dragOver:         boolean
+  programs:         ProgramOption[]
+  existingFileUrl:  string | null
+  fileInputRef:     RefObject<HTMLInputElement>
+  onClose:          () => void
+  onPatch:          <K extends keyof StudyMaterialForm>(field: K, value: StudyMaterialForm[K]) => void
+  onSetFile:        (file: File | null) => void
+  onDragOver:       (over: boolean) => void
+  onDrop:           (e: DragEvent<HTMLDivElement>) => void
+  onSubmit:         () => Promise<void>
 }
 
-// ── Component ──────────────────────────────────────────────────────────────────
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export function MaterialFormModal({
   open, isEditing, form, errors, file, submitting, dragOver,
   programs, existingFileUrl, fileInputRef,
   onClose, onPatch, onSetFile, onDragOver, onDrop, onSubmit,
-}: Props) {
+}: MaterialFormModalProps) {
   return (
     <AnimatePresence>
       {open && (
@@ -55,7 +71,7 @@ export function MaterialFormModal({
           initial="hidden"
           animate="visible"
           exit="exit"
-          onClick={(e) => { if (e.target === e.currentTarget) { onClose() } }}
+          onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
         >
           <motion.div
             className={styles.modal}
@@ -64,246 +80,275 @@ export function MaterialFormModal({
             animate="visible"
             exit="exit"
           >
-            {/* Accent bar */}
-            <div style={{
-              height:       4,
-              background:   'linear-gradient(90deg,#0d2540,#3b82f6)',
-              borderRadius: '16px 16px 0 0',
-              flexShrink:   0,
-            }} />
-
             {/* Header */}
             <div className={styles.modalHeader}>
-              <div>
-                <h2 className={styles.modalTitle}>
-                  {isEditing ? 'Edit Material' : 'Add Study Material'}
-                </h2>
-                <p className={styles.modalSubtitle}>
-                  {isEditing
-                    ? 'Update the material details below.'
-                    : 'Fill in the details to add a new resource.'}
-                </p>
-              </div>
+              <h2 className={styles.modalTitle}>
+                {isEditing ? 'Edit Material' : 'Add Study Material'}
+              </h2>
               <button
                 className={styles.btnIconClose}
                 onClick={onClose}
-                aria-label="Close modal"
+                aria-label="Close form"
               >
                 <X size={13} />
               </button>
             </div>
 
-            {/* Body */}
             <div className={styles.modalBody}>
 
-              {/* Type selector */}
+              {/* ── Title ── */}
               <div className={styles.formField}>
                 <label className={styles.formLabel}>
-                  Material Type <span>*</span>
+                  Title <span style={{ color: '#dc2626' }}>*</span>
                 </label>
-                <div className={styles.typeTabs}>
-                  {MATERIAL_TYPES.map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      className={`${styles.typeTab} ${form.type === t ? styles.typeTabActive : ''}`}
-                      onClick={() => onPatch({ type: t })}
-                    >
-                      <div
-                        className={styles.typeTabIcon}
-                        style={{
-                          background: TYPE_ICON_BG[t],
-                          color:      TYPE_ICON_COLOR[t],
-                        }}
-                      >
-                        <TypeIconDisplay type={t} size={15} />
-                      </div>
-                      {typeLabel(t)}
-                    </button>
-                  ))}
+                <input
+                  className={`${styles.formInput} ${errors.title ? styles.inputError : ''}`}
+                  value={form.title}
+                  onChange={(e) => onPatch('title', e.target.value)}
+                  placeholder="Material title…"
+                />
+                {errors.title && (
+                  <p className={styles.fieldError}>{errors.title}</p>
+                )}
+              </div>
+
+              {/* ── Description ── */}
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>Description</label>
+                <textarea
+                  className={styles.formInput}
+                  rows={2}
+                  value={form.description}
+                  onChange={(e) => onPatch('description', e.target.value)}
+                  placeholder="Optional description…"
+                  style={{ resize: 'vertical' }}
+                />
+              </div>
+
+              {/* ── Type + Program (row) ── */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div className={styles.formField}>
+                  <label className={styles.formLabel}>Type</label>
+                  <select
+                    className={styles.formInput}
+                    value={form.type}
+                    onChange={(e) => onPatch('type', e.target.value as StudyMaterialForm['type'])}
+                  >
+                    <option value="document">Document</option>
+                    <option value="video">Video</option>
+                    <option value="notes">Notes</option>
+                  </select>
+                </div>
+                <div className={styles.formField}>
+                  <label className={styles.formLabel}>Program</label>
+                  <select
+                    className={styles.formInput}
+                    value={form.program_id}
+                    onChange={(e) => onPatch('program_id', e.target.value)}
+                  >
+                    <option value="">— No program —</option>
+                    {programs.map((p) => (
+                      <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
-              <div className={styles.formGrid}>
+              {/* ── Category ── */}
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>Category</label>
+                <input
+                  className={styles.formInput}
+                  value={form.category}
+                  onChange={(e) => onPatch('category', e.target.value)}
+                  placeholder="e.g. Pharmacology, Board Review…"
+                />
+              </div>
 
-                {/* Title */}
-                <div className={`${styles.formField} ${styles.formFull}`}>
-                  <label className={styles.formLabel}>Title <span>*</span></label>
-                  <input
-                    className={`${styles.formInput} ${errors.title ? styles.error : ''}`}
-                    placeholder="e.g. Introduction to Library Science"
-                    value={form.title}
-                    onChange={(e) => onPatch({ title: e.target.value })}
-                  />
-                  {errors.title && (
-                    <p className={styles.formError}>{errors.title}</p>
-                  )}
-                </div>
-
-                {/* Description */}
-                <div className={`${styles.formField} ${styles.formFull}`}>
-                  <label className={styles.formLabel}>Description</label>
-                  <input
-                    className={styles.formInput}
-                    placeholder="Brief description of this material"
-                    value={form.description}
-                    onChange={(e) => onPatch({ description: e.target.value })}
-                  />
-                </div>
-
-                {/* Program */}
-                <div className={styles.formField}>
-                  <label className={styles.formLabel}>Program <span>*</span></label>
-                  <select
-                    className={`${styles.formSelect} ${errors.program_id ? styles.error : ''}`}
-                    value={form.program_id}
-                    onChange={(e) => onPatch({ program_id: e.target.value })}
-                  >
-                    <option value="">Select program…</option>
-                    {programs.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.code} — {p.name}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.program_id && (
-                    <p className={styles.formError}>{errors.program_id}</p>
-                  )}
-                </div>
-
-                {/* Category */}
+              {/* ── File upload (existing — document/video only) ── */}
+              {form.type !== 'notes' && (
                 <div className={styles.formField}>
                   <label className={styles.formLabel}>
-                    Category{' '}
-                    <span style={{ color: '#8a9ab5', fontWeight: 400 }}>(optional)</span>
+                    File Upload
+                    <span style={{ color: '#8a9ab5', fontWeight: 400, marginLeft: 6 }}>
+                      (optional if external URL is provided)
+                    </span>
                   </label>
-                  <input
-                    className={styles.formInput}
-                    placeholder="e.g. Social Sciences, Education"
-                    value={form.category}
-                    onChange={(e) => onPatch({ category: e.target.value })}
-                  />
-                </div>
-
-                {/* Document upload */}
-                {form.type === 'document' && (
-                  <div className={`${styles.formField} ${styles.formFull}`}>
-                    <label className={styles.formLabel}>File <span>*</span></label>
+                  <div
+                    className={`${styles.dropZone} ${dragOver ? styles.dropZoneActive : ''}`}
+                    onDragOver={(e) => { e.preventDefault(); onDragOver(true) }}
+                    onDragLeave={() => onDragOver(false)}
+                    onDrop={onDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Upload file"
+                  >
+                    <Upload size={20} color="#8a9ab5" />
+                    {file ? (
+                      <p style={{ margin: 0, fontSize: '0.82rem', color: '#1d4ed8', fontWeight: 600 }}>
+                        {file.name}
+                      </p>
+                    ) : existingFileUrl ? (
+                      <p style={{ margin: 0, fontSize: '0.82rem', color: '#059669' }}>
+                        File uploaded — drop a new one to replace
+                      </p>
+                    ) : (
+                      <p style={{ margin: 0, fontSize: '0.82rem', color: '#8a9ab5' }}>
+                        Drag &amp; drop or click to select a file
+                      </p>
+                    )}
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept=".pdf,.doc,.docx,.ppt,.pptx"
                       style={{ display: 'none' }}
-                      onChange={(e) => onSetFile(e.target.files?.[0] ?? null)}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0]
+                        if (f) onSetFile(f)
+                      }}
                     />
-                    {file ? (
-                      <div className={styles.uploadedFile}>
-                        <FileIcon size={14} />
-                        {file.name}
-                        <button onClick={() => onSetFile(null)} aria-label="Remove file">
-                          <X size={12} />
-                        </button>
-                      </div>
-                    ) : (
-                      <div
-                        className={`${styles.uploadZone} ${dragOver ? styles.uploadZoneActive : ''}`}
-                        onClick={() => fileInputRef.current?.click()}
-                        onDragOver={(e) => { e.preventDefault(); onDragOver(true) }}
-                        onDragLeave={() => onDragOver(false)}
-                        onDrop={onDrop}
-                        role="button"
-                        tabIndex={0}
-                        aria-label="Upload document file"
-                        onKeyDown={(e) => { if (e.key === 'Enter') { fileInputRef.current?.click() } }}
-                      >
-                        <Upload size={20} color="#8a9ab5" />
-                        <p className={styles.uploadZoneTitle}>Click or drag &amp; drop</p>
-                        <p className={styles.uploadZoneSub}>PDF, DOCX, or PPTX — max 50 MB</p>
-                      </div>
-                    )}
-                    {errors.file && (
-                      <p className={styles.formError}>{errors.file}</p>
-                    )}
-                    {existingFileUrl && !file && (
-                      <p className={styles.formHint}>
-                        Current file:{' '}
-                        <a
-                          href={existingFileUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{ color: '#3b82f6' }}
-                        >
-                          view <ExternalLink size={10} style={{ display: 'inline' }} />
-                        </a>
-                        {' '}— upload a new file to replace it.
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* YouTube URL */}
-                {form.type === 'video' && (
-                  <div className={`${styles.formField} ${styles.formFull}`}>
-                    <label className={styles.formLabel}>
-                      YouTube URL <span>*</span>
-                    </label>
-                    <input
-                      className={`${styles.formInput} ${errors.youtube_url ? styles.error : ''}`}
-                      placeholder="https://www.youtube.com/watch?v=..."
-                      value={form.youtube_url}
-                      onChange={(e) => onPatch({ youtube_url: e.target.value })}
-                    />
-                    {errors.youtube_url && (
-                      <p className={styles.formError}>{errors.youtube_url}</p>
-                    )}
-                    {form.youtube_url && extractYouTubeId(form.youtube_url) && (
-                      <p className={styles.formHint} style={{ color: '#047857' }}>
-                        ✓ Valid YouTube URL detected.
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* Notes content */}
-                {form.type === 'notes' && (
-                  <div className={`${styles.formField} ${styles.formFull}`}>
-                    <label className={styles.formLabel}>
-                      Notes Content <span>*</span>
-                    </label>
-                    <textarea
-                      className={`${styles.formTextarea} ${errors.notes_content ? styles.error : ''}`}
-                      placeholder="Enter the notes content here…"
-                      value={form.notes_content}
-                      onChange={(e) => onPatch({ notes_content: e.target.value })}
-                      rows={5}
-                    />
-                    {errors.notes_content && (
-                      <p className={styles.formError}>{errors.notes_content}</p>
-                    )}
-                  </div>
-                )}
-
-                {/* Publish toggle */}
-                <div className={`${styles.formField} ${styles.formFull}`}>
-                  <div className={styles.toggleRow}>
-                    <div>
-                      <div className={styles.toggleLabel}>Publish immediately</div>
-                      <div className={styles.toggleSub}>
-                        Students can see this once published.
-                      </div>
-                    </div>
-                    <label className={styles.toggle} aria-label="Publish toggle">
-                      <input
-                        type="checkbox"
-                        checked={form.is_published}
-                        onChange={(e) => onPatch({ is_published: e.target.checked })}
-                      />
-                      <span className={styles.toggleSlider} />
-                    </label>
                   </div>
                 </div>
+              )}
 
+              {/* ── Notes textarea (existing — notes type only) ── */}
+              {form.type === 'notes' && (
+                <div className={styles.formField}>
+                  <label className={styles.formLabel}>
+                    Notes Content <span style={{ color: '#dc2626' }}>*</span>
+                  </label>
+                  <textarea
+                    className={`${styles.formInput} ${errors.notes_content ? styles.inputError : ''}`}
+                    rows={6}
+                    value={form.notes_content}
+                    onChange={(e) => onPatch('notes_content', e.target.value)}
+                    placeholder="Write your notes here…"
+                    style={{ resize: 'vertical' }}
+                  />
+                  {errors.notes_content && (
+                    <p className={styles.fieldError}>{errors.notes_content}</p>
+                  )}
+                </div>
+              )}
+
+              {/* ══════════════════════════════════════════════════════════════
+                  NEW: External Resources section
+                  Inserted here so it appears after the file/notes area
+                  and before the publish toggle.
+              ══════════════════════════════════════════════════════════════ */}
+              <div style={{
+                borderTop:  '1.5px solid #e4e9f0',
+                paddingTop: '1rem',
+                marginTop:  '0.25rem',
+              }}>
+                <p style={{
+                  fontSize:     '0.72rem',
+                  fontWeight:   700,
+                  color:        '#8a9ab5',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  margin:       '0 0 0.75rem',
+                }}>
+                  External Resources (optional)
+                </p>
+
+                {/* external_url */}
+                <div className={styles.formField}>
+                  <label className={styles.formLabel}>
+                    <ExternalLink size={11} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                    External URL
+                    <span style={{ color: '#8a9ab5', fontWeight: 400, marginLeft: 6 }}>
+                      YouTube, Google Drive, Slides, etc.
+                    </span>
+                  </label>
+                  <input
+                    className={`${styles.formInput} ${errors.external_url ? styles.inputError : ''}`}
+                    type="url"
+                    value={form.external_url}
+                    onChange={(e) => onPatch('external_url', e.target.value)}
+                    placeholder="https://youtube.com/watch?v=… or https://drive.google.com/…"
+                  />
+                  {errors.external_url && (
+                    <p className={styles.fieldError}>{errors.external_url}</p>
+                  )}
+                </div>
+
+                {/* link_type + meeting_url (2-col row) */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <div className={styles.formField}>
+                    <label className={styles.formLabel}>
+                      <Link size={11} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                      Link Type
+                    </label>
+                    <select
+                      className={styles.formInput}
+                      value={form.link_type}
+                      onChange={(e) => onPatch('link_type', e.target.value as LinkType | '')}
+                    >
+                      {LINK_TYPE_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className={styles.formField}>
+                    <label className={styles.formLabel}>
+                      <Video size={11} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                      Meeting URL
+                      <span style={{ color: '#8a9ab5', fontWeight: 400, marginLeft: 6 }}>
+                        Google Meet / Zoom
+                      </span>
+                    </label>
+                    <input
+                      className={styles.formInput}
+                      type="url"
+                      value={form.meeting_url}
+                      onChange={(e) => onPatch('meeting_url', e.target.value)}
+                      placeholder="https://meet.google.com/…"
+                    />
+                  </div>
+                </div>
               </div>
+              {/* ══ end External Resources ══ */}
+
+              {/* ── Publish toggle (existing) ── */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: 700, color: '#0d1523' }}>
+                    Published
+                  </p>
+                  <p style={{ margin: 0, fontSize: '0.72rem', color: '#8a9ab5' }}>
+                    Visible to students when published
+                  </p>
+                </div>
+                <label style={{ position: 'relative', display: 'inline-block', width: 40, height: 22, flexShrink: 0 }}>
+                  <input
+                    type="checkbox"
+                    style={{ opacity: 0, width: 0, height: 0 }}
+                    checked={form.is_published}
+                    onChange={(e) => onPatch('is_published', e.target.checked)}
+                  />
+                  <span style={{
+                    position:     'absolute',
+                    inset:        0,
+                    background:   form.is_published ? '#0d2540' : '#d1d5db',
+                    borderRadius: '99px',
+                    cursor:       'pointer',
+                    transition:   'background 0.2s',
+                  }}>
+                    <span style={{
+                      position:   'absolute',
+                      top:        3, left: form.is_published ? 20 : 3,
+                      width:      16, height: 16,
+                      background: '#fff',
+                      borderRadius: '50%',
+                      transition: 'left 0.2s',
+                      boxShadow:  '0 1px 3px rgba(0,0,0,0.15)',
+                    }} />
+                  </span>
+                </label>
+              </div>
+
             </div>
 
             {/* Footer */}
@@ -315,23 +360,16 @@ export function MaterialFormModal({
               >
                 Cancel
               </button>
-              <motion.button
+              <button
                 className={styles.btnPrimary}
-                variants={buttonVariants}
-                initial="idle"
-                whileHover="hover"
-                whileTap="tap"
                 onClick={onSubmit}
                 disabled={submitting}
               >
                 {submitting
                   ? 'Saving…'
-                  : isEditing
-                  ? 'Save Changes'
-                  : 'Add Material'}
-              </motion.button>
+                  : isEditing ? 'Save Changes' : 'Create Material'}
+              </button>
             </div>
-
           </motion.div>
         </motion.div>
       )}

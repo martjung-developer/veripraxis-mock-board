@@ -1,4 +1,4 @@
-// hooks/admin/useAdminDashboard.ts
+// hooks/admin/dashboard/useAdminDashboard.ts
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";

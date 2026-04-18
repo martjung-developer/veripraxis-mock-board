@@ -5,7 +5,7 @@
 import React from 'react'
 import { Target, Clock, Hash, AlertCircle } from 'lucide-react'
 import type { ExamFormData, ExamFormErrors } from '@/lib/types/admin/exams/create/exam.types'
-import s from '../create.module.css'
+import s from '@/app/(dashboard)/admin/exams/create/create.module.css'
 
 interface ExamSettingsSectionProps {
   form:     ExamFormData

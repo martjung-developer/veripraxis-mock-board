@@ -113,7 +113,7 @@ export default function AdminDashboardPage() {
     {
       Icon: BookOpen, bg: "#fffbeb", color: "#d97706",
       label: "Practice Exams", value: String(stats.practiceExams),
-      sub: "published", href: "/admin/practice-exams",
+      sub: "published", href: "/admin/exams",
       empty: stats.practiceExams === 0,
     },
     {

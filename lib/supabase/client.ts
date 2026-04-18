@@ -12,4 +12,4 @@ export function createClient(): SupabaseClient<Database> {
   }
 
   return createBrowserClient<Database>(url, key)
-}
+} 

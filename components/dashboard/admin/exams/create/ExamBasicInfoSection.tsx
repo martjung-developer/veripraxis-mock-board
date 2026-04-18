@@ -6,7 +6,7 @@ import React from 'react'
 import { BookOpen, FileText, Tag, AlignLeft, Layers, AlertCircle } from 'lucide-react'
 import { EXAM_TYPE_META, type ExamType } from '@/lib/types/database'
 import type { ExamFormData, ExamFormErrors, CategoryOption } from '@/lib/types/admin/exams/create/exam.types'
-import s from '../create.module.css'
+import s from '@/app/(dashboard)/admin/exams/create/create.module.css'
 
 interface ExamBasicInfoSectionProps {
   form:        ExamFormData

@@ -3,7 +3,7 @@ import { ThumbsUp, ThumbsDown, MinusCircle } from 'lucide-react'
 import type { AnswerDetail, AnswerKeyEntry } from '@/lib/types/admin/exams/submissions/answer.types'
 import type { GradingMode, SubmissionStatus } from '@/lib/types/admin/exams/submissions/submission.types'
 import { TYPE_ICONS, AUTO_TYPES } from '@/lib/utils/admin/submissions/constants'
-import s from './submissions.module.css'
+import s from '@/app/(dashboard)/admin/exams/[examId]/submissions/submissions.module.css'
 
 interface AnswerCardProps {
   ans:          AnswerDetail

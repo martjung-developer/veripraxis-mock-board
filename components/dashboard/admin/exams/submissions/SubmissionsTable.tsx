@@ -4,7 +4,7 @@ import type { Submission } from '@/lib/types/admin/exams/submissions/submission.
 import { STATUS_CONFIG }   from '@/lib/utils/admin/submissions/constants'
 import { fmtDate, fmtTime, initials } from '@/lib/utils/admin/submissions/format'
 import { EmptyState, LoadingSkeleton } from './SubmissionsUI'
-import s from './submissions.module.css'
+import s from '@/app/(dashboard)/admin/exams/[examId]/submissions/submissions.module.css'
 
 interface SubmissionsTableProps {
   paginated:  Submission[]

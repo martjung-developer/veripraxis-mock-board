@@ -1,4 +1,4 @@
-// services/admin/adminDashboard.service.ts
+// services/admin/dashboard/adminDashboard.service.ts
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/types/database";
 import type {
@@ -52,23 +52,27 @@ export async function fetchDashboardData(
  
   // ── 1. Exams + practice exam count (parallel) ────────────────────────────
   const [{ data: myExams }, { count: practiceCount }] = await Promise.all([
-    supabase
-      .from("exams")
-      .select("id, title, is_published, total_points")
-      .eq("created_by", userId)
-      .returns<Pick<ExamRow, "id" | "title" | "is_published" | "total_points">[]>(),
- 
-    supabase
-      .from("practice_exams")
-      .select("id", { count: "exact", head: true })
-      .eq("created_by", userId)
-      .eq("is_published", true)
-      .returns<PracticeExamCountResult[]>(),
-  ]);
- 
-  const exams:         Pick<ExamRow, "id" | "title" | "is_published" | "total_points">[] = myExams ?? [];
-  const myExamIds:     string[] = exams.map((e) => e.id);
-  const publishedCount: number  = exams.filter((e) => e.is_published).length;
+  supabase
+    .from("exams")
+    .select("id, title, is_published, total_points, exam_type") 
+    .eq("created_by", userId)
+    .returns<Pick<ExamRow, "id" | "title" | "is_published" | "total_points" | "exam_type">[]>(),
+
+  supabase
+    .from("exams")                                             
+    .select("id", { count: "exact", head: true })
+    .eq("created_by", userId)
+    .eq("is_published", true)
+    .eq("exam_type", "practice"),                                
+]);
+
+const exams = myExams ?? [];
+const myExamIds = exams.map((e) => e.id);
+
+// ── FIX: count only mock exams ───────────────────────────────────────────
+const publishedCount: number = exams.filter(
+  (e) => e.is_published && e.exam_type === "mock"               
+).length;
  
   // ── 2. Early-exit when faculty has no exams ──────────────────────────────
   if (myExamIds.length === 0) {
