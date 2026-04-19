@@ -2,269 +2,175 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import Link from 'next/link'
-import Image from 'next/image'
+import Image         from 'next/image'
+import Link          from 'next/link'
 import { useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
-import { Mail, ArrowLeft, ArrowRight, RefreshCw } from 'lucide-react'
-import { verifyOtp, resendVerification } from '@/lib/auth/actions'
+import { motion }    from 'framer-motion'
+import { Mail, ArrowRight, RefreshCw, AlertCircle } from 'lucide-react'
+import { MoleculeBackground } from '@/animations/auth/MoleculeBackground'
+import { verifyOtp, sendOtp }                       from '@/lib/services/auth/'
+import { OTP_LENGTH, OTP_RESEND_COOLDOWN }          from '@/lib/constants/auth/'
 import styles from '../auth.module.css'
-
-const CODE_LENGTH = 6
 
 export default function VerifyEmailPage() {
   const router = useRouter()
 
-  const [code,      setCode]      = useState<string[]>(Array(CODE_LENGTH).fill(''))
+  const [code,      setCode]      = useState<string[]>(Array(OTP_LENGTH).fill(''))
   const [loading,   setLoading]   = useState(false)
-  const [resendSec, setResendSec] = useState(60)
+  const [resending, setResending] = useState(false)
+  const [countdown, setCountdown] = useState(OTP_RESEND_COOLDOWN)
   const [email,     setEmail]     = useState<string>('')
   const [error,     setError]     = useState<string | null>(null)
-  const [resending, setResending] = useState(false)
   const inputsRef = useRef<(HTMLInputElement | null)[]>([])
 
-  // Read email saved by signup form so we know who to verify
   useEffect(() => {
     const saved = sessionStorage.getItem('verify_email')
-    if (saved) {
-      setEmail(saved)
-    } else {
-      // No email in session — send back to signup
-      router.replace('/signup')
-    }
+    if (saved) { setEmail(saved) } else { router.replace('/signup') }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // run once on mount only
+  }, [])
 
-  // Countdown timer for resend button
   useEffect(() => {
-    if (resendSec <= 0) return
-    const t = setTimeout(() => setResendSec((s) => s - 1), 1000)
+    if (countdown <= 0) return
+    const t = setTimeout(() => setCountdown((s) => s - 1), 1000)
     return () => clearTimeout(t)
-  }, [resendSec])
+  }, [countdown])
 
   function handleChange(i: number, val: string) {
     const char = val.replace(/\D/g, '').slice(-1)
-    const next = [...code]
-    next[i] = char
-    setCode(next)
-    setError(null)
-    if (char && i < CODE_LENGTH - 1) inputsRef.current[i + 1]?.focus()
+    const next = [...code]; next[i] = char
+    setCode(next); setError(null)
+    if (char && i < OTP_LENGTH - 1) inputsRef.current[i + 1]?.focus()
   }
 
   function handleKeyDown(i: number, e: React.KeyboardEvent) {
-    if (e.key === 'Backspace' && !code[i] && i > 0) {
-      inputsRef.current[i - 1]?.focus()
-    }
+    if (e.key === 'Backspace' && !code[i] && i > 0) inputsRef.current[i - 1]?.focus()
   }
 
   function handlePaste(e: React.ClipboardEvent) {
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, CODE_LENGTH)
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, OTP_LENGTH)
     if (!pasted) return
     e.preventDefault()
     const next = [...code]
     pasted.split('').forEach((c, idx) => { next[idx] = c })
     setCode(next)
-    // Focus last filled box
-    inputsRef.current[Math.min(pasted.length, CODE_LENGTH - 1)]?.focus()
+    inputsRef.current[Math.min(pasted.length, OTP_LENGTH - 1)]?.focus()
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!email) return
-    setError(null)
-    setLoading(true)
-
-    const otp    = code.join('')
-    const result = await verifyOtp(email, otp)
-
+    setError(null); setLoading(true)
+    const result = await verifyOtp(email, code.join(''))
     setLoading(false)
-
-    if (!result.success) {
+    if (!result.verified) {
       setError(result.error)
-      // Clear code boxes so user can re-enter
-      setCode(Array(CODE_LENGTH).fill(''))
+      setCode(Array(OTP_LENGTH).fill(''))
       inputsRef.current[0]?.focus()
       return
     }
-
-    // Clean up session storage and redirect to dashboard
     sessionStorage.removeItem('verify_email')
     router.push(result.redirectTo)
   }
 
   async function handleResend() {
     if (!email) return
-    setResending(true)
-    setError(null)
-
-    const result = await resendVerification(email)
+    setResending(true); setError(null)
+    const result = await sendOtp(email)
     setResending(false)
-
-    if (!result.success) {
-      setError(result.error)
-      return
-    }
-
-    // Reset countdown and clear code
-    setResendSec(60)
-    setCode(Array(CODE_LENGTH).fill(''))
+    if (!result.sent) { setError(result.error); return }
+    setCountdown(OTP_RESEND_COOLDOWN)
+    setCode(Array(OTP_LENGTH).fill(''))
     inputsRef.current[0]?.focus()
   }
 
   const isComplete = code.every(Boolean)
 
   return (
-    <div className={styles.authPage}>
+    <>
+      <MoleculeBackground />
+      <div className={styles.authPage}>
+        <motion.div className={styles.card}
+          initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: [0.34, 1.2, 0.64, 1] }}>
 
-      {/* ── LEFT — FORM ── */}
-      <div className={styles.formPanel}>
-        <motion.div
-          className={styles.formInner}
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
-        >
-          {/* Logo + back */}
-          <div className={styles.formTopRow}>
-            <Image
-              src="/images/veripraxis-logo.png"
-              alt="VeriPraxis"
-              width={0}
-              height={32}
-              style={{ width: 'auto', height: 32 }}
-              priority
-            />
-            <Link href="/signup" className={styles.backLink}>
-              <ArrowLeft size={13} strokeWidth={2.5} /> Back to signup
-            </Link>
+          <div className={styles.logoWrap}>
+            <Image src="/images/veripraxis-logo.png" alt="VeriPraxis" height={44} width={160} className={styles.logoImg} priority />
           </div>
 
-          {/* Mail icon */}
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
+          {/* Email icon */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
             <div style={{
-              width: 64, height: 64, borderRadius: '50%',
-              background: 'rgba(59,130,246,0.1)',
-              border: '1px solid rgba(59,130,246,0.18)',
+              width: 52, height: 52, borderRadius: '50%',
+              background: 'rgba(99,102,241,0.08)',
+              border: '1px solid rgba(99,102,241,0.2)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <Mail size={28} color="#60a5fa" strokeWidth={1.5} />
+              <Mail size={22} color="#6366f1" strokeWidth={1.75} />
             </div>
           </div>
 
-          <h1 className={styles.formTitle} style={{ textAlign: 'center' }}>
-            Check your email
-          </h1>
-          <p className={styles.formSubtitle} style={{ textAlign: 'center', marginBottom: '0.5rem' }}>
-            We sent a 6-digit code to
+          <h1 className={styles.heading}>Check your email</h1>
+          <p className={styles.subheading}>
+            We sent a {OTP_LENGTH}-digit code to{' '}
+            {email && <strong style={{ color: '#0f172a' }}>{email}</strong>}
           </p>
-          {email && (
-            <p style={{
-              textAlign: 'center',
-              fontSize: '0.875rem',
-              fontWeight: 600,
-              color: '#e2e8f0',
-              marginBottom: '1.75rem',
-            }}>
-              {email}
-            </p>
-          )}
 
-          {/* Error banner */}
           {error && (
-            <div className={styles.errorBanner} style={{ marginBottom: '1rem' }}>
-              {error}
+            <div className={styles.errorBanner} style={{ marginBottom: '0.75rem' }}>
+              <AlertCircle size={14} style={{ flexShrink: 0 }} />{error}
             </div>
           )}
 
-          <form className={styles.form} onSubmit={handleSubmit}>
-
-            {/* OTP inputs */}
+          <form className={styles.form} onSubmit={handleSubmit} noValidate>
             <div>
-              <label
-                className={styles.label}
-                style={{ display: 'block', textAlign: 'center', marginBottom: '0.875rem' }}
-              >
+              <label className={styles.label} style={{ display: 'block', textAlign: 'center', marginBottom: '0.75rem' }}>
                 Verification Code
               </label>
               <div className={styles.otpRow} onPaste={handlePaste}>
                 {code.map((digit, i) => (
-                  <input
-                    key={i}
+                  <input key={i}
                     ref={(el) => { inputsRef.current[i] = el }}
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={1}
-                    value={digit}
+                    type="text" inputMode="numeric" maxLength={1} value={digit}
                     onChange={(e) => handleChange(i, e.target.value)}
                     onKeyDown={(e) => handleKeyDown(i, e)}
-                    className={`${styles.otpInput} ${digit ? styles.otpFilled : ''} ${error ? styles.otpError : ''}`}
+                    className={[
+                      styles.otpInput,
+                      digit ? styles.otpFilled : '',
+                      error ? styles.otpError  : '',
+                    ].join(' ')}
                     autoFocus={i === 0}
-                    aria-label={`Digit ${i + 1} of ${CODE_LENGTH}`}
+                    aria-label={`Digit ${i + 1} of ${OTP_LENGTH}`}
                   />
                 ))}
               </div>
             </div>
 
-            {/* Submit */}
-            <motion.button
-              type="submit"
-              className={styles.submitBtn}
+            <motion.button type="submit" className={styles.submitBtn}
               disabled={loading || !isComplete}
-              whileHover={{ y: -1 }}
-              whileTap={{ scale: 0.985 }}
-            >
-              {loading ? 'Verifying…' : (
-                <> Verify Email <ArrowRight size={15} strokeWidth={2.5} /></>
-              )}
+              whileHover={{ y: -1 }} whileTap={{ scale: 0.985 }}>
+              {loading ? 'Verifying…' : <> Verify Email <ArrowRight size={15} strokeWidth={2.5} /></>}
             </motion.button>
 
-            {/* Resend */}
             <div className={styles.resendRow}>
               Didn&apos;t receive it?{' '}
-              {resendSec > 0 ? (
-                <span style={{ color: '#374151' }}>Resend in {resendSec}s</span>
+              {countdown > 0 ? (
+                <span style={{ color: '#94a3b8' }}>Resend in {countdown}s</span>
               ) : (
-                <button
-                  type="button"
-                  className={styles.resendBtn}
-                  onClick={handleResend}
-                  disabled={resending}
-                >
-                  {resending ? (
-                    'Sending…'
-                  ) : (
-                    <><RefreshCw size={11} strokeWidth={2.5} style={{ display: 'inline', marginRight: 3 }} />Resend code</>
-                  )}
+                <button type="button" className={styles.resendBtn} onClick={handleResend} disabled={resending}>
+                  {resending
+                    ? 'Sending…'
+                    : <><RefreshCw size={11} strokeWidth={2.5} style={{ display: 'inline', marginRight: 3 }} />Resend code</>}
                 </button>
               )}
             </div>
 
+            <p className={styles.switchPrompt}>
+              Wrong email?{' '}
+              <Link href="/signup" className={styles.switchLink}>Back to signup</Link>
+            </p>
           </form>
         </motion.div>
       </div>
-
-      {/* ── RIGHT — PHOTO ── */}
-      <div className={styles.photoPannel}>
-        <Image
-          src="https://images.unsplash.com/photo-1488190211105-8b0e65b80b4e?w=1200&q=85"
-          alt="Open notebook with pen"
-          fill
-          style={{ objectFit: 'cover' }}
-          priority
-        />
-        <div className={styles.photoOverlay} />
-        <div className={styles.photoContent}>
-          <div className={styles.photoTagline}>
-            One last{' '}
-            <span className={styles.photoTaglineAccent}>step.</span>
-          </div>
-          <p className={styles.photoSub}>
-            Verify your email to unlock your account and start
-            your board exam review journey.
-          </p>
-        </div>
-      </div>
-
-    </div>
+    </>
   )
 }

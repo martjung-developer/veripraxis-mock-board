@@ -1,4 +1,4 @@
-// app/auth/callback/route.ts
+// api/auth/callback/route.ts
 // Handles Google OAuth redirect and email confirmation link.
 
 import { NextResponse }           from 'next/server'

@@ -1,5 +1,4 @@
 // lib/types/database.ts
-
 export type Json =
   | string
   | number
@@ -12,43 +11,16 @@ export type Json =
 // Matches: CHECK (role = ANY (ARRAY['student','admin','faculty']))
 export type UserRole = 'student' | 'admin' | 'faculty'
 
-// Matches the status column on submissions.
-// ⚠️  FIX 1 — 'reviewed' and 'released' added.
-//
-// These two values are used extensively across the refactored codebase:
-//   • adminDashboard.service.ts  → .in("status", ["submitted","graded","released"])
-//   • adminDashboard.service.ts  → allSubs.filter(s => s.status === "released")
-//   • results.service.ts         → .in('status', ['reviewed','released'])
-//   • results.types.ts           → type ResultStatus = 'reviewed' | 'released'
-//   • useExamResults.ts          → filters on r.status === 'reviewed' / 'released'
-//   • ResultsTable.tsx           → r.status === 'released'
-//
-// Without 'reviewed' and 'released' in the union:
-//   • Every .filter(s => s.status === 'released') raises:
-//       TS2367: This condition will always be false because the types
-//       'SubmissionStatus' and '"released"' have no overlap.
-//   • Every .in('status', ['reviewed','released']) raises:
-//       TS2345: Argument of type 'string[]' is not assignable to
-//       parameter of type '("in_progress" | "submitted" | "graded")[]'
-//
-// Run a migration to add the CHECK constraint values if not already present:
-//   ALTER TABLE submissions DROP CONSTRAINT IF EXISTS submissions_status_check;
-//   ALTER TABLE submissions ADD CONSTRAINT submissions_status_check
-//     CHECK (status = ANY (ARRAY[
-//       'in_progress','submitted','graded','reviewed','released'
-//     ]));
+// Matches the status column CHECK on `submissions`:
+//   CHECK (status = ANY (ARRAY['in_progress','submitted','graded','reviewed','released']))
 export type SubmissionStatus =
   | 'in_progress'
   | 'submitted'
   | 'graded'
-  | 'reviewed'   // ← ADDED: graded and manually reviewed by faculty
-  | 'released'   // ← ADDED: results made visible to the student
+  | 'reviewed'   // graded and manually reviewed by faculty
+  | 'released'   // results made visible to the student
 
-// ── ADDED: grading_status ─────────────────────────────────────────────────────
 // Derived at the application level (not a DB column).
-// 'complete'     — all answers have been graded (auto or manual)
-// 'needs_review' — one or more manual-type answers are still pending
-// 'ungraded'     — no answers recorded yet
 export type GradingStatus = 'complete' | 'needs_review' | 'ungraded'
 
 // Matches: CHECK (purpose = ANY (ARRAY['exam_questions','reviewer','profile_image','other']))
@@ -64,13 +36,19 @@ export const MANUAL_GRADE_QUESTION_TYPES: QuestionType[] = ['short_answer', 'ess
 export function isAutoGradedType(type: QuestionType):   boolean { return AUTO_GRADE_QUESTION_TYPES.includes(type) }
 export function isManualGradedType(type: QuestionType): boolean { return MANUAL_GRADE_QUESTION_TYPES.includes(type) }
 
-// Exam type
+// Matches: CHECK (exam_type = ANY (ARRAY['mock','practice']))
 export type ExamType = 'mock' | 'practice'
 
 export const EXAM_TYPE_META: Record<ExamType, { label: string; description: string }> = {
   mock:     { label: 'Mock Exam',     description: 'Timed, board-style exam that simulates the actual licensure exam.'   },
   practice: { label: 'Practice Exam', description: 'Self-paced reviewer set for studying individual topics or subjects.' },
 }
+
+// Matches: CHECK (link_type IS NULL OR link_type = ANY (ARRAY['video','meeting','drive','other']))
+export type LinkType = 'video' | 'meeting' | 'drive' | 'other'
+
+// Matches: CHECK (type = ANY (ARRAY['document','video','notes']))
+export type StudyMaterialType = 'document' | 'video' | 'notes'
 
 // ── Convenience / App-Level Types ─────────────────────────────────────────────
 
@@ -96,16 +74,6 @@ export interface GradingResult {
   is_correct:    boolean | null
   points_earned: number
 }
-
-// ── Material type ─────────────────────────────────────────────────────────────
-// ⚠️  FIX 2 — Extracted as a named type so study_materials.Row, the
-// published_study_materials view row, and the StudyMaterial domain type
-// all reference the same literal union rather than repeating it inline.
-// Without this, the fallback normaliser in studyMaterials.service.ts cannot
-// safely cast `row.type` — it was previously written as `row.type as any`.
-export type StudyMaterialType = 'document' | 'video' | 'notes'
-
-export type LinkType = 'video' | 'meeting' | 'drive' | 'other'
 
 export type Database = {
   public: {
@@ -142,6 +110,7 @@ export type Database = {
       students: {
         Row: {
           id:          string
+          user_id:     string | null
           student_id:  string | null
           school:      string | null
           year_level:  number | null
@@ -152,6 +121,7 @@ export type Database = {
         }
         Insert: {
           id:           string
+          user_id?:     string | null
           student_id?:  string | null
           school?:      string | null
           year_level?:  number | null
@@ -161,6 +131,7 @@ export type Database = {
           created_at?:  string
         }
         Update: {
+          user_id?:     string | null
           student_id?:  string | null
           school?:      string | null
           year_level?:  number | null
@@ -269,6 +240,7 @@ export type Database = {
           created_by:       string | null
           created_at:       string
           updated_at:       string
+          grading_mode:     string | null
         }
         Insert: {
           id?:              string
@@ -284,6 +256,7 @@ export type Database = {
           created_by?:      string | null
           created_at?:      string
           updated_at?:      string
+          grading_mode?:    string | null
         }
         Update: {
           title?:            string
@@ -296,6 +269,7 @@ export type Database = {
           total_points?:     number
           is_published?:     boolean
           updated_at?:       string
+          grading_mode?:     string | null
         }
       }
 
@@ -348,13 +322,12 @@ export type Database = {
           started_at:         string
           submitted_at:       string | null
           time_spent_seconds: number | null
-          // ⚠️  Uses the expanded SubmissionStatus union (includes 'reviewed' | 'released').
-          // See the SubmissionStatus comment above for the migration SQL.
           status:             SubmissionStatus
           score:              number | null
           percentage:         number | null
           passed:             boolean | null
           created_at:         string
+          released_at:        string | null
         }
         Insert: {
           id?:                 string
@@ -368,6 +341,7 @@ export type Database = {
           percentage?:         number | null
           passed?:             boolean | null
           created_at?:         string
+          released_at?:        string | null
         }
         Update: {
           submitted_at?:       string | null
@@ -376,6 +350,7 @@ export type Database = {
           score?:              number | null
           percentage?:         number | null
           passed?:             boolean | null
+          released_at?:        string | null
         }
       }
 
@@ -450,6 +425,24 @@ export type Database = {
           total_time_spent_minutes?: number
           last_attempt_at?:          string | null
           updated_at?:               string
+        }
+      }
+
+      // Present in DB but was missing from database.ts entirely.
+      // Tracks which students have completed a practice exam.
+      practice_completions: {
+        Row: {
+          student_id:   string
+          exam_id:      string
+          completed_at: string
+        }
+        Insert: {
+          student_id:    string
+          exam_id:       string
+          completed_at?: string
+        }
+        Update: {
+          completed_at?: string
         }
       }
 
@@ -560,40 +553,25 @@ export type Database = {
           user_id:    string | null
           title:      string | null
           message:    string | null
-          // ⚠️  FIX 3 — type references the Enums block below.
-          // Previously the Enums block did not contain notif_type, so
-          // Database['public']['Enums']['notif_type'] resolved to `never`,
-          // meaning every notification insert/update would fail to type-check.
           type:       Database['public']['Enums']['notif_type'] | null
           is_read:    boolean
           created_at: string
-          // ⚠️  FIX 4 — link and cta_label added.
-          // The notification rows in the app carry these optional fields for
-          // rich action buttons (e.g. "View results" links in the notification
-          // centre). Without them, reads of `row.link` produced:
-          //   TS2339: Property 'link' does not exist on type '...'
-          link:       string | null
-          cta_label:  string | null
         }
         Insert: {
-          id?:        string
-          user_id?:   string | null
-          title?:     string | null
-          message?:   string | null
-          type?:      Database['public']['Enums']['notif_type'] | null
-          is_read?:   boolean
+          id?:         string
+          user_id?:    string | null
+          title?:      string | null
+          message?:    string | null
+          type?:       Database['public']['Enums']['notif_type'] | null
+          is_read?:    boolean
           created_at?: string
-          link?:      string | null
-          cta_label?: string | null
         }
         Update: {
-          user_id?:   string | null
-          title?:     string | null
-          message?:   string | null
-          type?:      Database['public']['Enums']['notif_type'] | null
-          is_read?:   boolean
-          link?:      string | null
-          cta_label?: string | null
+          user_id?:    string | null
+          title?:      string | null
+          message?:    string | null
+          type?:       Database['public']['Enums']['notif_type'] | null
+          is_read?:    boolean
         }
       }
 
@@ -602,7 +580,7 @@ export type Database = {
           id:            string
           title:         string
           description:   string | null
-          type:          'document' | 'video' | 'notes'
+          type:          StudyMaterialType
           file_url:      string | null
           notes_content: string | null
           program_id:    string | null
@@ -618,7 +596,7 @@ export type Database = {
         Insert: {
           id?:            string
           title:          string
-          type:           'document' | 'video' | 'notes'
+          type:           StudyMaterialType
           description?:   string | null
           file_url?:      string | null
           notes_content?: string | null
@@ -635,7 +613,7 @@ export type Database = {
         Update: {
           id?:            string
           title?:         string
-          type?:          'document' | 'video' | 'notes'
+          type?:          StudyMaterialType
           description?:   string | null
           file_url?:      string | null
           notes_content?: string | null
@@ -651,22 +629,6 @@ export type Database = {
         }
       }
 
-      // ⚠️  FIX 6 — favorites table added.
-      // The study materials feature spec adds a bookmark/favorites system
-      // (toggleFavorite / isFavorited). Without this table in database.ts,
-      // supabase.from('favorites') has no generic constraint, so every
-      // query returns unknown and requires unsafe casts.
-      // Migration:
-      //   CREATE TABLE IF NOT EXISTS favorites (
-      //     id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-      //     user_id     uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-      //     material_id uuid NOT NULL REFERENCES study_materials(id) ON DELETE CASCADE,
-      //     created_at  timestamptz NOT NULL DEFAULT now(),
-      //     UNIQUE (user_id, material_id)
-      //   );
-      //   ALTER TABLE favorites ENABLE ROW LEVEL SECURITY;
-      //   CREATE POLICY "Users manage own favorites"
-      //     ON favorites FOR ALL USING (auth.uid() = user_id);
       favorites: {
         Row: {
           id:          string
@@ -686,27 +648,80 @@ export type Database = {
         }
       }
 
+      users: {
+        Row: {
+          id:             string
+          role:           UserRole
+          created_at:     string 
+        }
+        Insert: {
+          id:             string
+          role:           UserRole
+          created_at?:    string 
+        }
+        Update: {
+          role?:          UserRole
+        }
+      }
+
+      faculty: {
+    Row: {
+    id:         string
+     user_id:    string | null
+     faculty_id: string
+     full_name:  string
+     email:      string
+     is_active:  boolean
+     created_by: string | null
+     created_at: string
+     updated_at: string
+   }
+   Insert: {
+     id?:         string
+     user_id?:    string | null
+     faculty_id:  string
+    full_name:   string
+     email:       string
+     is_active?:  boolean
+     created_by?: string | null
+     created_at?: string
+     updated_at?: string
+   }
+   Update: {
+     user_id?:    string | null
+     faculty_id?: string
+     full_name?:  string
+     email?:      string
+     is_active?:  boolean
+     updated_at?: string
+   }
+}
+    admins: {
+   Row: {
+     id:         string
+     user_id:    string | null
+     admin_id:   string
+     full_name:  string
+     email:      string
+     created_at: string
+   }
+   Insert: {
+     id?:        string
+     user_id?:   string | null
+     admin_id:   string
+     full_name:  string
+     email:      string
+     created_at?: string
+   }
+   Update: {
+     user_id?:   string | null
+     full_name?: string
+     email?:     string
+   }
+ }
     }
 
     Views: {
-      // ⚠️  FIX 7 — published_study_materials view typed.
-      // The study materials page primary query targets this view:
-      //   supabase.from('published_study_materials').select('*')
-      // With Views: {} the query returned type unknown, which the original
-      // page worked around with `(data ?? []) as StudyMaterial[]` — an
-      // unsafe cast that silently breaks if the view schema changes.
-      //
-      // Migration — create the view if it doesn't exist:
-      //   CREATE OR REPLACE VIEW published_study_materials AS
-      //   SELECT
-      //     sm.id, sm.title, sm.description, sm.type,
-      //     sm.file_url, sm.notes_content, sm.category,
-      //     sm.created_at, sm.program_id, sm.meeting_url,
-      //     p.code  AS program_code,
-      //     p.name  AS program_name
-      //   FROM study_materials sm
-      //   LEFT JOIN programs p ON p.id = sm.program_id
-      //   WHERE sm.is_published = true;
       published_study_materials: {
         Row: {
           id:            string
@@ -733,14 +748,7 @@ export type Database = {
       storage_purpose:   StoragePurpose
       question_type:     QuestionType
       exam_type:         ExamType
-      // ⚠️  FIX 8 — notif_type added to Enums block.
-      // notifications.Row references Database['public']['Enums']['notif_type'].
-      // Without this entry that type resolved to `never`, meaning:
-      //   • every notification.type field was typed as never
-      //   • inserting any notification type string caused TS2322
-      //   • the NotificationBell and any notification-aware component
-      //     could never safely read notification.type
-      notif_type: 'info' | 'warning' | 'success' | 'error'
+      notif_type:        'info' | 'warning' | 'success' | 'error'
     }
 
     // eslint-disable-next-line @typescript-eslint/no-empty-object-type
@@ -761,7 +769,5 @@ export type TablesUpdate<T extends keyof Database['public']['Tables']> =
   Database['public']['Tables'][T]['Update']
 
 // ── View Helpers ───────────────────────────────────────────────────────────────
-// Mirrors the Tables helper pattern for views so components can do:
-//   type PublishedMaterialRow = ViewRow<'published_study_materials'>
 export type ViewRow<V extends keyof Database['public']['Views']> =
   Database['public']['Views'][V]['Row']
