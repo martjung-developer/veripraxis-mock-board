@@ -4,9 +4,9 @@
 // All functions return typed result objects; they never throw.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { createClient }         from '@/lib/supabase/client'
-import { normaliseId }          from '@/lib/utils/auth/index'
-import { ROLE_DASHBOARDS }      from '@/lib/types/auth/index'
+import { createClient }    from '@/lib/supabase/client'
+import { normaliseId }     from '@/lib/utils/auth'
+import { ROLE_DASHBOARDS } from '@/lib/types/auth/'
 import type {
   AuthResult,
   ResolveUserResult,
@@ -14,7 +14,7 @@ import type {
   VerifyOtpResult,
   ProgramCode,
   YearLevel,
-} from '@/lib/types/auth/index'
+} from '@/lib/types/auth/'
 
 // ── resolveUserById ───────────────────────────────────────────────────────────
 
@@ -46,7 +46,7 @@ export async function signInWithId(rawId: string, password: string): Promise<Aut
   if (error) {
     return {
       success: false,
-      error: error.message.includes('Invalid login credentials')
+      error:   error.message.includes('Invalid login credentials')
         ? 'Incorrect password.'
         : error.message,
     }
@@ -56,10 +56,17 @@ export async function signInWithId(rawId: string, password: string): Promise<Aut
 }
 
 // ── signUpStudent ─────────────────────────────────────────────────────────────
-// Creates a Supabase Auth user (student only).
-// Passes full_name and year_level in user_metadata so the DB trigger
-// can write them to `profiles.full_name` and `students.year_level`.
-
+/**
+ * Create a new student account via Supabase Auth.
+ *
+ * Flow:
+ *   1. supabase.auth.signUp  — creates auth.users row (unconfirmed)
+ *   2. students upsert       — safety net if the DB trigger hasn't run yet
+ *   3. sessionStorage        — persists email for the OTP verification page
+ *
+ * The user_metadata fields (full_name, year_level, etc.) are read by the
+ * `handle_new_user` DB trigger, which writes them into `profiles` and `students`.
+ */
 export async function signUpStudent(
   studentId:   string,
   fullName:    string,
@@ -70,13 +77,11 @@ export async function signUpStudent(
 ): Promise<AuthResult> {
   const supabase = createClient()
 
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: {
-        // These values are read by the Supabase `handle_new_user` trigger
-        // and written into `profiles` and `students` tables.
         student_id:   normaliseId(studentId),
         full_name:    fullName.trim(),
         role:         'student',
@@ -86,7 +91,28 @@ export async function signUpStudent(
     },
   })
 
-  if (error) return { success: false, error: error.message }
+  if (error)      return { success: false, error: error.message }
+  if (!data.user) return { success: false, error: 'Account creation failed. Please try again.' }
+
+  // Safety-net upsert — no-op if the DB trigger already created the row.
+  // Typed correctly against the generated schema; no `as any` needed.
+  const { error: studentErr } = await supabase
+    .from('students')
+    .upsert(
+      {
+        id:         data.user.id,
+        student_id: normaliseId(studentId),
+        year_level: yearLevel,
+        program_id: null,
+      },
+      { onConflict: 'id' },
+    )
+
+  if (studentErr) {
+    // Non-fatal — the DB trigger may have already written the row.
+    // Log and continue to OTP verification rather than blocking the user.
+    console.warn('[signUpStudent] students upsert warning:', studentErr.message)
+  }
 
   if (typeof window !== 'undefined') {
     sessionStorage.setItem('verify_email', email)
@@ -100,8 +126,8 @@ export async function signUpStudent(
 export async function signInWithGoogle(): Promise<AuthResult> {
   const supabase = createClient()
   const { error } = await supabase.auth.signInWithOAuth({
-    provider:  'google',
-    options:   { redirectTo: `${window.location.origin}/auth/callback` },
+    provider: 'google',
+    options:  { redirectTo: `${window.location.origin}/auth/callback` },
   })
   if (error) return { success: false, error: error.message }
   return { success: true, redirectTo: '/auth/callback' }
@@ -113,10 +139,7 @@ export async function signInWithFacebook(): Promise<AuthResult> {
   const supabase = createClient()
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'facebook',
-    options: {
-      redirectTo: `${window.location.origin}/auth/callback`,
-      scopes:     'email,public_profile',
-    },
+    options:  { redirectTo: `${window.location.origin}/auth/callback` },
   })
   if (error) return { success: false, error: error.message }
   return { success: true, redirectTo: '/auth/callback' }
@@ -133,7 +156,7 @@ export async function sendOtp(email: string): Promise<SendOtpResult> {
     })
     return await res.json() as SendOtpResult
   } catch {
-    return { sent: false, error: 'Network error.' }
+    return { sent: false, error: 'Network error. Please try again.' }
   }
 }
 
@@ -148,7 +171,7 @@ export async function verifyOtp(email: string, token: string): Promise<VerifyOtp
     })
     return await res.json() as VerifyOtpResult
   } catch {
-    return { verified: false, error: 'Network error.' }
+    return { verified: false, error: 'Network error. Please try again.' }
   }
 }
 

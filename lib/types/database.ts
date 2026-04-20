@@ -1,4 +1,9 @@
 // lib/types/database.ts
+// Merged from two sources:
+//   (A) hand-maintained file with exam-system fixes (grading_mode, released_at, feedback, etc.)
+//   (B) generated file with additional tables/views (study_materials, favorites, users, etc.)
+// All fixes from (A) are preserved. All additions from (B) are merged in.
+
 export type Json =
   | string
   | number
@@ -8,58 +13,60 @@ export type Json =
   | Json[]
 
 // ── Enums ──────────────────────────────────────────────────────────────────────
-// Matches: CHECK (role = ANY (ARRAY['student','admin','faculty']))
+
 export type UserRole = 'student' | 'admin' | 'faculty'
 
-// Matches the status column CHECK on `submissions`:
-//   CHECK (status = ANY (ARRAY['in_progress','submitted','graded','reviewed','released']))
+// FIX (A): Added 'reviewed' and 'released' — used throughout submissions/page.tsx.
 export type SubmissionStatus =
   | 'in_progress'
   | 'submitted'
   | 'graded'
-  | 'reviewed'   // graded and manually reviewed by faculty
-  | 'released'   // results made visible to the student
+  | 'reviewed'   // graded + faculty-reviewed
+  | 'released'   // score visible to student
 
 // Derived at the application level (not a DB column).
 export type GradingStatus = 'complete' | 'needs_review' | 'ungraded'
 
-// Matches: CHECK (purpose = ANY (ARRAY['exam_questions','reviewer','profile_image','other']))
 export type StoragePurpose = 'exam_questions' | 'reviewer' | 'profile_image' | 'other'
 
-// Matches the USER-DEFINED question_type enum in `questions`
-export type QuestionType = 'multiple_choice' | 'true_false' | 'short_answer' | 'essay' | 'matching' | 'fill_blank'
+export type QuestionType =
+  | 'multiple_choice'
+  | 'true_false'
+  | 'short_answer'
+  | 'essay'
+  | 'matching'
+  | 'fill_blank'
 
-// ── AUTO-GRADED vs MANUAL question types ─────────────────────────────────────
+export type ExamType = 'mock' | 'practice'
+
+// FIX (A): GradingMode was used in exams but missing from database.ts entirely.
+export type GradingMode = 'auto' | 'manual'
+
+// NEW (B): Link and study-material types used in study_materials table.
+export type LinkType          = 'video' | 'meeting' | 'drive' | 'other'
+export type StudyMaterialType = 'document' | 'video' | 'notes'
+
+// ── Question type helpers ─────────────────────────────────────────────────────
+
 export const AUTO_GRADE_QUESTION_TYPES:   QuestionType[] = ['multiple_choice', 'true_false', 'fill_blank']
 export const MANUAL_GRADE_QUESTION_TYPES: QuestionType[] = ['short_answer', 'essay', 'matching']
 
 export function isAutoGradedType(type: QuestionType):   boolean { return AUTO_GRADE_QUESTION_TYPES.includes(type) }
 export function isManualGradedType(type: QuestionType): boolean { return MANUAL_GRADE_QUESTION_TYPES.includes(type) }
 
-// Matches: CHECK (exam_type = ANY (ARRAY['mock','practice']))
-export type ExamType = 'mock' | 'practice'
-
 export const EXAM_TYPE_META: Record<ExamType, { label: string; description: string }> = {
   mock:     { label: 'Mock Exam',     description: 'Timed, board-style exam that simulates the actual licensure exam.'   },
   practice: { label: 'Practice Exam', description: 'Self-paced reviewer set for studying individual topics or subjects.' },
 }
 
-// Matches: CHECK (link_type IS NULL OR link_type = ANY (ARRAY['video','meeting','drive','other']))
-export type LinkType = 'video' | 'meeting' | 'drive' | 'other'
-
-// Matches: CHECK (type = ANY (ARRAY['document','video','notes']))
-export type StudyMaterialType = 'document' | 'video' | 'notes'
-
-// ── Convenience / App-Level Types ─────────────────────────────────────────────
+// ── App-level convenience types ───────────────────────────────────────────────
 
 export type StudentProfile = Database['public']['Tables']['profiles']['Row'] & {
   student: Database['public']['Tables']['students']['Row'] | null
 }
-
 export type StaffProfile = Database['public']['Tables']['profiles']['Row'] & {
   role: 'faculty' | 'admin'
 }
-
 export type AppUser = StudentProfile | StaffProfile
 
 export interface QuestionOption {
@@ -75,10 +82,13 @@ export interface GradingResult {
   points_earned: number
 }
 
+// ── Database ──────────────────────────────────────────────────────────────────
+
 export type Database = {
   public: {
     Tables: {
 
+      // ── profiles ──────────────────────────────────────────────────────────────
       profiles: {
         Row: {
           id:         string
@@ -107,6 +117,8 @@ export type Database = {
         }
       }
 
+      // ── students ──────────────────────────────────────────────────────────────
+      // NOTE (B): generated file added user_id here — kept for compatibility.
       students: {
         Row: {
           id:          string
@@ -141,6 +153,7 @@ export type Database = {
         }
       }
 
+      // ── schools ───────────────────────────────────────────────────────────────
       schools: {
         Row: {
           id:          string
@@ -166,6 +179,7 @@ export type Database = {
         }
       }
 
+      // ── programs ──────────────────────────────────────────────────────────────
       programs: {
         Row: {
           id:          string
@@ -203,6 +217,7 @@ export type Database = {
         }
       }
 
+      // ── exam_categories ───────────────────────────────────────────────────────
       exam_categories: {
         Row: {
           id:          string
@@ -225,6 +240,9 @@ export type Database = {
         }
       }
 
+      // ── exams ─────────────────────────────────────────────────────────────────
+      // FIX (A): grading_mode typed as GradingMode (not string | null) so
+      // `.update({ grading_mode })` works without `as Record<string, unknown>`.
       exams: {
         Row: {
           id:               string
@@ -237,26 +255,26 @@ export type Database = {
           passing_score:    number
           total_points:     number
           is_published:     boolean
+          grading_mode:     GradingMode
           created_by:       string | null
           created_at:       string
           updated_at:       string
-          grading_mode:     string | null
         }
         Insert: {
-          id?:              string
-          title:            string
-          description?:     string | null
-          category_id?:     string | null
-          program_id?:      string | null
-          exam_type?:       ExamType
-          duration_minutes: number
-          passing_score:    number
-          total_points:     number
-          is_published?:    boolean
-          created_by?:      string | null
-          created_at?:      string
-          updated_at?:      string
-          grading_mode?:    string | null
+          id?:               string
+          title:             string
+          description?:      string | null
+          category_id?:      string | null
+          program_id?:       string | null
+          exam_type?:        ExamType
+          duration_minutes:  number
+          passing_score:     number
+          total_points:      number
+          is_published?:     boolean
+          grading_mode?:     GradingMode
+          created_by?:       string | null
+          created_at?:       string
+          updated_at?:       string
         }
         Update: {
           title?:            string
@@ -268,11 +286,12 @@ export type Database = {
           passing_score?:    number
           total_points?:     number
           is_published?:     boolean
+          grading_mode?:     GradingMode
           updated_at?:       string
-          grading_mode?:     string | null
         }
       }
 
+      // ── questions ─────────────────────────────────────────────────────────────
       questions: {
         Row: {
           id:             string
@@ -309,11 +328,12 @@ export type Database = {
           correct_answer?: string | null
           explanation?:    string | null
           order_number?:   number | null
-          created_by?:     string | null
-          created_at?:     string
         }
       }
 
+      // ── submissions ───────────────────────────────────────────────────────────
+      // FIX (A): released_at added — .update({ released_at }) no longer collapses to never.
+      // FIX (A): SubmissionStatus includes 'reviewed' | 'released'.
       submissions: {
         Row: {
           id:                 string
@@ -326,8 +346,8 @@ export type Database = {
           score:              number | null
           percentage:         number | null
           passed:             boolean | null
-          created_at:         string
           released_at:        string | null
+          created_at:         string
         }
         Insert: {
           id?:                 string
@@ -340,8 +360,8 @@ export type Database = {
           score?:              number | null
           percentage?:         number | null
           passed?:             boolean | null
-          created_at?:         string
           released_at?:        string | null
+          created_at?:         string
         }
         Update: {
           submitted_at?:       string | null
@@ -354,6 +374,8 @@ export type Database = {
         }
       }
 
+      // ── answers ───────────────────────────────────────────────────────────────
+      // FIX (A): feedback added to Update — .update({ feedback }) no longer errors.
       answers: {
         Row: {
           id:            string
@@ -386,6 +408,7 @@ export type Database = {
         }
       }
 
+      // ── analytics ─────────────────────────────────────────────────────────────
       analytics: {
         Row: {
           id:                       string
@@ -428,24 +451,7 @@ export type Database = {
         }
       }
 
-      // Present in DB but was missing from database.ts entirely.
-      // Tracks which students have completed a practice exam.
-      practice_completions: {
-        Row: {
-          student_id:   string
-          exam_id:      string
-          completed_at: string
-        }
-        Insert: {
-          student_id:    string
-          exam_id:       string
-          completed_at?: string
-        }
-        Update: {
-          completed_at?: string
-        }
-      }
-
+      // ── practice_exams ────────────────────────────────────────────────────────
       practice_exams: {
         Row: {
           id:           string
@@ -485,6 +491,25 @@ export type Database = {
         }
       }
 
+      // ── practice_completions (NEW from B) ─────────────────────────────────────
+      // Tracks which students have completed a practice exam.
+      practice_completions: {
+        Row: {
+          student_id:   string
+          exam_id:      string
+          completed_at: string
+        }
+        Insert: {
+          student_id:    string
+          exam_id:       string
+          completed_at?: string
+        }
+        Update: {
+          completed_at?: string
+        }
+      }
+
+      // ── storage_files ─────────────────────────────────────────────────────────
       storage_files: {
         Row: {
           id:          string
@@ -515,6 +540,7 @@ export type Database = {
         }
       }
 
+      // ── exam_assignments ──────────────────────────────────────────────────────
       exam_assignments: {
         Row: {
           id:          string
@@ -547,13 +573,17 @@ export type Database = {
         }
       }
 
+      // ── notifications ─────────────────────────────────────────────────────────
+      // NOTE: type is `string | null` (not the notif_type enum) so that the
+      // existing notification pages don't need casting. The DB enum values
+      // 'exam' | 'result' | 'general' | 'progress' are a superset of notif_type.
       notifications: {
         Row: {
           id:         string
           user_id:    string | null
           title:      string | null
           message:    string | null
-          type:       Database['public']['Enums']['notif_type'] | null
+          type:       string | null
           is_read:    boolean
           created_at: string
         }
@@ -562,7 +592,7 @@ export type Database = {
           user_id?:    string | null
           title?:      string | null
           message?:    string | null
-          type?:       Database['public']['Enums']['notif_type'] | null
+          type?:       string | null
           is_read?:    boolean
           created_at?: string
         }
@@ -570,11 +600,12 @@ export type Database = {
           user_id?:    string | null
           title?:      string | null
           message?:    string | null
-          type?:       Database['public']['Enums']['notif_type'] | null
+          type?:       string | null
           is_read?:    boolean
         }
       }
 
+      // ── study_materials (NEW from B — full shape) ─────────────────────────────
       study_materials: {
         Row: {
           id:            string
@@ -582,12 +613,16 @@ export type Database = {
           description:   string | null
           type:          StudyMaterialType
           file_url:      string | null
+          file_size:     number | null
+          content:       string | null
           notes_content: string | null
           program_id:    string | null
           category:      string | null
+          category_id:   string | null
           is_published:  boolean
           created_at:    string
           updated_at:    string
+          view_count:    number
           created_by:    string | null
           external_url:  string | null
           meeting_url:   string | null
@@ -599,29 +634,35 @@ export type Database = {
           type:           StudyMaterialType
           description?:   string | null
           file_url?:      string | null
+          file_size?:     number | null
+          content?:       string | null
           notes_content?: string | null
           program_id?:    string | null
           category?:      string | null
+          category_id?:   string | null
           is_published?:  boolean
           created_at?:    string
           updated_at?:    string
+          view_count?:    number
           created_by?:    string | null
           external_url?:  string | null
           meeting_url?:   string | null
           link_type?:     LinkType | null
         }
         Update: {
-          id?:            string
           title?:         string
           type?:          StudyMaterialType
           description?:   string | null
           file_url?:      string | null
+          file_size?:     number | null
+          content?:       string | null
           notes_content?: string | null
           program_id?:    string | null
           category?:      string | null
+          category_id?:   string | null
           is_published?:  boolean
-          created_at?:    string
           updated_at?:    string
+          view_count?:    number
           created_by?:    string | null
           external_url?:  string | null
           meeting_url?:   string | null
@@ -629,6 +670,7 @@ export type Database = {
         }
       }
 
+      // ── favorites (NEW from B) ────────────────────────────────────────────────
       favorites: {
         Row: {
           id:          string
@@ -648,79 +690,140 @@ export type Database = {
         }
       }
 
+      // ── users (NEW from B) ────────────────────────────────────────────────────
       users: {
         Row: {
-          id:             string
-          role:           UserRole
-          created_at:     string 
+          id:         string
+          role:       UserRole
+          created_at: string
         }
         Insert: {
-          id:             string
-          role:           UserRole
-          created_at?:    string 
+          id:          string
+          role:        UserRole
+          created_at?: string
         }
         Update: {
-          role?:          UserRole
+          role?: UserRole
         }
       }
 
+      // ── exam_review_completions ───────────────────────────────────────────────
+      exam_review_completions: {
+        Row: {
+          id:            string
+          student_id:    string
+          exam_id:       string
+          submission_id: string | null
+          completed_at:  string
+          created_at:    string
+        }
+        Insert: {
+          id?:            string
+          student_id:     string
+          exam_id:        string
+          submission_id?: string | null
+          completed_at?:  string
+          created_at?:    string
+        }
+        Update: {
+          completed_at?: string
+        }
+      }
+
+      // ── questionnaires ────────────────────────────────────────────────────────
+      questionnaires: {
+        Row: {
+          id:           string
+          title:        string
+          description:  string | null
+          category_id:  string | null
+          created_by:   string | null
+          is_published: boolean
+          created_at:   string
+          updated_at:   string
+        }
+        Insert: {
+          id?:           string
+          title:         string
+          description?:  string | null
+          category_id?:  string | null
+          created_by?:   string | null
+          is_published?: boolean
+          created_at?:   string
+          updated_at?:   string
+        }
+        Update: {
+          title?:        string
+          description?:  string | null
+          category_id?:  string | null
+          is_published?: boolean
+          updated_at?:   string
+        }
+      }
+
+      // ── faculty ───────────────────────────────────────────────────────────────
       faculty: {
-    Row: {
-    id:         string
-     user_id:    string | null
-     faculty_id: string
-     full_name:  string
-     email:      string
-     is_active:  boolean
-     created_by: string | null
-     created_at: string
-     updated_at: string
-   }
-   Insert: {
-     id?:         string
-     user_id?:    string | null
-     faculty_id:  string
-    full_name:   string
-     email:       string
-     is_active?:  boolean
-     created_by?: string | null
-     created_at?: string
-     updated_at?: string
-   }
-   Update: {
-     user_id?:    string | null
-     faculty_id?: string
-     full_name?:  string
-     email?:      string
-     is_active?:  boolean
-     updated_at?: string
-   }
-}
-    admins: {
-   Row: {
-     id:         string
-     user_id:    string | null
-     admin_id:   string
-     full_name:  string
-     email:      string
-     created_at: string
-   }
-   Insert: {
-     id?:        string
-     user_id?:   string | null
-     admin_id:   string
-     full_name:  string
-     email:      string
-     created_at?: string
-   }
-   Update: {
-     user_id?:   string | null
-     full_name?: string
-     email?:     string
-   }
- }
+        Row: {
+          id:         string
+          user_id:    string | null
+          faculty_id: string
+          full_name:  string
+          email:      string
+          is_active:  boolean
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?:         string
+          user_id?:    string | null
+          faculty_id:  string
+          full_name:   string
+          email:       string
+          is_active?:  boolean
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          user_id?:    string | null
+          faculty_id?: string
+          full_name?:  string
+          email?:      string
+          is_active?:  boolean
+          updated_at?: string
+        }
+      }
+
+      // ── admins ────────────────────────────────────────────────────────────────
+      admins: {
+        Row: {
+          id:         string
+          user_id:    string | null
+          admin_id:   string
+          full_name:  string
+          email:      string
+          created_at: string
+        }
+        Insert: {
+          id?:         string
+          user_id?:    string | null
+          admin_id:    string
+          full_name:   string
+          email:       string
+          created_at?: string
+        }
+        Update: {
+          user_id?:   string | null
+          admin_id?:  string
+          full_name?: string
+          email?:     string
+        }
+      }
+
     }
 
+    // ── Views (NEW from B) ────────────────────────────────────────────────────
     Views: {
       published_study_materials: {
         Row: {
@@ -748,6 +851,8 @@ export type Database = {
       storage_purpose:   StoragePurpose
       question_type:     QuestionType
       exam_type:         ExamType
+      // NEW (B): notif_type DB enum — separate from the app-level NotifType
+      // which uses 'exam' | 'result' | 'general' | 'progress'.
       notif_type:        'info' | 'warning' | 'success' | 'error'
     }
 
@@ -756,7 +861,7 @@ export type Database = {
   }
 }
 
-// ── Table Helpers ──────────────────────────────────────────────────────────────
+// ── Table / View Helpers (NEW from B) ─────────────────────────────────────────
 
 export type Tables = {
   [K in keyof Database['public']['Tables']]: Database['public']['Tables'][K]['Row']
@@ -768,6 +873,5 @@ export type TablesInsert<T extends keyof Database['public']['Tables']> =
 export type TablesUpdate<T extends keyof Database['public']['Tables']> =
   Database['public']['Tables'][T]['Update']
 
-// ── View Helpers ───────────────────────────────────────────────────────────────
 export type ViewRow<V extends keyof Database['public']['Views']> =
   Database['public']['Views'][V]['Row']

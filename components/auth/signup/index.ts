@@ -1,0 +1,9 @@
+// components/auth/signup/index.ts
+export { SignupStepDots }    from './SignupStepDots'
+export { SignupErrorBanner } from './SignupErrorBanner'
+export { SignupBackButton }  from './SignupBackButton'
+export { SignupSocialButtons } from './SignupSocialButtons'
+export { Step1IdInput }      from './steps/IdInput'
+export { Step2Credentials }  from './steps/Credentials'
+export { Step3ProgramYear }  from './steps/ProgramYear'
+export { Step4Summary }      from './steps/Summary'

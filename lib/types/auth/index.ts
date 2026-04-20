@@ -1,59 +1,94 @@
 // lib/types/auth/index.ts
 // ─────────────────────────────────────────────────────────────────────────────
-// Central auth type definitions.
-// Signup is student-only. Faculty/admin are created out-of-band.
+// All shared types, constants, and config consumed by auth pages, services,
+// utilities, and API routes. Single source of truth — import from here only.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Roles ─────────────────────────────────────────────────────────────────────
+
 export type UserRole = 'student' | 'faculty' | 'admin'
 
-// ── ID prefixes ───────────────────────────────────────────────────────────────
+// ── ID types & prefixes ───────────────────────────────────────────────────────
+// Student IDs: STU-YYYYNNNNN  (e.g. STU-202400123)
+// Faculty IDs: FAC-XXXXXXXX
+// Admin IDs:   ADM-XXXXXXXX
+
 export type StudentId = `STU-${string}`
 export type FacultyId = `FAC-${string}`
 export type AdminId   = `ADM-${string}`
 export type AnyUserId = StudentId | FacultyId | AdminId
 
-// ── Year level ────────────────────────────────────────────────────────────────
-// 1–5 (some programs are 5 years, e.g. BSArch).
-export type YearLevel = 1 | 2 | 3 | 4 | 5
+// ── Role → dashboard path ─────────────────────────────────────────────────────
 
-export const YEAR_LEVEL_OPTIONS: { value: YearLevel; label: string }[] = [
-  { value: 1, label: '1st Year' },
-  { value: 2, label: '2nd Year' },
-  { value: 3, label: '3rd Year' },
-  { value: 4, label: '4th Year' },
-  { value: 5, label: '5th Year' },
-]
+export const ROLE_DASHBOARDS: Record<UserRole, string> = {
+  student: '/student/dashboard',
+  faculty: '/admin/dashboard',
+  admin:   '/admin/dashboard',
+}
 
-// ── Programs (9 supported) ────────────────────────────────────────────────────
-export const PROGRAMS = [
-  { value: 'BSPsych',   label: 'BS Psychology'                      },
-  { value: 'BSID',      label: 'BS Interior Design'                  },
-  { value: 'BLIS',      label: 'BS Library and Information Science'  },
-  { value: 'BSArch',    label: 'BS Architecture'                     },
-  { value: 'BSEd-MATH', label: 'BSEd – Mathematics'                  },
-  { value: 'BSEd-SCI',  label: 'BSEd – Science'                      },
-  { value: 'BSEd-ENG',  label: 'BSEd – English'                      },
-  { value: 'BEEd',      label: 'Bachelor of Elementary Education'     },
-  { value: 'BSEd-FIL',  label: 'BSEd – Filipino'                     },
+// ── Programs ──────────────────────────────────────────────────────────────────
+
+export const PROGRAM_CODES = [
+  'BSPSYCH',  // Bachelor of Science in Psychology
+  'BSEd-MATH', // Bachelor of Secondary Education, major in Mathematics
+  'BSEd-SCI', // Bachelor of Secondary Education, major in Science
+  'BSEd-ENG', // Bachelor of Secondary Education, major in English
+  'BSEd-FIL', // Bachelor of Secondary Education, major in Filipino
+  'BEEd',     // Bachelor of Elementary Education
+  'BSARCH',  // Bachelor of Science in Architecture
+  'BSID',    // Bachelor of Science in Interior Design
+  'BLIS',    // Bachelor of Library and Information Science
 ] as const
 
-export type ProgramCode = typeof PROGRAMS[number]['value']
+export type ProgramCode = typeof PROGRAM_CODES[number]
 
-// ── Signup steps (student only) ───────────────────────────────────────────────
-// Step order: id → credentials → program → otp
-// 'credentials' now includes full_name.
-// 'program' now includes year_level alongside program selection.
+const PROGRAM_LABELS: Record<ProgramCode, string> = {
+  BSPSYCH: 'Bachelor of Science in Psychology',
+  'BSEd-MATH': 'Bachelor of Secondary Education, major in Mathematics',
+  'BSEd-SCI': 'Bachelor of Secondary Education, major in Science',
+  'BSEd-ENG': 'Bachelor of Secondary Education, major in English',
+  'BSEd-FIL': 'Bachelor of Secondary Education, major in Filipino',
+  BEEd:     'Bachelor of Elementary Education',
+  BSARCH:  'Bachelor of Science in Architecture',
+  BSID:    'Bachelor of Science in Interior Design',
+  BLIS:    'Bachelor of Library and Information Science',
+}
+
+export const PROGRAMS: Array<{ value: ProgramCode; label: string }> =
+  PROGRAM_CODES.map((code) => ({ value: code, label: PROGRAM_LABELS[code] }))
+
+export function getProgramLabel(code: ProgramCode): string {
+  return PROGRAM_LABELS[code]
+}
+
+export function isProgramCode(value: unknown): value is ProgramCode {
+  return typeof value === 'string' && (PROGRAM_CODES as readonly string[]).includes(value)
+}
+
+// ── Year levels ───────────────────────────────────────────────────────────────
+
+export const YEAR_LEVEL_OPTIONS = [
+  { value: 1, label: '1st' },
+  { value: 2, label: '2nd' },
+  { value: 3, label: '3rd' },
+  { value: 4, label: '4th' },
+  { value: 5, label: '5th' },
+] as const
+
+export type YearLevel = typeof YEAR_LEVEL_OPTIONS[number]['value']  // 1 | 2 | 3 | 4 | 5
+
+// ── Signup multi-step state ───────────────────────────────────────────────────
+
 export type SignupStep = 'id' | 'credentials' | 'program' | 'otp'
 
 export interface SignupState {
   step:        SignupStep
   studentId:   string
-  fullName:    string          // ← NEW: collected on credentials step
+  fullName:    string
   email:       string
   password:    string
   programCode: ProgramCode | ''
-  yearLevel:   YearLevel | null  // ← NEW: collected on program step
+  yearLevel:   YearLevel   | null
 }
 
 export const INITIAL_SIGNUP_STATE: SignupState = {
@@ -67,47 +102,14 @@ export const INITIAL_SIGNUP_STATE: SignupState = {
 }
 
 // ── Login form ────────────────────────────────────────────────────────────────
+
 export interface LoginForm {
   userId:   string   // any of student/faculty/admin ID
   password: string
 }
 
-// ── API response shapes ───────────────────────────────────────────────────────
-export interface AuthSuccess {
-  success:    true
-  redirectTo: string
-}
+// ── Student ID validation ─────────────────────────────────────────────────────
 
-export interface AuthFailure {
-  success: false
-  error:   string
-}
-
-export type AuthResult = AuthSuccess | AuthFailure
-
-// resolve-user-by-id response
-export interface ResolveUserSuccess {
-  found: true
-  email: string
-  role:  UserRole
-}
-export interface ResolveUserFailure {
-  found: false
-  error: string
-}
-export type ResolveUserResult = ResolveUserSuccess | ResolveUserFailure
-
-// send-otp response
-export interface SendOtpSuccess  { sent: true }
-export interface SendOtpFailure  { sent: false; error: string }
-export type SendOtpResult = SendOtpSuccess | SendOtpFailure
-
-// verify-otp response
-export interface VerifyOtpSuccess { verified: true;  redirectTo: string }
-export interface VerifyOtpFailure { verified: false; error: string }
-export type VerifyOtpResult = VerifyOtpSuccess | VerifyOtpFailure
-
-// ── ID regex patterns ─────────────────────────────────────────────────────────
 const STUDENT_ID_RE = /^STU-\d{4}\d{5}$/   // STU-YYYYNNNNN
 const FACULTY_ID_RE = /^FAC-[A-Z0-9]{6,}$/
 const ADMIN_ID_RE   = /^ADM-[A-Z0-9]{6,}$/
@@ -125,9 +127,33 @@ export function validateStudentId(id: string): string | null {
   return null
 }
 
-// ── Role → dashboard ──────────────────────────────────────────────────────────
-export const ROLE_DASHBOARDS: Record<UserRole, string> = {
-  student: '/student/dashboard',
-  faculty: '/admin/dashboard',
-  admin:   '/admin/dashboard',
-}
+// ── API result types ──────────────────────────────────────────────────────────
+
+/** Returned by POST /api/auth/resolve-user-by-id */
+export interface ResolveUserSuccess { found: true;  email: string; role: UserRole }
+export interface ResolveUserFailure { found: false; error: string }
+export type ResolveUserResult = ResolveUserSuccess | ResolveUserFailure
+
+/** Returned by POST /api/auth/send-otp */
+export interface SendOtpSuccess { sent: true }
+export interface SendOtpFailure { sent: false; error: string }
+export type SendOtpResult = SendOtpSuccess | SendOtpFailure
+
+/** Returned by POST /api/auth/verify-otp */
+export interface VerifyOtpSuccess { verified: true;  redirectTo: string }
+export interface VerifyOtpFailure { verified: false; error: string }
+export type VerifyOtpResult = VerifyOtpSuccess | VerifyOtpFailure
+
+// ── Service result types (client-side services) ───────────────────────────────
+
+export interface AuthSuccess { success: true;  redirectTo: string }
+export interface AuthFailure { success: false; error: string }
+export type AuthResult = AuthSuccess | AuthFailure
+
+export interface SignInResult { success: true;  redirectTo: string }
+export interface SignInError  { success: false; error: string }
+export type AuthServiceResult = SignInResult | SignInError
+
+export interface SignUpResult { success: true }
+export interface SignUpError  { success: false; error: string }
+export type SignUpServiceResult = SignUpResult | SignUpError
