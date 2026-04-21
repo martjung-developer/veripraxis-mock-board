@@ -1,9 +1,5 @@
-/**
- * lib/services/admin/students/student.service.ts
- *
- * Pure data layer for the students admin domain.
- * No React, no UI state, no business logic beyond data fetching.
- */
+// lib/services/admin/students/student.service.ts
+// ONLY data retrieval helpers added — all existing functions unchanged.
 
 import type { SupabaseClient }  from '@supabase/supabase-js'
 import type { Database }        from '@/lib/types/database'
@@ -16,9 +12,48 @@ import { mapStudentRow } from '@/lib/utils/admin/students/mappers'
 
 type AppClient = SupabaseClient<Database>
 
-// ── Fetch ─────────────────────────────────────────────────────────────────────
+// ── ADDED: Student access snapshot ───────────────────────────────────────────
+// Returns the program_id and year_level needed for exam access validation.
+// These are the source-of-truth values — always fetched fresh, never cached.
+//
+// Throws if the student row is not found (hard error by design — a missing
+// student record means the auth pipeline is broken and we must not proceed).
 
-/* Fetches all students with their profile and program joins. */
+export interface StudentAccessSnapshot {
+  id:         string
+  program_id: string | null
+  year_level: number | null
+}
+
+export async function getStudentAccessSnapshot(
+  client:    AppClient,
+  studentId: string,
+): Promise<StudentAccessSnapshot> {
+  const { data, error } = await client
+    .from('students')
+    .select('id, program_id, year_level')
+    .eq('id', studentId)
+    .single()
+
+  if (error || !data) {
+    throw new Error(
+      `Student record not found for id=${studentId}. ` +
+      `Cannot proceed without program_id and year_level. ` +
+      (error?.message ?? ''),
+    )
+  }
+
+  const row = data as { id: string; program_id: string | null; year_level: number | null }
+
+  return {
+    id:         row.id,
+    program_id: row.program_id,
+    year_level:  row.year_level,
+  }
+}
+
+// ── Existing functions — UNCHANGED ────────────────────────────────────────────
+
 export async function getStudentsWithProfiles(
   client: AppClient,
 ): Promise<FetchStudentsResult> {
@@ -68,13 +103,6 @@ export async function createStudent(
   return { student: data?.[0] ?? null, error: null }
 }
 
-
-// ── Delete ────────────────────────────────────────────────────────────────────
-
-/**
- * Deletes a student by removing their profile row.
- * Cascade rules in the database handle the linked `students` row.
- */
 export async function deleteStudentById(
   client: AppClient,
   id:     string,

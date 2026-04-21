@@ -269,6 +269,28 @@
 .passText{color:var(--success);font-weight:700}
 .failText{color:var(--danger);font-weight:700}
 
+.actionForceSubmit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1.5px solid #fde68a;
+  background: var(--warning-pale);
+  color: var(--warning);
+  cursor: pointer;
+  transition: all 0.13s;
+}
+.actionForceSubmit:hover:not(:disabled) {
+  background: #fef3c7;
+  border-color: var(--warning);
+}
+.actionForceSubmit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 @media(max-width:768px){
   .page{padding:1.25rem 1.25rem 3rem}
   .gradingPanel{flex-direction:column;align-items:stretch}

@@ -3,8 +3,7 @@
 // Shared constants for auth and the OTP / verification flow.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── Auth error messages ───────────────────────────────────────────────────────
-
+/**
 export const AUTH_ERRORS = {
   ID_NOT_FOUND:     'No account found for this ID. Check your student/faculty/admin ID.',
   WRONG_PASSWORD:   'Incorrect password.',
@@ -24,6 +23,7 @@ export const POST_LOGIN: Record<string, string> = {
   faculty: '/admin/dashboard',
   admin:   '/admin/dashboard',
 }
+  */
 
 // ── OTP constants ─────────────────────────────────────────────────────────────
 
@@ -36,8 +36,8 @@ export const OTP_RESEND_COOLDOWN = 60
 /** OTP validity window in milliseconds (10 minutes). */
 export const OTP_TTL_MS = 10 * 60 * 1000
 
-/** OTP validity window in seconds (10 minutes) — use for DB/session storage. */
-export const OTP_EXPIRY_SECONDS = 600
+/** OTP validity window in seconds (10 minutes) — use for DB/session storage. 
+export const OTP_EXPIRY_SECONDS = 600 */
 
 /** Maximum wrong-code attempts before the OTP is invalidated. */
 export const OTP_MAX_ATTEMPTS = 5

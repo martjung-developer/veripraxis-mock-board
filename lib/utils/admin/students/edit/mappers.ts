@@ -1,4 +1,4 @@
-// lib/utils/students/edit/mappers.ts
+// lib/utils/admin/students/edit/mappers.ts
 // ─────────────────────────────────────────────────────────────────────────────
 // Pure mapping functions — no side effects, fully unit-testable.
 // ─────────────────────────────────────────────────────────────────────────────

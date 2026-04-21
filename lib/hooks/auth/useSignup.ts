@@ -1,7 +1,10 @@
 // lib/hooks/auth/useSignup.ts
 // ─────────────────────────────────────────────────────────────────────────────
-// Encapsulates every piece of state and logic for the student signup wizard.
-// Zero JSX — returns plain values and callbacks consumed by components.
+// Encapsulates all state and logic for the student signup wizard.
+// Zero JSX — returns plain values and callbacks consumed by SignupPage.
+//
+// EMAIL-ONLY FLOW: after signUpStudent succeeds the page shows a success
+// modal and then redirects the student to /login.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useCallback } from 'react'
@@ -15,19 +18,23 @@ import {
   validateStudentIdInput,
   validateFullName,
   validateEmail,
+  validatePhone,
   validateYearLevel,
   extractErrorMessage,
   getPasswordStrength,
-} from '@/lib/utils/auth/'
-import {
-  INITIAL_SIGNUP_STATE,
-} from '@/lib/types/auth/'
+} from '@/lib/utils/auth'
+import { INITIAL_SIGNUP_STATE } from '@/lib/types/auth/'
 import type {
   SignupState,
   SignupStep,
   ProgramCode,
   YearLevel,
+  AuthResult,
 } from '@/lib/types/auth/'
+
+// ── Step order (single source of truth) ──────────────────────────────────────
+const STEPS: SignupStep[] = ['id', 'credentials', 'program', 'review']
+export { STEPS as SIGNUP_STEPS }
 
 // ── Return shape ──────────────────────────────────────────────────────────────
 export interface UseSignupReturn {
@@ -37,30 +44,28 @@ export interface UseSignupReturn {
   loading:    boolean
   error:      string | null
   showPw:     boolean
-
-  // Derived
   strength:   ReturnType<typeof getPasswordStrength>
 
-  // Patch + UI helpers
+  // Helpers
   patch:      (partial: Partial<SignupState>) => void
   togglePw:   () => void
   clearError: () => void
 
-  // Step navigation
-  goBack:                  () => void
-  handleIdNext:            () => void
-  handleCredentialsNext:   () => void
-  handleProgramNext:       () => void
-  handleSignup:            () => Promise<void>
+  // Navigation
+  goBack: () => void
+
+  // Step handlers
+  handleIdNext:          () => void
+  handleCredentialsNext: () => void
+  handleProgramNext:     () => void
+
+  // Final submit — returns AuthResult so the page can show the success modal
+  handleSignupWithReturn: () => Promise<AuthResult>
 
   // Social auth
   handleGoogle:   () => Promise<void>
   handleFacebook: () => Promise<void>
 }
-
-// ── STEP_ORDER constant (single source of truth) ──────────────────────────────
-const STEPS: SignupStep[] = ['id', 'credentials', 'program', 'otp']
-export { STEPS as SIGNUP_STEPS }
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
 export function useSignup(): UseSignupReturn {
@@ -74,7 +79,7 @@ export function useSignup(): UseSignupReturn {
   const stepIndex = STEPS.indexOf(state.step)
   const strength  = getPasswordStrength(state.password)
 
-  // ── Helpers ─────────────────────────────────────────────────────────────────
+  // ── Helpers ───────────────────────────────────────────────────────────────
 
   const patch = useCallback((partial: Partial<SignupState>) => {
     setState((prev) => ({ ...prev, ...partial }))
@@ -84,14 +89,14 @@ export function useSignup(): UseSignupReturn {
   const clearError = useCallback(() => setError(null), [])
   const togglePw   = useCallback(() => setShowPw((v) => !v), [])
 
-  // ── Navigation ───────────────────────────────────────────────────────────────
+  // ── Navigation ────────────────────────────────────────────────────────────
 
   const goBack = useCallback(() => {
     if (stepIndex === 0) { router.push('/login'); return }
     patch({ step: STEPS[stepIndex - 1] })
   }, [stepIndex, router, patch])
 
-  // ── Step 1 ───────────────────────────────────────────────────────────────────
+  // ── Step 1: Student ID ────────────────────────────────────────────────────
 
   const handleIdNext = useCallback(() => {
     const err = validateStudentIdInput(state.studentId)
@@ -99,7 +104,7 @@ export function useSignup(): UseSignupReturn {
     patch({ step: 'credentials' })
   }, [state.studentId, patch])
 
-  // ── Step 2 ───────────────────────────────────────────────────────────────────
+  // ── Step 2: Name + email + phone + password ───────────────────────────────
 
   const handleCredentialsNext = useCallback(() => {
     const nameErr = validateFullName(state.fullName)
@@ -108,14 +113,18 @@ export function useSignup(): UseSignupReturn {
     const emailErr = validateEmail(state.email)
     if (emailErr) { setError(emailErr); return }
 
+    // Phone is optional — only validate format when non-empty
+    const phoneErr = validatePhone(state.phone)
+    if (phoneErr) { setError(phoneErr); return }
+
     if (state.password.length < 8) {
       setError('Password must be at least 8 characters.')
       return
     }
     patch({ step: 'program' })
-  }, [state.fullName, state.email, state.password, patch])
+  }, [state.fullName, state.email, state.phone, state.password, patch])
 
-  // ── Step 3 ───────────────────────────────────────────────────────────────────
+  // ── Step 3: Program + year level ─────────────────────────────────────────
 
   const handleProgramNext = useCallback(() => {
     if (!state.programCode) { setError('Please select your program.'); return }
@@ -123,14 +132,24 @@ export function useSignup(): UseSignupReturn {
     const yrErr = validateYearLevel(state.yearLevel)
     if (yrErr) { setError(yrErr); return }
 
-    patch({ step: 'otp' })
+    patch({ step: 'review' })
   }, [state.programCode, state.yearLevel, patch])
 
-  // ── Final submit ──────────────────────────────────────────────────────────────
+  // ── Step 4: Final submit ─────────────────────────────────────────────────
+  // Returns AuthResult so the page layer can open the success modal without
+  // the hook needing to know anything about UI.
 
-  const handleSignup = useCallback(async () => {
-    if (!state.programCode)                 { setError('Invalid program.'); return }
-    if (state.yearLevel === null)           { setError('Year level is required.'); return }
+  const handleSignupWithReturn = useCallback(async (): Promise<AuthResult> => {
+    if (!state.programCode) {
+      const err = 'Invalid program. Please go back and select one.'
+      setError(err)
+      return { success: false, error: err }
+    }
+    if (state.yearLevel === null) {
+      const err = 'Year level is required.'
+      setError(err)
+      return { success: false, error: err }
+    }
 
     setLoading(true)
     setError(null)
@@ -143,19 +162,21 @@ export function useSignup(): UseSignupReturn {
         state.password,
         state.programCode as ProgramCode,
         state.yearLevel   as YearLevel,
+        state.phone       || undefined,
       )
-      if (!result.success) { setError(result.error); return }
 
-      sessionStorage.setItem('verify_email', state.email)
-      router.push('/verify-email')
+      if (!result.success) setError(result.error)
+      return result
     } catch (err) {
-      setError(extractErrorMessage(err))
+      const msg = extractErrorMessage(err)
+      setError(msg)
+      return { success: false, error: msg }
     } finally {
       setLoading(false)
     }
-  }, [state, router])
+  }, [state])
 
-  // ── Social auth ───────────────────────────────────────────────────────────────
+  // ── Social auth ───────────────────────────────────────────────────────────
 
   const handleGoogle = useCallback(async () => {
     setError(null)
@@ -172,7 +193,8 @@ export function useSignup(): UseSignupReturn {
   return {
     state, stepIndex, loading, error, showPw, strength,
     patch, togglePw, clearError, goBack,
-    handleIdNext, handleCredentialsNext, handleProgramNext, handleSignup,
+    handleIdNext, handleCredentialsNext, handleProgramNext,
+    handleSignupWithReturn,
     handleGoogle, handleFacebook,
   }
 }

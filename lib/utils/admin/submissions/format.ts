@@ -1,4 +1,4 @@
-// lib/utils/submissions/format.ts
+// lib/utils/admin/submissions/format.ts
 
 export function fmtTime(secs: number): string {
   const m = Math.floor(secs / 60)

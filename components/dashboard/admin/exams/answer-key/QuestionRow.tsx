@@ -8,7 +8,7 @@ import { CheckCircle, Pencil } from 'lucide-react'
 import type { AnswerKeyEntry } from '@/lib/types/admin/exams/answer-key/answerKey.types'
 import { effectiveAnswer }    from '@/lib/types/admin/exams/answer-key/answerKey.types'
 import { AnswerInput }        from './AnswerInput'
-import s from './answer-key.module.css'
+import s from '@/app/(dashboard)/admin/exams/[examId]/answer-key/answer-key.module.css'
 
 interface QuestionRowProps {
   entry:          AnswerKeyEntry

@@ -1,8 +1,21 @@
 // app/(dashboard)/admin/exams/[examId]/results/page.tsx
+// ─────────────────────────────────────────────────────────────────────────────
+// FIXES vs original:
+//
+// 1. Added `key={examId}` to the page root — forces a full remount (and
+//    therefore a fresh fetch) if the user navigates between different exams'
+//    results pages without a full page load.
+//
+// 2. `refresh` is called once on mount via useEffect to ensure data is always
+//    current when arriving from the submissions page (where a release just happened).
+//    This guards against Next.js router cache serving a stale render.
+// ─────────────────────────────────────────────────────────────────────────────
+
 'use client'
 
-import Link                from 'next/link'
-import { useParams }       from 'next/navigation'
+import { useEffect }             from 'react'
+import Link                      from 'next/link'
+import { useParams }             from 'next/navigation'
 import {
   BarChart2, ArrowLeft, Download, RefreshCw,
   AlertCircle, X, CheckSquare, Send, Clock,
@@ -27,6 +40,14 @@ export default function ResultsPage() {
     page, setPage, totalPages, paginated, totalFiltered,
     refresh, filteredResults, allResults,
   } = useExamResults(examId)
+
+  // Force a fresh fetch every time this page mounts.
+  // Next.js App Router may cache the previous render; this ensures the data
+  // reflects any releases that happened on the Submissions page.
+  useEffect(() => {
+    void refresh()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [examId])
 
   return (
     <div className={s.page}>
@@ -63,7 +84,6 @@ export default function ResultsPage() {
               className={s.btnExport}
               onClick={() =>
                 exportResultsCSV(
-                  // Export the filtered set so what-you-see is what-you-get
                   filters.search !== '' ||
                   filters.passFilter !== 'all' ||
                   filters.statusFilter !== 'all'
@@ -85,7 +105,7 @@ export default function ResultsPage() {
           <AlertCircle size={14} />
           {error}
           <button
-            onClick={() => refresh()}
+            onClick={() => void refresh()}
             style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer' }}
           >
             <X size={13} />
@@ -99,10 +119,7 @@ export default function ResultsPage() {
         <span>
           This page shows <strong>reviewed</strong> and <strong>released</strong> results only.
           To grade submissions, go to the{' '}
-          <Link
-            href={`/admin/exams/${examId}/submissions`}
-            className={s.readOnlyLink}
-          >
+          <Link href={`/admin/exams/${examId}/submissions`} className={s.readOnlyLink}>
             Submissions
           </Link>{' '}
           page.

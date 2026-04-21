@@ -1,4 +1,4 @@
-// lib/utils/students/[examId]/mappers.ts
+// lib/utils/admin/students/[examId]/mappers.ts
 import type { ExamType, SubmissionStatus } from '@/lib/types/database'
 import type { StudentProfileRow, StudentProfile, JoinedStudent, JoinedProgram } from '@/lib/types/admin/students/[examId]/student.types'
 import type { AssignedExamRow, AssignedExam, JoinedExamForAssignment } from '@/lib/types/admin/students/[examId]/exam.types'

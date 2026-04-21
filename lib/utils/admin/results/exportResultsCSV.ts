@@ -1,4 +1,4 @@
-// lib/utils/results/exportResultsCSV.ts
+// lib/utils/admin/results/exportResultsCSV.ts
 // ─────────────────────────────────────────────────────────────────────────────
 // Standalone, fully typed CSV export for exam results.
 // Runs only in the browser (uses Blob + URL.createObjectURL).

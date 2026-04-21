@@ -7,7 +7,7 @@ import {
   isProgramCode,
   getProgramLabel,
   getYearLabel,
-} from '@/lib/utils/auth'
+} from '@/lib/utils/auth/'
 import { SignupBackButton } from '../SignupBackButton'
 import styles from '@/app/(auth)/auth.module.css'
 

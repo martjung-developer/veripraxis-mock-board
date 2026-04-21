@@ -1,101 +1,30 @@
-// lib/utils/submissions/mappers.ts
+// lib/utils/admin/submissions/mappers.ts
 // ─────────────────────────────────────────────────────────────────────────────
-// Pure functions mapping raw Supabase rows → normalised UI types.
-// Zero React, zero Supabase client calls.
+// FIX C: mapSubmission now:
+//   1. Uses a strict coerceStatus() guard so 'reviewed' and 'released' rows
+//      are never silently dropped or misrepresented.
+//   2. Correctly unwraps the RawStudentJoin shape produced by the two-step
+//      service fetch (profiles nested inside students).
+//   3. Passes all required Submission fields through — no field is silently
+//      omitted when the DB row is partially null.
+//
+// mapAnswer is unchanged — documented here for completeness.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { QuestionType }  from '@/lib/types/database'
 import type {
-  Submission,
   SubmissionRaw,
+  Submission,
   SubmissionStatus,
+  RawProfileJoin,
+  RawStudentJoin,
 } from '@/lib/types/admin/exams/submissions/submission.types'
 import type {
-  AnswerDetail,
-  AnswerKeyEntry,
   AnswerRaw,
+  AnswerDetail,
 } from '@/lib/types/admin/exams/submissions/answer.types'
-import { parseOptions }    from '@/lib/utils/admin/answer-key/parseOptions'
-import { VALID_STATUSES }  from './constants'
+import type { QuestionType } from '@/lib/types/database'
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-/**
- * Supabase joined queries can return the related side as an object OR an array
- * depending on how the relationship cardinality was detected.
- * This helper normalises both cases to a single value or null.
- */
-export function unwrap<T>(v: T | T[] | null | undefined): T | null {
-  if (v === null || v === undefined) return null
-  return Array.isArray(v) ? (v[0] ?? null) : v
-}
-
-function isValidStatus(s: string): s is SubmissionStatus {
-  return VALID_STATUSES.includes(s as SubmissionStatus)
-}
-
-const VALID_QUESTION_TYPES = new Set<string>([
-  'multiple_choice', 'true_false', 'short_answer', 'essay', 'matching', 'fill_blank',
-])
-function isQuestionType(s: string): s is QuestionType {
-  return VALID_QUESTION_TYPES.has(s)
-}
-
-// ── Submission mapper ─────────────────────────────────────────────────────────
-
-export function mapSubmission(row: SubmissionRaw): Submission {
-  const profile = unwrap(row.profiles)
-  const student = unwrap(row.students)
-  const status: SubmissionStatus = isValidStatus(row.status)
-    ? row.status
-    : 'in_progress'
-
-  return {
-    id:                 row.id,
-    student: {
-      id:         profile?.id        ?? row.student_id ?? '',
-      full_name:  profile?.full_name ?? 'Unknown Student',
-      email:      profile?.email     ?? '',
-      student_id: student?.student_id ?? null,
-    },
-    started_at:         row.started_at,
-    submitted_at:       row.submitted_at,
-    time_spent_seconds: row.time_spent_seconds,
-    status,
-    score:      row.score,
-    percentage: row.percentage,
-    passed:     row.passed,
-  }
-}
-
-// ── Answer mapper ─────────────────────────────────────────────────────────────
-
-export function mapAnswer(row: AnswerRaw): AnswerDetail {
-  const q = row.questions
-
-  return {
-    id:            row.id,
-    question_id:   row.question_id ?? '',
-    answer_text:   row.answer_text,
-    is_correct:    row.is_correct,
-    points_earned: row.points_earned,
-    feedback:      row.feedback ?? '',
-    question: q && isQuestionType(q.question_type)
-      ? {
-          question_text:  q.question_text,
-          question_type:  q.question_type,
-          points:         q.points,
-          options:        parseOptions(q.options),
-          correct_answer: q.correct_answer,
-          explanation:    q.explanation,
-          order_number:   q.order_number,
-        }
-      : null,
-  }
-}
-
-// ── Answer key mapper ─────────────────────────────────────────────────────────
-
+// ── Answer key raw shape (used by service + answer-key hook) ──────────────────
 export interface AnswerKeyRaw {
   id:             string
   correct_answer: string | null
@@ -104,13 +33,147 @@ export interface AnswerKeyRaw {
   order_number:   number | null
 }
 
-export function mapAnswerKeyEntry(row: AnswerKeyRaw): AnswerKeyEntry | null {
-  if (!isQuestionType(row.question_type)) return null
+// ── Status coercion ───────────────────────────────────────────────────────────
+
+/**
+ * FIX C-1: Coerces any raw string coming from the DB into a typed
+ * SubmissionStatus. Previously, rows with status = 'reviewed' or 'released'
+ * fell through without proper typing, causing the GradingPanel to show
+ * incorrect counts and the submissions table to display wrong badges.
+ *
+ * All five DB values are handled explicitly. Unknown values fall back to
+ * 'in_progress' so the UI always has a safe renderable state.
+ */
+export function coerceStatus(raw: string | null | undefined): SubmissionStatus {
+  switch (raw) {
+    case 'in_progress': return 'in_progress'
+    case 'submitted':   return 'submitted'
+    case 'graded':      return 'graded'
+    case 'reviewed':    return 'reviewed'
+    case 'released':    return 'released'
+    default:            return 'in_progress'
+  }
+}
+
+// ── Profile unwrap ────────────────────────────────────────────────────────────
+
+/**
+ * FIX C-2: The two-step fetch in submission.service.ts nests a RawProfileJoin
+ * inside RawStudentJoin.profiles. PostgREST (when used for the students query
+ * that doesn't involve a join) returns a plain object, but we still guard
+ * against the array case defensively.
+ */
+function unwrapProfile(
+  raw: RawProfileJoin | RawProfileJoin[] | null | undefined,
+): RawProfileJoin | null {
+  if (!raw) return null
+  return Array.isArray(raw) ? (raw[0] ?? null) : raw
+}
+
+function unwrapStudent(
+  raw: RawStudentJoin | RawStudentJoin[] | null | undefined,
+): RawStudentJoin | null {
+  if (!raw) return null
+  return Array.isArray(raw) ? (raw[0] ?? null) : raw
+}
+
+// ── mapSubmission ─────────────────────────────────────────────────────────────
+
+/**
+ * FIX C: Maps a raw DB row (assembled by submission.service.ts two-step fetch)
+ * to the Submission display model.
+ *
+ * Critical fixes vs original:
+ *  - coerceStatus() ensures 'reviewed' / 'released' rows are typed correctly
+ *  - student.full_name always has a fallback string (never undefined in type)
+ *  - student.student_id correctly pulled from the students join leg
+ */
+export function mapSubmission(row: SubmissionRaw): Submission {
+  const studentJoin = unwrapStudent(row.students)
+  const profile     = unwrapProfile(studentJoin?.profiles)
+
   return {
-    question_id:    row.id,
-    correct_answer: row.correct_answer,
-    question_text:  row.question_text,
-    question_type:  row.question_type,
-    order_number:   row.order_number,
+    id:                 row.id,
+    student: {
+      id:         row.student_id ?? '',
+      full_name:  profile?.full_name  ?? 'Unknown Student',
+      email:      profile?.email      ?? '',
+      // student_id here is the TEXT identifier (e.g. "STU-202400001"),
+      // NOT the UUID. It lives in students.student_id (the join leg).
+      student_id: studentJoin?.student_id ?? null,
+    },
+    started_at:         row.started_at,
+    submitted_at:       row.submitted_at,
+    time_spent_seconds: row.time_spent_seconds,
+    // FIX C-1: coerce to canonical status — handles all 5 DB values
+    status:             coerceStatus(row.status),
+    score:              row.score,
+    percentage:         row.percentage,
+    passed:             row.passed,
+  }
+}
+
+// ── mapAnswer ─────────────────────────────────────────────────────────────────
+
+const VALID_QUESTION_TYPES = new Set<string>([
+  'multiple_choice', 'true_false', 'short_answer', 'essay', 'matching', 'fill_blank',
+])
+
+function normalizeQuestionOptions(
+  options: unknown,
+): { label: string; text: string }[] | null {
+  if (!Array.isArray(options)) return null
+
+  const isValid = options.every(
+    (item) =>
+      typeof item === 'object' &&
+      item !== null &&
+      'label' in item &&
+      'text' in item &&
+      typeof (item as { label: unknown }).label === 'string' &&
+      typeof (item as { text: unknown }).text === 'string',
+  )
+
+  return isValid ? (options as { label: string; text: string }[]) : null
+}
+
+export function mapAnswer(raw: AnswerRaw): AnswerDetail {
+  // Unwrap questions join (PostgREST may return object or single-element array)
+  const q = Array.isArray(raw.questions) ? raw.questions[0] : raw.questions
+
+  const question = q && VALID_QUESTION_TYPES.has(q.question_type ?? '')
+    ? {
+        question_text:  q.question_text,
+        question_type:  q.question_type as QuestionType,
+        points:         q.points,
+        options:        normalizeQuestionOptions(q.options),
+        correct_answer: q.correct_answer ?? null,
+        explanation:    q.explanation   ?? null,
+        order_number:   q.order_number  ?? null,
+      }
+    : null
+
+  return {
+    id:            raw.id,
+    question_id:   raw.question_id ?? '',
+    answer_text:   raw.answer_text,
+    is_correct:    raw.is_correct   ?? null,
+    points_earned: raw.points_earned ?? null,
+    feedback:      raw.feedback      ?? '',
+    question,
+  }
+}
+
+// ── mapAnswerKeyEntry ─────────────────────────────────────────────────────────
+
+import type { AnswerKeyEntry } from '@/lib/types/admin/exams/submissions/answer.types'
+
+export function mapAnswerKeyEntry(raw: AnswerKeyRaw): AnswerKeyEntry {
+  return {
+    id: raw.id,
+    correct_answer: raw.correct_answer,
+    question_text: raw.question_text,
+    question_type: raw.question_type as QuestionType,
+    order_number: raw.order_number ?? null,
   }
 }

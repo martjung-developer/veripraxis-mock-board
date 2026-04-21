@@ -1,4 +1,4 @@
-// lib/utils/study-materials/validators.ts
+// lib/utils/admin/study-materials/validators.ts
 import { z } from 'zod'
 
 export type MaterialType = 'document' | 'video' | 'notes'

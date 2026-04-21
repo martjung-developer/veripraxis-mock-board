@@ -1,4 +1,4 @@
-// lib/utils/submissions/grading.ts
+// lib/utils/admin/submissions/grading.ts
 import type { QuestionType } from '@/lib/types/database'
 import type { GradeResult }  from '@/lib/types/admin/exams/submissions/answer.types'
 import { AUTO_TYPES }        from './constants'

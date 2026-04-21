@@ -1,4 +1,4 @@
-// lib/utils/questionnaires.parsers.ts
+// lib/utils/admin/questionnaires/questionnaires.parsers.ts
 import * as XLSX from 'xlsx'
 import type { RawRow, LinkSource, LinkDetectResult } from '@/lib/types/admin/questionnaires/questionnaires'
 

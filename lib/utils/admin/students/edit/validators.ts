@@ -1,4 +1,4 @@
-// lib/utils/students/edit/validators.ts
+// lib/utils/admin/students/edit/validators.ts
 import type { EditStudentForm, EditStudentFormErrors } from '@/lib/types/admin/students/edit/student.types'
 
 export function validateEditStudentForm(form: EditStudentForm): EditStudentFormErrors {

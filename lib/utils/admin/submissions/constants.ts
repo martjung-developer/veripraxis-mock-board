@@ -1,4 +1,4 @@
-// lib/utils/submissions/constants.ts
+// lib/utils/admin/submissions/constants.ts
 import {
   Clock, CheckCircle, CheckSquare, Send,
   CheckSquare as CheckSquareIcon, ToggleLeft, AlignLeft, Hash, List,
@@ -39,6 +39,8 @@ export const TYPE_ICONS: Record<QuestionType, ElementType> = {
   matching:        List,
   fill_blank:      Hash,
 }
+
+export const RELEASABLE_STATUSES: SubmissionStatus[] = ['reviewed']
 
 // ── Valid submission statuses for safe narrowing ──────────────────────────────
 export const VALID_STATUSES: SubmissionStatus[] = [

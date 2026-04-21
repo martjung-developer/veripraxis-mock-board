@@ -1,5 +1,5 @@
 /**
- * lib/utils/students/format.ts
+ * lib/utils/admin/students/format.ts
  *
  * Pure formatting helpers — no React, no Supabase, no side effects.
  */

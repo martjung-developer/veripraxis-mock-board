@@ -1,4 +1,4 @@
-// lib/utils/questions/helpers.ts
+// lib/utils/admin/questions/helpers.ts
 //
 // Pure utility functions — no React, no Supabase, no state.
 

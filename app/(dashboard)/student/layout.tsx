@@ -3,7 +3,7 @@ import { redirect }     from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import StudentSidebar   from '@/components/dashboard/student/StudentSidebar'
 import StudentTopbar    from '@/components/dashboard/student/StudentTopbar'
-import { AuthProvider } from '@/lib/context/AuthContext'   // ← ADD THIS
+import { AuthProvider } from '@/lib/context/AuthContext'
 import type { Profile } from '@/lib/types/auth'
 
 export default async function StudentLayout({

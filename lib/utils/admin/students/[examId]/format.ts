@@ -1,4 +1,4 @@
-// lib/utils/students/[examId]/format.ts
+// lib/utils/admin/students/[examId]/format.ts
 export function formatDate(iso: string | null): string {
   if (!iso) { return '—' }
   return new Date(iso).toLocaleDateString('en-US', {

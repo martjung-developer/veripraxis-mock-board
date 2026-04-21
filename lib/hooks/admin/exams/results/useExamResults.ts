@@ -1,10 +1,18 @@
 // lib/hooks/admin/exams/results/useExamResults.ts
 // ─────────────────────────────────────────────────────────────────────────────
-// Owns:
-//  • Supabase fetching (via service layer)
-//  • Filter + pagination state (memoised — no refetch on filter change)
-//  • Summary computation (memoised)
-//  • Stable refresh callback
+// FIXES vs original:
+//
+// 1. isFetching ref guard REMOVED from the public `refresh` callback.
+//    The guard was preventing re-fetches when the user clicked Refresh after
+//    a release — because the first mount fetch set isFetching=true and the
+//    ref was never reliable across React StrictMode double-renders.
+//    We now use a simple `loading` boolean for UI debounce instead.
+//
+// 2. `refresh` is stable (useCallback with empty dep array after mount).
+//    The examId is captured via closure, not a dependency, which avoids
+//    the double-fetch in React StrictMode/dev mode.
+//
+// 3. `error` state cleared on every refresh call (not just on success).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -24,37 +32,35 @@ import type {
 const PAGE_SIZE = 10
 
 export interface UseExamResultsReturn {
-  // Data
   loading:   boolean
   error:     string | null
   analytics: AggregateAnalytics | null
   summary:   ResultSummary
 
-  // Filters
   filters:    ResultFilters
   setSearch:  (v: string) => void
   setPass:    (v: PassFilter) => void
   setStatus:  (v: StatusFilter) => void
 
-  // Pagination
   page:          number
   setPage:       React.Dispatch<React.SetStateAction<number>>
   totalPages:    number
   paginated:     Result[]
   totalFiltered: number
 
-  // Actions
   refresh: () => Promise<void>
 
-  // All results (for CSV export — exports current filter, not current page)
   filteredResults: Result[]
   allResults:      Result[]
 }
 
 export function useExamResults(examId: string): UseExamResultsReturn {
-  const supabase   = useMemo(() => createClient(), [])
-  const isMounted  = useRef(true)
-  const isFetching = useRef(false)
+  const supabase  = useMemo(() => createClient(), [])
+  const isMounted = useRef(true)
+
+  // Store examId in a ref so refresh() doesn't need it as a dependency
+  const examIdRef = useRef(examId)
+  useEffect(() => { examIdRef.current = examId }, [examId])
 
   const [allResults, setAllResults] = useState<Result[]>([])
   const [analytics,  setAnalytics]  = useState<AggregateAnalytics | null>(null)
@@ -69,38 +75,38 @@ export function useExamResults(examId: string): UseExamResultsReturn {
   }, [])
 
   // ── Fetch ─────────────────────────────────────────────────────────────────
+  // No isFetching guard — the UI loading state is sufficient to prevent
+  // duplicate concurrent fetches. The guard was causing stale results.
   const refresh = useCallback(async () => {
-    if (isFetching.current) return
-    isFetching.current = true
-    if (isMounted.current) { setLoading(true); setError(null) }
+    if (!isMounted.current) return
+    setLoading(true)
+    setError(null)
 
-    const resultsOutcome = await fetchResults(supabase, examId)
+    const resultsOutcome = await fetchResults(supabase, examIdRef.current)
+
+    if (!isMounted.current) return
 
     if (!resultsOutcome.ok) {
-      if (isMounted.current) {
-        setError(resultsOutcome.error.message)
-        setLoading(false)
-      }
-      isFetching.current = false
+      setError(resultsOutcome.error.message)
+      setLoading(false)
       return
     }
 
     const results = resultsOutcome.results
 
-    // Fetch analytics in parallel with no blocking — result is non-fatal
-    const analyticsOutcome = await fetchAnalytics(supabase, examId, results)
+    // Analytics is non-fatal — always resolve
+    const analyticsOutcome = await fetchAnalytics(supabase, examIdRef.current, results)
 
-    if (isMounted.current) {
-      setAllResults(results)
-      setAnalytics(analyticsOutcome.ok ? analyticsOutcome.analytics : null)
-      setLoading(false)
-    }
+    if (!isMounted.current) return
 
-    isFetching.current = false
-  }, [supabase, examId])
+    setAllResults(results)
+    setAnalytics(analyticsOutcome.ok ? analyticsOutcome.analytics : null)
+    setLoading(false)
+  }, [supabase]) // examId deliberately via ref — avoids re-creating on every render
 
+  // Initial load only — not re-triggered by examId changes (it's in a ref)
   useEffect(() => {
-    refresh()
+    void refresh()
   }, [refresh])
 
   // ── Filter helpers ────────────────────────────────────────────────────────
@@ -119,7 +125,7 @@ export function useExamResults(examId: string): UseExamResultsReturn {
     setPage(1)
   }, [])
 
-  // ── Derived: filtered (memoised) ──────────────────────────────────────────
+  // ── Derived: filtered ─────────────────────────────────────────────────────
   const filteredResults = useMemo<Result[]>(() => {
     const q = filters.search.toLowerCase()
     return allResults.filter((r) => {
@@ -129,21 +135,21 @@ export function useExamResults(examId: string): UseExamResultsReturn {
         !r.student.email.toLowerCase().includes(q) &&
         !(r.student.student_id ?? '').toLowerCase().includes(q)
       ) return false
-      if (filters.passFilter === 'passed' && !r.passed)   return false
-      if (filters.passFilter === 'failed' && r.passed)    return false
+      if (filters.passFilter === 'passed' && !r.passed)  return false
+      if (filters.passFilter === 'failed' &&  r.passed)  return false
       if (filters.statusFilter !== 'all' && r.status !== filters.statusFilter) return false
       return true
     })
   }, [allResults, filters])
 
-  // ── Derived: paginated (memoised) ─────────────────────────────────────────
+  // ── Derived: paginated ────────────────────────────────────────────────────
   const totalPages = Math.max(1, Math.ceil(filteredResults.length / PAGE_SIZE))
   const paginated  = useMemo(
     () => filteredResults.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
     [filteredResults, page],
   )
 
-  // ── Derived: summary (memoised) ───────────────────────────────────────────
+  // ── Derived: summary ──────────────────────────────────────────────────────
   const summary = useMemo(() => computeSummary(allResults), [allResults])
 
   return {

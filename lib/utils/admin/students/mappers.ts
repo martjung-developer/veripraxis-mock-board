@@ -1,5 +1,5 @@
 /**
- * lib/utils/students/mappers.ts
+ * lib/utils/admin/students/mappers.ts
  *
  * Data-mapping functions for the students domain.
  * No React, no Supabase, no UI logic.

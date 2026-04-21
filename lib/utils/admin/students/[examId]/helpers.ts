@@ -1,4 +1,4 @@
-// lib/utils/students/[examId]/helpers.ts
+// lib/utils/admin/students/[examId]/helpers.ts
 export function getInitials(name: string | null, email: string): string {
   if (name) {
     const parts = name.trim().split(' ')

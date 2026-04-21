@@ -1,5 +1,5 @@
 /**
- * lib/utils/students/helpers.ts
+ * lib/utils/admin/students/helpers.ts
  *
  * Pure UI-helper functions — no React, no Supabase, no side effects.
  */

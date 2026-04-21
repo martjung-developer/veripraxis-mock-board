@@ -1,4 +1,4 @@
-// lib/utils/exams/detail/validators.ts
+// lib/utils/admin/exams/detail/validators.ts
 // Validation logic for the exam edit form.
 // Pure functions — no UI, no state, no side effects.
 

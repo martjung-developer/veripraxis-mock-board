@@ -66,27 +66,40 @@ export async function POST(req: NextRequest): Promise<NextResponse<ResolveUserRe
 
     // ── Student ───────────────────────────────────────────────────────────────
     if (role === 'student') {
-      const { data, error } = await supabase
-        .from('students')
-        .select('id, profiles:id ( email )')
-        .eq('student_id', id)
-        .single()
-        .overrideTypes<StudentWithProfile, { merge: false }>()
+  // 1. Get student row
+  const { data: student, error: studentError } = await supabase
+    .from('students')
+    .select('id')
+    .eq('student_id', id)
+    .single()
 
-      if (error || !data) {
-        return NextResponse.json({ found: false, error: 'Student ID not found.' }, { status: 404 })
-      }
+  if (studentError || !student) {
+    return NextResponse.json(
+      { found: false, error: 'Student ID not found.' },
+      { status: 404 }
+    )
+  }
 
-      const email = data.profiles?.email
-      if (!email) {
-        return NextResponse.json(
-          { found: false, error: 'Student account has no linked email.' },
-          { status: 404 },
-        )
-      }
+  // 2. Get profile using same id
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('email')
+    .eq('id', student.id)
+    .single()
 
-      return NextResponse.json({ found: true, email, role: 'student' })
-    }
+  if (profileError || !profile?.email) {
+    return NextResponse.json(
+      { found: false, error: 'Student account has no linked email.' },
+      { status: 404 }
+    )
+  }
+
+  return NextResponse.json({
+    found: true,
+    email: profile.email,
+    role: 'student',
+  })
+}
 
     // ── Faculty ───────────────────────────────────────────────────────────────
     if (role === 'faculty') {

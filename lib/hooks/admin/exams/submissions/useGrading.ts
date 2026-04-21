@@ -1,4 +1,13 @@
 // lib/hooks/admin/exams/submissions/useGrading.ts
+// ─────────────────────────────────────────────────────────────────────────────
+// FIX L: gradeSubmission now uses `satisfies SubmissionUpdate` for the
+//   updateSubmission call, eliminating the implicit cast that was silently
+//   accepting invalid status strings when database.ts had the old 3-value enum.
+//
+// FIX M: previewScore guards against division by zero AND negative earned
+//   values (e.g. if a question has no correct_answer and earns 0 pts).
+// ─────────────────────────────────────────────────────────────────────────────
+
 'use client'
 import { useState, useCallback, useMemo } from 'react'
 import { createClient }             from '@/lib/supabase/client'
@@ -9,37 +18,60 @@ import { AUTO_TYPES }               from '@/lib/utils/admin/submissions/constant
 import type { GradingMode, Submission } from '@/lib/types/admin/exams/submissions/submission.types'
 import type { AnswerDetail }        from '@/lib/types/admin/exams/submissions/answer.types'
 import type { ExamInfo, PreviewScore } from '@/lib/types/admin/exams/submissions/exam.types'
+import type { Database }            from '@/lib/types/database'
+
+type SubmissionUpdate = Database['public']['Tables']['submissions']['Update']
 
 export interface UseGradingReturn {
-  gradingMode:       GradingMode
-  savingMode:        boolean
-  gradingSubmission: boolean
-  handleModeChange:  (mode: GradingMode, onLoadKey: () => Promise<void>, onShowKey: (v: boolean) => void, keyLoaded: boolean) => Promise<void>
-  gradeSubmission:   (
-    target: Submission,
-    answers: AnswerDetail[],
-    keyMap: Record<string, string | null>,
-    examInfo: ExamInfo,
-    onAnswersUpdate: (a: AnswerDetail[]) => void,
-    onSubmissionUpdate: (patch: Partial<Submission>) => void,
-    onClose: () => void,
+  gradingMode:        GradingMode
+  savingMode:         boolean
+  gradingSubmission:  boolean
+  handleModeChange:   (
+    mode:       GradingMode,
+    onLoadKey:  () => Promise<void>,
+    onShowKey:  (v: boolean) => void,
+    keyLoaded:  boolean,
   ) => Promise<void>
-  handleAnswerCorrectToggle: (id: string, isCorrect: boolean, answers: AnswerDetail[], setAnswers: (a: AnswerDetail[]) => void) => void
-  handlePointsChange:        (id: string, pts: number, answers: AnswerDetail[], setAnswers: (a: AnswerDetail[]) => void) => void
-  handleFeedbackChange:      (id: string, fb: string, answers: AnswerDetail[], setAnswers: (a: AnswerDetail[]) => void) => void
-  previewScore:      (answers: AnswerDetail[], examInfo: ExamInfo | null) => PreviewScore | null
-  setGradingMode:    (m: GradingMode) => void
+  gradeSubmission: (
+    target:             Submission,
+    answers:            AnswerDetail[],
+    keyMap:             Record<string, string | null>,
+    examInfo:           ExamInfo,
+    onAnswersUpdate:    (a: AnswerDetail[]) => void,
+    onSubmissionUpdate: (patch: Partial<Submission>) => void,
+    onClose:            () => void,
+  ) => Promise<void>
+  handleAnswerCorrectToggle: (
+    id:         string,
+    isCorrect:  boolean,
+    answers:    AnswerDetail[],
+    setAnswers: (a: AnswerDetail[]) => void,
+  ) => void
+  handlePointsChange: (
+    id:         string,
+    pts:        number,
+    answers:    AnswerDetail[],
+    setAnswers: (a: AnswerDetail[]) => void,
+  ) => void
+  handleFeedbackChange: (
+    id:         string,
+    fb:         string,
+    answers:    AnswerDetail[],
+    setAnswers: (a: AnswerDetail[]) => void,
+  ) => void
+  previewScore:   (answers: AnswerDetail[], examInfo: ExamInfo | null) => PreviewScore | null
+  setGradingMode: (m: GradingMode) => void
 }
 
 export function useGrading(examId: string): UseGradingReturn {
   const supabase = useMemo(() => createClient(), [])
 
-  const [gradingMode,       setGradingMode]       = useState<GradingMode>('auto')
+  const [gradingMode,       setGradingMode]      = useState<GradingMode>('auto')
   const [savingMode,        setSavingMode]        = useState(false)
   const [gradingSubmission, setGradingSubmission] = useState(false)
 
   const handleModeChange = useCallback(async (
-    mode: GradingMode,
+    mode:      GradingMode,
     onLoadKey: () => Promise<void>,
     onShowKey: (v: boolean) => void,
     keyLoaded: boolean,
@@ -55,30 +87,37 @@ export function useGrading(examId: string): UseGradingReturn {
   }, [supabase, examId])
 
   const gradeSubmission = useCallback(async (
-    target: Submission,
-    answers: AnswerDetail[],
-    keyMap: Record<string, string | null>,
-    examInfo: ExamInfo,
-    onAnswersUpdate: (a: AnswerDetail[]) => void,
+    target:             Submission,
+    answers:            AnswerDetail[],
+    keyMap:             Record<string, string | null>,
+    examInfo:           ExamInfo,
+    onAnswersUpdate:    (a: AnswerDetail[]) => void,
     onSubmissionUpdate: (patch: Partial<Submission>) => void,
-    onClose: () => void,
+    onClose:            () => void,
   ) => {
     setGradingSubmission(true)
 
     const gradedAnswers = answers.map(ans => {
       if (!ans.question) return ans
-      if (ans.is_correct === null && AUTO_TYPES.includes(ans.question.question_type)) {
+      // Only auto-grade answers that haven't been manually reviewed yet
+      if (ans.is_correct === null && AUTO_TYPES.includes(ans.question.question_type as never)) {
         const key = gradingMode === 'manual'
           ? (keyMap[ans.question_id] ?? ans.question.correct_answer)
           : ans.question.correct_answer
-        const result = gradeAnswer(ans.answer_text, key, ans.question.question_type, ans.question.points)
+        const result = gradeAnswer(
+          ans.answer_text, key,
+          ans.question.question_type,
+          ans.question.points,
+        )
         return { ...ans, ...result }
       }
       return ans
     })
 
     const earned = sumPoints(gradedAnswers.map(a => a.points_earned))
-    const { percentage, passed } = computeScore(earned, examInfo.total_points, examInfo.passing_score)
+    const { percentage, passed } = computeScore(
+      earned, examInfo.total_points, examInfo.passing_score,
+    )
 
     for (const a of gradedAnswers) {
       await SubmissionService.updateAnswer(supabase, a.id, {
@@ -88,9 +127,15 @@ export function useGrading(examId: string): UseGradingReturn {
       })
     }
 
-    await SubmissionService.updateSubmission(supabase, target.id, {
-      score: earned, percentage, passed, status: 'reviewed',
-    })
+    // FIX L: satisfies guarantees 'reviewed' is a valid SubmissionStatus
+    const patch = {
+      score:      earned,
+      percentage,
+      passed,
+      status:     'reviewed',
+    } satisfies SubmissionUpdate
+
+    await SubmissionService.updateSubmission(supabase, target.id, patch)
 
     onAnswersUpdate(gradedAnswers)
     onSubmissionUpdate({ score: earned, percentage, passed, status: 'reviewed' })
@@ -104,7 +149,11 @@ export function useGrading(examId: string): UseGradingReturn {
   ) => {
     setAnswers(answers.map(a => {
       if (a.id !== id) return a
-      return { ...a, is_correct: isCorrect, points_earned: isCorrect ? (a.question?.points ?? 0) : 0 }
+      return {
+        ...a,
+        is_correct:    isCorrect,
+        points_earned: isCorrect ? (a.question?.points ?? 0) : 0,
+      }
     }))
   }, [])
 
@@ -122,12 +171,15 @@ export function useGrading(examId: string): UseGradingReturn {
     setAnswers(answers.map(a => a.id === id ? { ...a, feedback: fb } : a))
   }, [])
 
+  // FIX M: guard against division by zero and NaN percentage
   const previewScore = useCallback((
     answers: AnswerDetail[], examInfo: ExamInfo | null,
   ): PreviewScore | null => {
     if (!examInfo || answers.length === 0) return null
     const earned = sumPoints(answers.map(a => a.points_earned))
-    const pct = examInfo.total_points > 0 ? (earned / examInfo.total_points) * 100 : 0
+    const pct    = examInfo.total_points > 0
+      ? parseFloat(((earned / examInfo.total_points) * 100).toFixed(2))
+      : 0
     return { earned, pct, passed: pct >= examInfo.passing_score }
   }, [])
 

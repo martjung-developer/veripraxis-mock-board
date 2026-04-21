@@ -1,35 +1,18 @@
-// lib/utils/results/results.utils.ts
+// lib/utils/admin/results/results.utils.ts
 // ─────────────────────────────────────────────────────────────────────────────
 // Pure utility functions for the results feature.
 // No React, no Supabase — fully unit-testable.
+//
+// unwrapProfile / unwrapStudent have been removed: the service layer now does
+// a two-step flat fetch and assembles student data in-memory without joins,
+// so there is nothing left to unwrap here.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type {
-  RawProfileJoin,
-  RawStudentJoin,
   Result,
   ResultSummary,
+  AggregateAnalytics,
 } from '@/lib/types/admin/exams/results/results.types'
-
-// ── Join unwrappers ───────────────────────────────────────────────────────────
-// Supabase may return a FK join as a single object or an array.
-// These narrow safely without any cast.
-
-export function unwrapProfile(
-  raw: RawProfileJoin,
-): Pick<NonNullable<RawProfileJoin extends (infer U)[] ? U : RawProfileJoin>, 'id' | 'full_name' | 'email'> | null {
-  if (!raw) return null
-  if (Array.isArray(raw)) return raw[0] ?? null
-  return raw
-}
-
-export function unwrapStudent(
-  raw: RawStudentJoin,
-): Pick<NonNullable<RawStudentJoin extends (infer U)[] ? U : RawStudentJoin>, 'student_id'> | null {
-  if (!raw) return null
-  if (Array.isArray(raw)) return raw[0] ?? null
-  return raw
-}
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 
@@ -62,8 +45,6 @@ export function getInitials(name: string): string {
 }
 
 // ── Summary computation ───────────────────────────────────────────────────────
-// Derives all summary-card values from the raw results array once.
-// Memoize the output with useMemo in the component/hook layer.
 
 export function computeSummary(results: Result[]): ResultSummary {
   const passing  = results.filter((r) => r.passed).length
@@ -81,9 +62,6 @@ export function computeSummary(results: Result[]): ResultSummary {
 }
 
 // ── Analytics fallback ────────────────────────────────────────────────────────
-// Called when the analytics table has no aggregate row for this exam.
-
-import type { AggregateAnalytics } from '@/lib/types/admin/exams/results/results.types'
 
 export function computeAnalyticsFromResults(results: Result[]): AggregateAnalytics | null {
   if (results.length === 0) return null

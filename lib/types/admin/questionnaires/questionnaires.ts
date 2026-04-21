@@ -1,4 +1,4 @@
-// lib/types/questionnaires.ts
+// lib/types/admin/questionnaires/questionnaires.ts
 import type { Database, QuestionType, QuestionOption } from '@/lib/types/database'
 
 // ── Raw DB row types (source of truth) ────────────────────────────────────────

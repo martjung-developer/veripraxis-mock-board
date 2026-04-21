@@ -2,7 +2,7 @@
 import styles from '@/app/(auth)/auth.module.css'
 import type { SignupStep } from '@/lib/types/auth/'
 
-const STEPS: SignupStep[] = ['id', 'credentials', 'program', 'otp']
+const STEPS: SignupStep[] = ['id', 'credentials', 'program',]
 
 interface SignupStepDotsProps {
   stepIndex: number

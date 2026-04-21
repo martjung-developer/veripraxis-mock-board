@@ -1,4 +1,4 @@
-/* lib/utils/assignments/assignment-helpers.ts */
+/* lib/utils/admin/assignments/assignment-helpers.ts */
 
 import type {
   DisplaySubmissionStatus,

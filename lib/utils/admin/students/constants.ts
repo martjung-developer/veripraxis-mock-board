@@ -1,5 +1,5 @@
 /**
- * lib/utils/students/constants.ts
+ * lib/utils/admin/students/constants.ts
  *
  * Shared constants for the students admin page.
  * No React, no Supabase, no side effects.

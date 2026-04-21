@@ -1,4 +1,4 @@
-// lib/services/questionnaires.service.ts
+// lib/services/admin/questionnaires/questionnaires.service.ts
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, QuestionType, QuestionOption } from '@/lib/types/database'
 import type {

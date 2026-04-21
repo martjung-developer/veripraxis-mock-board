@@ -1,22 +1,16 @@
 // app/(dashboard)/admin/exams/[examId]/submissions/page.tsx
-// ─────────────────────────────────────────────────────────────────────────────
-// Layout + wiring only. All state is owned by dedicated hooks.
-// ─────────────────────────────────────────────────────────────────────────────
 'use client'
 
-// React + Next
 import { useCallback }           from 'react'
 import { useParams }             from 'next/navigation'
 import { AlertCircle, X }        from 'lucide-react'
 
-// Hooks
 import { useSubmissions }        from '@/lib/hooks/admin/exams/submissions/useSubmissions'
 import { useSubmissionDetails }  from '@/lib/hooks/admin/exams/submissions/useSubmissionDetails'
 import { useGrading }            from '@/lib/hooks/admin/exams/submissions/useGrading'
 import { useAnswerKey }          from '@/lib/hooks/admin/exams/submissions/useAnswerKey'
 import { useBulkGrading, useReleaseResults } from '@/lib/hooks/admin/exams/submissions/useBulkGrading'
 
-// Components
 import {
   SubmissionsHeader,
   GradingPanel,
@@ -28,17 +22,12 @@ import {
   ViewSubmissionModal,
 } from '@/components/dashboard/admin/exams/submissions'
 
-// Types
-import type { Submission }       from '@/lib/types/admin/exams/submissions/submission.types'
-
+import type { Submission } from '@/lib/types/admin/exams/submissions/submission.types'
 import s from './submissions.module.css'
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 export default function SubmissionsPage() {
   const { examId } = useParams<{ examId: string }>()
 
-  // ── Hooks ───────────────────────────────────────────────────────────────────
   const subs    = useSubmissions(examId)
   const details = useSubmissionDetails()
   const grading = useGrading(examId)
@@ -46,50 +35,37 @@ export default function SubmissionsPage() {
   const bulk    = useBulkGrading()
   const release = useReleaseResults()
 
-  // ── Shared optimistic patcher ───────────────────────────────────────────────
+  // Shared optimistic patcher
   const patchSubmission = useCallback((id: string, patch: Partial<Submission>) => {
     subs.setSubmissions(prev =>
       prev.map(sub => sub.id === id ? { ...sub, ...patch } : sub),
     )
   }, [subs])
 
-  // ── Derived ─────────────────────────────────────────────────────────────────
   const preview = grading.previewScore(details.answers, subs.examInfo)
 
-  // ── Answer key toggle handler ────────────────────────────────────────────────
   async function handleToggleAnswerKey() {
     if (key.answerKey.length === 0) await key.loadAnswerKey()
     key.setShowAnswerKey(!key.showAnswerKey)
   }
 
-  // ── Mode change handler ──────────────────────────────────────────────────────
   function handleModeChange(mode: 'auto' | 'manual') {
     void grading.handleModeChange(
-      mode,
-      key.loadAnswerKey,
-      key.setShowAnswerKey,
-      key.answerKey.length > 0,
+      mode, key.loadAnswerKey, key.setShowAnswerKey, key.answerKey.length > 0,
     )
   }
 
-  // ── Bulk grade handler ───────────────────────────────────────────────────────
   function handleBulkGrade() {
     if (!subs.examInfo) return
     void bulk.bulkGradeAll(
-      subs.submissions,
-      subs.examInfo,
-      grading.gradingMode,
-      key.keyMap,
-      patchSubmission,
+      subs.submissions, subs.examInfo, grading.gradingMode, key.keyMap, patchSubmission,
     )
   }
 
-  // ── Release handler ──────────────────────────────────────────────────────────
   function handleRelease() {
     void release.releaseResults(subs.submissions, patchSubmission)
   }
 
-  // ── Grade single submission handler ─────────────────────────────────────────
   function handleGradeSubmission() {
     if (!details.viewTarget || !subs.examInfo) return
     void grading.gradeSubmission(
@@ -103,11 +79,8 @@ export default function SubmissionsPage() {
     )
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div className={s.page}>
-
-      {/* Header */}
       <SubmissionsHeader
         examId={examId}
         totalCount={subs.submissions.length}
@@ -115,7 +88,6 @@ export default function SubmissionsPage() {
         onRefresh={subs.refetch}
       />
 
-      {/* Error banner */}
       {subs.error && (
         <div className={s.errorBanner}>
           <AlertCircle size={14} />
@@ -129,7 +101,6 @@ export default function SubmissionsPage() {
         </div>
       )}
 
-      {/* Grading control panel */}
       <GradingPanel
         gradingMode={grading.gradingMode}
         savingMode={grading.savingMode}
@@ -147,7 +118,6 @@ export default function SubmissionsPage() {
         onToggleAnswerKey={handleToggleAnswerKey}
       />
 
-      {/* Manual answer key editor */}
       {grading.gradingMode === 'manual' && key.showAnswerKey && key.answerKey.length > 0 && (
         <AnswerKeyPanel
           answerKey={key.answerKey}
@@ -156,10 +126,8 @@ export default function SubmissionsPage() {
         />
       )}
 
-      {/* Status pills */}
       <StatusPills submissions={subs.submissions} />
 
-      {/* Search + filter bar */}
       <SubmissionsFilters
         search={subs.search}
         statusFilter={subs.statusFilter}
@@ -168,14 +136,14 @@ export default function SubmissionsPage() {
         onStatusFilter={v => { subs.setStatusFilter(v); subs.setPage(1) }}
       />
 
-      {/* Table */}
+      {/* onForceSubmit enables the ▶ button on in_progress rows */}
       <SubmissionsTable
         paginated={subs.paginated}
         loading={subs.loading}
         onView={details.openModal}
+        onForceSubmit={subs.forceSubmit}
       />
 
-      {/* Pagination */}
       <Pagination
         page={subs.page}
         totalPages={subs.totalPages}
@@ -183,7 +151,6 @@ export default function SubmissionsPage() {
         onPage={subs.setPage}
       />
 
-      {/* View / grade modal */}
       {details.viewTarget && (
         <ViewSubmissionModal
           target={details.viewTarget}

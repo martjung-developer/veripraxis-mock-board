@@ -1,4 +1,4 @@
-// types/exam.types.ts
+// types/admin/exams/exam.types.ts
 // ─────────────────────────────────────────────────────────────────────────────
 // All domain shapes for the exams feature.
 // Derived from Database['public']['Tables'][...]['Row'] — no `any`, no casts.

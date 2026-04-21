@@ -1,20 +1,24 @@
 // lib/hooks/admin/exams/submissions/useSubmissionDetails.ts
 'use client'
+
 import { useState, useCallback, useMemo } from 'react'
-import { createClient }           from '@/lib/supabase/client'
-import * as SubmissionService     from '@/lib/services/admin/exams/submissions/submission.service'
-import { mapAnswer }              from '@/lib/utils/admin/submissions/mappers'
-import type { Submission }        from '@/lib/types/admin/exams/submissions/submission.types'
-import type { AnswerDetail, AnswerStats } from '@/lib/types/admin/exams/submissions/answer.types'
+import { createClient }             from '@/lib/supabase/client'
+import * as SubmissionService       from '@/lib/services/admin/exams/submissions/submission.service'
+import { mapAnswer }                from '@/lib/utils/admin/submissions/mappers'
+import type { Submission }          from '@/lib/types/admin/exams/submissions/submission.types'
+import type {
+  AnswerDetail,
+  AnswerStats,
+}                                   from '@/lib/types/admin/exams/submissions/answer.types'
 
 export interface UseSubmissionDetailsReturn {
-  viewTarget:    Submission | null
-  answers:       AnswerDetail[]
+  viewTarget:     Submission | null
+  answers:        AnswerDetail[]
   answersLoading: boolean
-  answerStats:   AnswerStats
-  openModal:     (sub: Submission) => Promise<void>
-  closeModal:    () => void
-  setAnswers:    React.Dispatch<React.SetStateAction<AnswerDetail[]>>
+  answerStats:    AnswerStats
+  openModal:      (sub: Submission) => Promise<void>
+  closeModal:     () => void
+  setAnswers:     React.Dispatch<React.SetStateAction<AnswerDetail[]>>
 }
 
 export function useSubmissionDetails(): UseSubmissionDetailsReturn {
@@ -37,6 +41,7 @@ export function useSubmissionDetails(): UseSubmissionDetailsReturn {
         .sort((a, b) => (a.question?.order_number ?? 999) - (b.question?.order_number ?? 999))
       setAnswers(mapped)
     }
+
     setAnswersLoading(false)
   }, [supabase])
 
@@ -52,5 +57,8 @@ export function useSubmissionDetails(): UseSubmissionDetailsReturn {
     total:     answers.length,
   }), [answers])
 
-  return { viewTarget, answers, answersLoading, answerStats, openModal, closeModal, setAnswers }
+  return {
+    viewTarget, answers, answersLoading, answerStats,
+    openModal, closeModal, setAnswers,
+  }
 }

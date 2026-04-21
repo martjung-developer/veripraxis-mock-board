@@ -1,27 +1,26 @@
-// lib/types/admin/students/[examId]/exam.types.ts
-import type { Database, ExamType } from '@/lib/types/database'
+// lib/types/admin/exams/submissions/exam.types.ts
+// ─────────────────────────────────────────────────────────────────────────────
+// GradingMode is imported from database.ts — the single source of truth.
+// Previously this imported from submission.types.ts, which itself re-exported
+// from database.ts, creating a potential circular dependency path:
+//   exam.types → submission.types → database
+// The fix is a direct import, removing the intermediate hop.
+// ─────────────────────────────────────────────────────────────────────────────
 
-// ── Raw DB row aliases ────────────────────────────────────────────────────────
-type ExamAssignmentRow = Database['public']['Tables']['exam_assignments']['Row']
-type ExamRow           = Database['public']['Tables']['exams']['Row']
+import type { GradingMode } from '@/lib/types/database'
 
-// ── Supabase join shape ───────────────────────────────────────────────────────
-export type JoinedExamForAssignment = Pick<ExamRow, 'title' | 'exam_type'>
+export type { GradingMode }
 
-export type AssignedExamRow = Pick<
-  ExamAssignmentRow,
-  'id' | 'exam_id' | 'is_active' | 'assigned_at' | 'deadline'
-> & {
-  exams: JoinedExamForAssignment | JoinedExamForAssignment[] | null
+// ── Exam metadata needed for grading calculations ─────────────────────────────
+export interface ExamInfo {
+  passing_score: number
+  total_points:  number
+  grading_mode:  GradingMode
 }
 
-// ── App-level domain type ─────────────────────────────────────────────────────
-export interface AssignedExam {
-  id:          string
-  exam_id:     string
-  exam_title:  string
-  exam_type:   ExamType
-  is_active:   boolean
-  assigned_at: string
-  deadline:    string | null
+// ── Preview score shown in the submission-detail modal footer ─────────────────
+export interface PreviewScore {
+  earned: number
+  pct:    number
+  passed: boolean
 }

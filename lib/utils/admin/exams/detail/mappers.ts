@@ -1,4 +1,4 @@
-// lib/utils/exams/detail/mappers.ts
+// lib/utils/admin/exams/detail/mappers.ts
 // Pure functions that transform raw Supabase shapes into UI types.
 // No Supabase calls, no side effects, fully typed.
 

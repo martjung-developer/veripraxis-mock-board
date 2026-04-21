@@ -1,20 +1,21 @@
 // app/api/auth/create-profile/route.ts
-
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import type { Database } from '@/lib/types/database'
 
-type Body = {
+interface CreateProfileBody {
   studentId: string
   fullName: string
   programCode: string
   yearLevel: string
+  phone?: string
 }
 
 async function getSupabaseServer() {
   const cookieStore = await cookies()
 
-  return createServerClient(
+  return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -28,21 +29,27 @@ async function getSupabaseServer() {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = (await req.json()) as Partial<Body>
+    console.log('[create-profile] HIT')
 
-    if (
-      !body.studentId ||
-      !body.fullName ||
-      !body.programCode ||
-      !body.yearLevel
-    ) {
+    const raw = (await req.json()) as Partial<CreateProfileBody>
+
+    if (!raw.studentId || !raw.fullName || !raw.programCode || !raw.yearLevel) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields.' },
+        { success: false, error: 'Missing required fields' },
         { status: 400 }
       )
     }
 
-    const supabase = await getSupabaseServer()
+    const yearLevelNum = parseInt(raw.yearLevel, 10)
+
+    if (isNaN(yearLevelNum)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid year level' },
+        { status: 400 }
+      )
+    }
+
+    const supabase = (await getSupabaseServer()) as any
 
     const {
       data: { user },
@@ -51,64 +58,77 @@ export async function POST(req: NextRequest) {
 
     if (userError || !user) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized.' },
+        { success: false, error: 'Unauthorized' },
         { status: 401 }
       )
     }
 
     const userId = user.id
-    const email = user.email
 
-    // ✅ Prevent duplicate profile
-    const { data: existing } = await supabase
+    // PROFILE
+    const { error: profileError } = await supabase
       .from('profiles')
-      .select('id')
-      .eq('id', userId)
-      .single()
-
-    if (existing) {
-      return NextResponse.json({ success: true }) // already created
-    }
-
-    // 🔥 Insert into profiles
-    const { error: profileError } = await supabase.from('profiles').insert({
-      id: userId,
-      email,
-      full_name: body.fullName,
-      role: 'student',
-    })
+      .upsert(
+        {
+          id: userId,
+          email: user.email!,
+          full_name: raw.fullName.trim(),
+          role: 'student',
+        },
+        { onConflict: 'id' }
+      )
 
     if (profileError) {
-      console.error('[create-profile] profile error:', profileError.message)
+      console.error('[profiles error]', profileError)
       return NextResponse.json(
-        { success: false, error: 'Failed to create profile.' },
+        { success: false, error: profileError.message },
         { status: 500 }
       )
     }
 
-    // 🔥 Insert into students table (if you have one)
-    const { error: studentError } = await supabase.from('students').insert({
-      user_id: userId,
-      student_id: body.studentId,
-      full_name: body.fullName,
-      program_code: body.programCode,
-      year_level: body.yearLevel,
-    })
+    // PROGRAM
+    const { data: program, error: programError } = await supabase
+      .from('programs')
+      .select('id')
+      .eq('code', raw.programCode.trim())
+      .single()
+
+    if (programError || !program) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid program code' },
+        { status: 400 }
+      )
+    }
+
+    // STUDENT
+    const { error: studentError } = await supabase
+      .from('students')
+      .upsert(
+        {
+          id: userId,
+          student_id: raw.studentId.trim(),
+          year_level: yearLevelNum,
+          program_id: program.id,
+        },
+        { onConflict: 'id' }
+      )
 
     if (studentError) {
-      console.error('[create-profile] student error:', studentError.message)
+      console.error('[students error]', studentError)
       return NextResponse.json(
-        { success: false, error: 'Failed to create student record.' },
+        { success: false, error: studentError.message },
         { status: 500 }
       )
     }
 
-    return NextResponse.json({ success: true })
-
-  } catch (err) {
-    console.error('[create-profile] unexpected:', err)
+    return NextResponse.json({
+      success: true,
+      userId,
+    })
+  } catch (error) {
+    console.error('[create-profile error]', error)
     return NextResponse.json(
-      { success: false, error: 'Server error.' },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     )
   }

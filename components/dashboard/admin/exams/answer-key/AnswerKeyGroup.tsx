@@ -15,7 +15,7 @@ import {
   TYPE_META,
 } from '@/lib/types/admin/exams/answer-key/answerKey.types'
 import { QuestionRow } from './QuestionRow'
-import s from './answer-key.module.css'
+import s from '@/app/(dashboard)/admin/exams/[examId]/answer-key/answer-key.module.css'
 import type { ElementType } from 'react'
 
 // Map type → Lucide icon (kept here to avoid importing in types layer)

@@ -100,12 +100,10 @@ const DashboardClient: FC<Props> = ({ firstName, greeting }) => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setLoadingStats(false); return }
 
-      // ✅ Only valid statuses: 'submitted' | 'graded'
-      // 'in_progress' intentionally excluded — not yet submitted
       const { data: subs } = await supabase
         .from('submissions')
         .select('id, exam_id, status, percentage, passed, submitted_at')
-        .eq('student_id', user.id)   // ← security: own data only
+        .eq('student_id', user.id)  
         .in('status', ['submitted', 'graded'])
         .order('submitted_at', { ascending: false })
 
@@ -136,13 +134,9 @@ const DashboardClient: FC<Props> = ({ firstName, greeting }) => {
       const practiceSubs = rows.filter((r) => examMap.get(r.exam_id ?? '')?.exam_type === 'practice')
 
       // ── Classify by status ────────────────────────────────────────────────────
-      // 'submitted' = awaiting faculty grading
-      // 'graded'    = faculty has set score/percentage/passed
       const pendingCount = rows.filter((r) => r.status === 'submitted').length
       const gradedCount  = rows.filter((r) => r.status === 'graded').length
 
-      // ✅ Best score: ONLY from 'graded' submissions (percentage is meaningful)
-      // 'submitted' rows have null percentage — do not include
       const gradedScores = rows
         .filter((r) => r.status === 'graded' && r.percentage !== null)
         .map((r) => r.percentage as number)

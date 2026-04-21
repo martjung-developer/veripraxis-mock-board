@@ -4,12 +4,11 @@
 import { useState }        from 'react'
 import Image               from 'next/image'
 import Link                from 'next/link'
-import { useRouter }       from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Eye, EyeOff, ArrowRight, AlertCircle } from 'lucide-react'
-import { MoleculeBackground } from '@/animations/auth/MoleculeBackground'
-import { signInWithId, signInWithGoogle, signInWithFacebook } from '@/lib/services/auth/'
-import { validateStudentIdInput }                  from '@/lib/utils/auth/'
+import { MoleculeBackground }                        from '@/animations/auth/MoleculeBackground'
+import { signInWithId, signInWithGoogle, signInWithFacebook } from '@/lib/services/auth'
+import { validateStudentIdInput }                    from '@/lib/utils/auth'
 import styles from '../auth.module.css'
 
 // ── Animation variants ─────────────────────────────────────────────────────
@@ -29,8 +28,6 @@ const fieldAnim = (delay = 0) => ({
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function LoginPage() {
-  const router = useRouter()
-
   const [userId,   setUserId]   = useState('')
   const [password, setPassword] = useState('')
   const [showPw,   setShowPw]   = useState(false)
@@ -38,39 +35,80 @@ export default function LoginPage() {
   const [error,    setError]    = useState<string | null>(null)
   const [idError,  setIdError]  = useState<string | null>(null)
 
-  function validateId() {
-    if (userId.trim() && !userId.trim().match(/^(STU|FAC|ADM)-/i)) {
-      setIdError('Enter your Student ID (STU-…), Faculty ID (FAC-…), or Admin ID (ADM-…).')
-      return false
+  // Validate the ID prefix on blur without blocking typing
+  function validateIdOnBlur() {
+    if (!userId.trim()) return
+    const err = validateStudentIdInput(userId)
+    // Only show the prefix warning — let the submit catch the rest
+    if (err && !/^(STU|FAC|ADM)-/i.test(userId.trim())) {
+      setIdError('Enter a Student ID (STU-…), Faculty ID (FAC-…), or Admin ID (ADM-…).')
+    } else {
+      setIdError(null)
     }
-    setIdError(null)
-    return true
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError(null)
-    if (!userId.trim()) { setIdError('Please enter your ID.'); return }
-    if (!password)      { setError('Please enter your password.'); return }
+  e.preventDefault()
 
-    setLoading(true)
-    const result = await signInWithId(userId, password)
-    setLoading(false)
+  if (loading) return // prevent double submit
 
-    if (!result.success) { setError(result.error); return }
-    window.location.href = result.redirectTo
+  setError(null)
+  setIdError(null)
+
+  const normalizedId = userId.trim().toUpperCase()
+
+  if (!normalizedId) {
+    setIdError('Please enter your ID.')
+    return
   }
+
+  if (!/^(STU|FAC|ADM)-/i.test(normalizedId)) {
+    setIdError('Invalid ID format (STU-, FAC-, ADM-)')
+    return
+  }
+
+  if (!password) {
+    setError('Please enter your password.')
+    return
+  }
+
+  setLoading(true)
+
+  console.log('[LOGIN ATTEMPT]', {
+    input: userId,
+    normalized: normalizedId,
+  })
+
+  const result = await signInWithId(normalizedId, password)
+
+  setLoading(false)
+
+  console.log('[LOGIN RESULT]', result)
+
+  if (!result.success) {
+    if (result.error?.toLowerCase().includes('not found')) {
+      setIdError('Student ID not found.')
+    } else if (result.error?.toLowerCase().includes('password')) {
+      setError('Incorrect password.')
+    } else {
+      setError(result.error || 'Login failed.')
+    }
+    return
+  }
+
+  window.location.href = result.redirectTo
+}
 
   async function handleGoogle() {
     setError(null)
     const result = await signInWithGoogle()
-    if (!result.success) { setError(result.error) }
+    if (!result.success) setError(result.error)
   }
 
   async function handleFacebook() {
     setError(null)
     const result = await signInWithFacebook()
-    if (!result.success) { setError(result.error) }
+    if (!result.success) setError(result.error)
   }
 
   return (
@@ -90,9 +128,10 @@ export default function LoginPage() {
               className={styles.logoImg}
               priority
               onError={(e) => {
-                // Fallback to text if image missing
-                const t = e.currentTarget.parentElement
-                if (t) t.innerHTML = '<span class="logoTextFallback">Veri<em>Praxis</em></span>'
+                const parent = e.currentTarget.parentElement
+                if (parent) {
+                  parent.innerHTML = '<span class="logoTextFallback">Veri<em>Praxis</em></span>'
+                }
               }}
             />
           </div>
@@ -118,7 +157,7 @@ export default function LoginPage() {
 
           <form className={styles.form} onSubmit={handleSubmit} noValidate>
 
-            {/* ── User ID ── */}
+            {/* ── ID Number ── */}
             <motion.div className={styles.fieldGroup} {...fieldAnim(0)}>
               <label className={styles.label} htmlFor="login-id">
                 ID NUMBER
@@ -127,10 +166,10 @@ export default function LoginPage() {
                 id="login-id"
                 className={`${styles.input} ${idError ? styles.inputError : ''}`}
                 type="text"
-                placeholder="Enter your designated ID..."
+                placeholder="STU-… / FAC-… / ADM-…"
                 value={userId}
                 onChange={(e) => { setUserId(e.target.value); setIdError(null) }}
-                onBlur={validateId}
+                onBlur={validateIdOnBlur}
                 autoComplete="username"
                 spellCheck={false}
               />
@@ -159,7 +198,9 @@ export default function LoginPage() {
                   onClick={() => setShowPw((v) => !v)}
                   aria-label={showPw ? 'Hide password' : 'Show password'}
                 >
-                  {showPw ? <EyeOff size={15} strokeWidth={2} /> : <Eye size={15} strokeWidth={2} />}
+                  {showPw
+                    ? <EyeOff size={15} strokeWidth={2} />
+                    : <Eye   size={15} strokeWidth={2} />}
                 </button>
               </div>
             </motion.div>
@@ -184,8 +225,8 @@ export default function LoginPage() {
 
             {/* ── Social buttons ── */}
             <div className={styles.socialGroup}>
-              <GoogleButton  onClick={handleGoogle} />
-              <FacebookButton onClick={handleFacebook} />
+              <GoogleButton   onClick={() => void handleGoogle()} />
+              <FacebookButton onClick={() => void handleFacebook()} />
             </div>
 
             {/* ── Switch ── */}

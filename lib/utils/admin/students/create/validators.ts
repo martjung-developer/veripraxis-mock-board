@@ -1,4 +1,4 @@
-// lib/utils/students/validators.ts
+// lib/utils/admin/students/create/validators.ts
 //
 // Pure validation functions — no React, no Supabase.
 // Fully unit-testable in isolation.

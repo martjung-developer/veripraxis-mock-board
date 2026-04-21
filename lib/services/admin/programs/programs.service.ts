@@ -1,5 +1,5 @@
 /**
- * services/programs.service.ts
+ * services/admin/programs/programs.service.ts
  *
  * Pure data layer for the Programs domain.
  * - No React imports

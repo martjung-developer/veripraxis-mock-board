@@ -1,4 +1,4 @@
-// lib/utils/study-materials/youtube.ts
+// lib/utils/admin/study-materials/youtube.ts
 
 /**
  * Extracts the 11-character YouTube video ID from any supported URL format:

@@ -1,7 +1,6 @@
 // lib/types/admin/exams/submissions/exam.types.ts
-import type { GradingMode } from './submission.types'
-
-// ── Exam info needed by the submissions page ──────────────────────────────────
+import type { GradingMode } from '@/lib/types/admin/exams/submissions/submission.types'
+ 
 export interface ExamInfo {
   passing_score: number
   total_points:  number

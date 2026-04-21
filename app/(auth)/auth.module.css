@@ -292,6 +292,33 @@
   75%     { transform: translateX(4px); }
 }
 
+/* ── Modal Overlay ───────────────────────────────────────────── */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 42, 94, 0.35);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 1.5rem;
+}
+
+/* ── Modal Card (matches your glass design) ───────────────────── */
+.modalCard {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  border-radius: 20px;
+  padding: 2rem 1.5rem;
+  width: 100%;
+  max-width: 380px;
+  text-align: center;
+  box-shadow:
+    0 10px 40px rgba(30, 80, 160, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
 /* ── Resend ─────────────────────────────────────────────────────────────────── */
 .resendRow { text-align: center; font-size: 0.78rem; color: #6a8aaa; }
 .resendBtn { background: none; border: none; color: #3085d8; font-weight: 700; font-size: 0.78rem; cursor: pointer; font-family: inherit; padding: 0; transition: color 0.13s; }

@@ -3,7 +3,7 @@
 
 import { useEffect } from 'react'
 import { CheckCircle, AlertCircle, X } from 'lucide-react'
-import s from './answer-key.module.css'
+import s from '@/app/(dashboard)/admin/exams/[examId]/answer-key/answer-key.module.css'
 
 interface ToastProps {
   message: string

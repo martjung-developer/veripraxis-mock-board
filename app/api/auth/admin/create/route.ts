@@ -12,6 +12,7 @@
 // }
 // ─────────────────────────────────────────────────────────────────────────────
 
+/*
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient }              from '@supabase/supabase-js'
@@ -154,3 +155,4 @@ export async function POST(req: NextRequest): Promise<NextResponse<AuthResult>> 
     return NextResponse.json({ success: false, error: 'Server error.' }, { status: 500 })
   }
 }
+  */

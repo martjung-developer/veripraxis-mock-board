@@ -1,4 +1,4 @@
-// lib/utils/students/mappers.ts
+// lib/utils/admin/students/create/mappers.ts
 //
 // Pure transformation functions — form state → service payload.
 // No React, no Supabase.

@@ -1,4 +1,4 @@
-// lib/utils/questions/validateQuestion.ts
+// lib/utils/admin/questions/validateQuestion.ts
 //
 // Type-safe, exhaustive validation for all question types.
 // Returns a discriminated union — callers check `.valid` before reading errors.

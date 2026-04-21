@@ -1,4 +1,4 @@
-// lib/utils/study-materials/display.ts
+// lib/utils/admin/study-materials/display.ts
 //
 // Pure display helpers: labels, CSS class lookups, color tokens.
 // Imported by components — no React, no hooks.
