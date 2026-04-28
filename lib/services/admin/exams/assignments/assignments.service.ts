@@ -18,7 +18,6 @@ import type {
   MutationResult,
   ProfileProjection,
   Program,
-  StudentJoinRow,
   StudentSearchResult,
   SubmissionProjection,
 } from '@/lib/types/admin/exams/assignments/assignments.types'
@@ -49,7 +48,7 @@ export async function fetchAssignmentsForExam(
   examId:  string,
 ): Promise<FetchAssignmentsResult> {
   // Phase 1: fire all independent queries in parallel
-  const [asnRes, progRes, subRes] = await Promise.all([
+  const [asnRes, progRes, subRes, programRuleRes] = await Promise.all([
     client
       .from('exam_assignments')
       .select(`
@@ -75,6 +74,11 @@ export async function fetchAssignmentsForExam(
       .from('submissions')
       .select('student_id, status, score, percentage')
       .eq('exam_id', examId),
+
+    client
+      .from('program_exam_assignments')
+      .select('program_code, year_level')
+      .eq('exam_id', examId),
   ])
 
   if (asnRes.error) {
@@ -84,6 +88,10 @@ export async function fetchAssignmentsForExam(
   const programs   = (progRes.data ?? []) as Program[]
   const rawList    = (asnRes.data ?? []) as unknown as AssignmentQueryRow[]
   const subRows    = (subRes.data   ?? []) as SubmissionProjection[]
+  const programRules = (programRuleRes.data ?? []) as Array<{
+    program_code: string
+    year_level: number | null
+  }>
 
   // Phase 2: build submission lookup (handles retakes via priority merge)
   const bestSubmission = buildBestSubmissionMap(subRows)
@@ -101,6 +109,7 @@ export async function fetchAssignmentsForExam(
         id:                a.id,
         student:           { id: '', full_name: '(Program assignment)', email: '', student_id: null },
         program_name:      prog ? `${prog.code} — ${prog.name}` : null,
+        assignment_source: 'program',
         assigned_at:       a.assigned_at,
         deadline:          a.deadline,
         is_active:         a.is_active,
@@ -121,7 +130,7 @@ export async function fetchAssignmentsForExam(
 
     client
       .from('students')
-      .select('id, student_id')
+      .select('id, student_id, year_level, programs:program_id ( code, name )')
       .in('id', studentIds),
   ])
 
@@ -131,9 +140,27 @@ export async function fetchAssignmentsForExam(
     profileMap[p.id] = p
   }
 
-  const studentMap: Record<string, Pick<StudentJoinRow, 'id' | 'student_id'>> = {}
-  for (const s of (studentsRes.data ?? []) as Array<{ id: string; student_id: string | null }>) {
-    studentMap[s.id] = s
+  const studentMap: Record<string, {
+    id: string
+    student_id: string | null
+    year_level: number | null
+    program_code: string | null
+    program_name: string | null
+  }> = {}
+  for (const s of (studentsRes.data ?? []) as unknown as Array<{
+    id: string
+    student_id: string | null
+    year_level: number | null
+    programs: { code: string; name: string } | { code: string; name: string }[] | null
+  }>) {
+    const studentProgram = unwrapJoin(s.programs)
+    studentMap[s.id] = {
+      id: s.id,
+      student_id: s.student_id,
+      year_level: s.year_level,
+      program_code: studentProgram?.code ?? null,
+      program_name: studentProgram?.name ?? null,
+    }
   }
 
   // Phase 5: merge assignment rows with their best submission
@@ -142,6 +169,12 @@ export async function fetchAssignmentsForExam(
     const profile = a.student_id ? profileMap[a.student_id]  : undefined
     const student = a.student_id ? studentMap[a.student_id]  : undefined
     const sub     = a.student_id ? bestSubmission[a.student_id] : undefined
+    const isProgramAssignment =
+      !!student?.program_code &&
+      programRules.some((rule) =>
+        rule.program_code === student.program_code &&
+        (rule.year_level === null || rule.year_level === student.year_level),
+      )
 
     return {
       id: a.id,
@@ -151,7 +184,12 @@ export async function fetchAssignmentsForExam(
         email:      profile?.email     ?? '',
         student_id: student?.student_id ?? null,
       },
-      program_name:      prog ? `${prog.code} — ${prog.name}` : null,
+      program_name:      student?.program_code && student?.program_name
+        ? `${student.program_code} — ${student.program_name}`
+        : prog
+          ? `${prog.code} — ${prog.name}`
+          : null,
+      assignment_source: isProgramAssignment ? 'program' : 'manual',
       assigned_at:       a.assigned_at,
       deadline:          a.deadline,
       is_active:         a.is_active,
@@ -218,25 +256,87 @@ export async function assignProgramToExam(
   client:  AppClient,
   payload: AssignProgramPayload,
 ): Promise<MutationResult> {
-  const { examId, programId, deadline } = payload
+  const { examId, programId, deadline, yearLevel = null } = payload
 
-  const { data: existing } = await client
-    .from('exam_assignments')
-    .select('id')
-    .eq('exam_id', examId)
-    .eq('program_id', programId)
-    .eq('is_active', true)
-    .maybeSingle()
+  const { data: programRow, error: programErr } = await client
+    .from('programs')
+    .select('code')
+    .eq('id', programId)
+    .single()
 
-  if (existing) {
-    return { error: 'This program is already assigned to this exam.' }
+  if (programErr || !programRow) {
+    return { error: 'Program not found.' }
   }
 
-  const { error } = await client
-    .from('exam_assignments')
-    .insert({ exam_id: examId, program_id: programId, deadline, is_active: true })
+  const { error: ruleErr } = await client
+    .from('program_exam_assignments')
+    .upsert(
+      {
+        exam_id: examId,
+        program_code: programRow.code,
+        year_level: yearLevel,
+      },
+      { onConflict: 'exam_id,program_code,year_level' },
+    )
 
-  return { error: error?.message ?? null }
+  if (ruleErr) {
+    return { error: ruleErr.message }
+  }
+
+  let studentQuery = client
+    .from('students')
+    .select('id')
+    .eq('program_id', programId)
+
+  if (yearLevel !== null) {
+    studentQuery = studentQuery.eq('year_level', yearLevel)
+  }
+
+  const { data: students, error: studentErr } = await studentQuery
+  if (studentErr) {
+    return { error: studentErr.message }
+  }
+
+  const studentIds = (students ?? []).map((row) => row.id).filter(Boolean)
+  if (!studentIds.length) {
+    return { error: null }
+  }
+
+  const { data: existingStudentRows, error: existingErr } = await client
+    .from('exam_assignments')
+    .select('student_id')
+    .eq('exam_id', examId)
+    .eq('is_active', true)
+    .in('student_id', studentIds)
+
+  if (existingErr) {
+    return { error: existingErr.message }
+  }
+
+  const existingStudentIds = new Set(
+    (existingStudentRows ?? [])
+      .map((row) => row.student_id)
+      .filter((id): id is string => !!id),
+  )
+
+  const rowsToInsert = studentIds
+    .filter((studentId) => !existingStudentIds.has(studentId))
+    .map((studentId) => ({
+      exam_id: examId,
+      student_id: studentId,
+      deadline,
+      is_active: true,
+    }))
+
+  if (!rowsToInsert.length) {
+    return { error: null }
+  }
+
+  const { error: insertErr } = await client
+    .from('exam_assignments')
+    .insert(rowsToInsert)
+
+  return { error: insertErr?.message ?? null }
 }
 
 // ── Unassign ──────────────────────────────────────────────────────────────────

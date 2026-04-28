@@ -38,10 +38,12 @@ export default function StudentHelpPage() {
     form,
     formErrors,
     submitting,
+    notifying,
     submitSuccess,
     submitError,
     setField,
     submit,
+    sendNotificationToAdmin,
   } = useSubmitTicket(user?.id ?? null)
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
@@ -114,10 +116,12 @@ export default function StudentHelpPage() {
           form={form}
           formErrors={formErrors}
           submitting={submitting}
+          notifying={notifying}
           submitSuccess={submitSuccess}
           submitError={submitError}
           setField={setField}
           onSubmit={submit}
+          onSendNotification={sendNotificationToAdmin}
         />
 
       </div>

@@ -4,6 +4,10 @@
 import { useState, useCallback } from 'react'
 import { createClient }        from '@/lib/supabase/client'
 import { createTicket }        from '@/lib/services/student/help/ticket.service'
+import {
+  notifyAdmins,
+  notifyAdminsSupportTicket,
+} from '@/lib/services/notifications/adminAlerts.service'
 import { validateTicketForm, isTicketFormValid } from '@/lib/utils/student/help/validators'
 import type {
   TicketFormState,
@@ -23,6 +27,7 @@ export function useSubmitTicket(userId: string | null): UseSubmitTicketReturn {
   const [form,          setFormState]   = useState<TicketFormState>(DEFAULT_FORM)
   const [formErrors,    setFormErrors]  = useState<TicketFormErrors>({})
   const [submitting,    setSubmitting]  = useState(false)
+  const [notifying,     setNotifying]   = useState(false)
   const [submitSuccess, setSubmitSuccess] = useState(false)
   const [submitError,   setSubmitError]  = useState<TicketSubmitError | null>(null)
 
@@ -74,6 +79,16 @@ export function useSubmitTicket(userId: string | null): UseSubmitTicketReturn {
           user_id:     userId,
         })
 
+        try {
+          await notifyAdminsSupportTicket(db, {
+            studentLabel: userId,
+            subject: form.subject.trim(),
+            priority: form.priority,
+          })
+        } catch (notifyErr) {
+          console.error('Ticket submitted but failed to notify admins:', notifyErr)
+        }
+
         // 4. Optimistic: reset form immediately on success
         setFormState(DEFAULT_FORM)
         setFormErrors({})
@@ -100,13 +115,43 @@ export function useSubmitTicket(userId: string | null): UseSubmitTicketReturn {
     [form, submitting, userId],
   )
 
+  const sendNotificationToAdmin = useCallback(async () => {
+    if (!userId || notifying) return
+
+    const errors = validateTicketForm(form)
+    setFormErrors(errors)
+    if (!isTicketFormValid(errors)) return
+
+    setNotifying(true)
+    setSubmitError(null)
+
+    try {
+      const db = createClient()
+      await notifyAdmins(db, {
+        type: 'general',
+        title: form.subject.trim(),
+        message: form.description.trim(),
+      })
+      setSubmitSuccess(true)
+      setTimeout(() => setSubmitSuccess(false), 7000)
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to send notification.'
+      setSubmitError({ code: 'unknown', message })
+    } finally {
+      setNotifying(false)
+    }
+  }, [form, notifying, userId])
+
   return {
     form,
     formErrors,
     submitting,
+    notifying,
     submitSuccess,
     submitError,
     setField,
     submit,
+    sendNotificationToAdmin,
   }
 }

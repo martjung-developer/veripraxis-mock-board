@@ -1,6 +1,7 @@
 // lib/services/student/mock-exams/mockExams.service.ts
 
 import { createClient } from '@/lib/supabase/client'
+import { notifyAdminsExamSubmitted } from '@/lib/services/notifications/adminAlerts.service'
 import type { ExamAttempt, AnswerMap, Question } from '@/lib/types/student/mock-exams/mock-exams'
 
 interface SubmissionRow {
@@ -342,4 +343,15 @@ export async function createNewSubmission(
     submissionId: data.id,
     startedAt: now,
   }
+}
+
+export async function sendExamSubmittedNotificationToAdmins(
+  studentLabel: string,
+  examTitle: string,
+): Promise<void> {
+  const supabase = getSupabase()
+  await notifyAdminsExamSubmitted(supabase, {
+    studentLabel,
+    examTitle,
+  })
 }

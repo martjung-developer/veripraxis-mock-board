@@ -51,6 +51,16 @@ CREATE TABLE public.exam_assignments (
   CONSTRAINT exam_assignments_program_id_fkey FOREIGN KEY (program_id) REFERENCES public.programs(id),
   CONSTRAINT exam_assignments_assigned_by_fkey FOREIGN KEY (assigned_by) REFERENCES public.profiles(id)
 );
+CREATE TABLE public.program_exam_assignments (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  exam_id uuid NOT NULL,
+  program_code text NOT NULL,
+  year_level integer,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT program_exam_assignments_pkey PRIMARY KEY (id),
+  CONSTRAINT program_exam_assignments_exam_id_fkey FOREIGN KEY (exam_id) REFERENCES public.exams(id),
+  CONSTRAINT program_exam_assignments_exam_program_year_key UNIQUE (exam_id, program_code, year_level)
+);
 CREATE TABLE public.exam_categories (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   name text NOT NULL UNIQUE,
@@ -190,6 +200,36 @@ CREATE TABLE public.students (
   CONSTRAINT students_program_id_fkey FOREIGN KEY (program_id) REFERENCES public.programs(id),
   CONSTRAINT students_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
 );
+ALTER TABLE public.exam_assignments
+  ADD CONSTRAINT exam_assignments_student_exam_unique UNIQUE (student_id, exam_id);
+
+CREATE OR REPLACE FUNCTION public.sync_program_exam_assignments_for_student()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  INSERT INTO public.exam_assignments (exam_id, student_id, is_active)
+  SELECT
+    pea.exam_id,
+    NEW.id,
+    true
+  FROM public.program_exam_assignments pea
+  JOIN public.programs p
+    ON p.code = pea.program_code
+  WHERE p.id = NEW.program_id
+    AND (pea.year_level IS NULL OR pea.year_level = NEW.year_level)
+  ON CONFLICT (student_id, exam_id) DO NOTHING;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_sync_program_exam_assignments_for_student ON public.students;
+CREATE TRIGGER trg_sync_program_exam_assignments_for_student
+AFTER INSERT OR UPDATE OF program_id, year_level
+ON public.students
+FOR EACH ROW
+EXECUTE FUNCTION public.sync_program_exam_assignments_for_student();
 CREATE TABLE public.study_materials (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   title text NOT NULL,

@@ -5,7 +5,7 @@
  * Renders the assignments data table, skeleton loading rows, and empty state.
  */
 
-import { Users, Trash2 } from 'lucide-react'
+import { Users, Trash2, GraduationCap, User } from 'lucide-react'
 
 import { STATUS_CONFIG } from './StatusPills'
 import { Pagination }    from './Pagination'
@@ -29,7 +29,7 @@ function SkeletonRow() {
           </div>
         </div>
       </td>
-      {([70, 80, 80, 80, 80, 40, 40] as const).map((w, i) => (
+      {([70, 80, 80, 80, 80, 80, 40, 40] as const).map((w, i) => (
         <td key={i}>
           <div className={`${s.skeleton} ${s.skelText}`} style={{ width: w }} />
         </td>
@@ -43,7 +43,7 @@ function SkeletonRow() {
 function EmptyState() {
   return (
     <tr>
-      <td colSpan={8}>
+      <td colSpan={9}>
         <div className={s.emptyState}>
           <div className={s.emptyIcon}>
             <Users size={22} color="var(--text-muted)" />
@@ -110,6 +110,23 @@ function AssignmentRow({ assignment: a, onUnassign }: AssignmentRowProps) {
         <span className={`${s.statusBadge} ${s[`statusBadge_${cfg.color}`]}`}>
           <cfg.icon size={11} />
           {cfg.label}
+        </span>
+      </td>
+
+      {/* Assignment source */}
+      <td>
+        <span className={s.sourceBadge}>
+          {a.assignment_source === 'program' ? (
+            <>
+              <GraduationCap size={12} />
+              Assigned via Program
+            </>
+          ) : (
+            <>
+              <User size={12} />
+              Assigned manually
+            </>
+          )}
         </span>
       </td>
 
@@ -180,6 +197,7 @@ export function AssignmentsTable({
               <th>Assigned</th>
               <th>Deadline</th>
               <th>Status</th>
+              <th>Source</th>
               <th>Score</th>
               <th>Actions</th>
             </tr>

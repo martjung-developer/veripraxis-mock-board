@@ -25,20 +25,24 @@ interface TicketFormProps {
   form:          TicketFormState
   formErrors:    TicketFormErrors
   submitting:    boolean
+  notifying:     boolean
   submitSuccess: boolean
   submitError:   TicketSubmitError | null
   setField:      <K extends keyof TicketFormState>(field: K, value: TicketFormState[K]) => void
   onSubmit:      (e: React.FormEvent) => Promise<void>
+  onSendNotification: () => Promise<void>
 }
 
 export default function TicketForm({
   form,
   formErrors,
   submitting,
+  notifying,
   submitSuccess,
   submitError,
   setField,
   onSubmit,
+  onSendNotification,
 }: TicketFormProps) {
   return (
     <section className={styles.section}>
@@ -148,6 +152,19 @@ export default function TicketForm({
               <><Loader2 size={15} className={styles.spinner} /> Submitting…</>
             ) : (
               <><Send size={15} strokeWidth={2} /> Submit Ticket</>
+            )}
+          </button>
+
+          <button
+            type="button"
+            className={styles.submitBtn}
+            disabled={notifying}
+            onClick={() => { void onSendNotification() }}
+          >
+            {notifying ? (
+              <><Loader2 size={15} className={styles.spinner} /> Sending Notification…</>
+            ) : (
+              <><Send size={15} strokeWidth={2} /> Send Notification to Admin</>
             )}
           </button>
         </form>

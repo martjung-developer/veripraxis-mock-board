@@ -43,8 +43,10 @@ export interface UseSubmitTicketReturn {
   form:          TicketFormState
   formErrors:    TicketFormErrors
   submitting:    boolean
+  notifying:     boolean
   submitSuccess: boolean
   submitError:   TicketSubmitError | null
   setField:      <K extends keyof TicketFormState>(field: K, value: TicketFormState[K]) => void
   submit:        (e: React.FormEvent) => Promise<void>
+  sendNotificationToAdmin: () => Promise<void>
 }

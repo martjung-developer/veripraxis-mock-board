@@ -556,6 +556,29 @@ export type Database = {
         }
       }
 
+      program_exam_assignments: {
+        Row: {
+          id:           string
+          exam_id:      string
+          program_code: string
+          year_level:   number | null
+          created_at:   string
+        }
+        Insert: {
+          id?:           string
+          exam_id:       string
+          program_code:  string
+          year_level?:   number | null
+          created_at?:   string
+        }
+        Update: {
+          exam_id?:      string
+          program_code?: string
+          year_level?:   number | null
+          created_at?:   string
+        }
+      }
+
       notifications: {
         Row: {
           id:         string
