@@ -10,6 +10,7 @@ import {
   fetchSavedAnswers,
   saveAnswer as dbSaveAnswer,
   submitExam as dbSubmitExam,
+  sendExamSubmittedNotificationToAdmins,
   fetchExamAttempts,
   createNewSubmission,
 } from '@/lib/services/student/mock-exams/mockExams.service'
@@ -97,6 +98,7 @@ export function useMockExamSession(examId: string): ExamSessionState {
   const questionsRef   = useRef<Question[]>([])
   const submissionRef  = useRef<string | null>(null)
   const examRef        = useRef<ExamMeta | null>(null)
+  const userLabelRef   = useRef<string>('A student')
   const violationsRef  = useRef(0)
 
   useEffect(() => { submittingRef.current = submitting   }, [submitting])
@@ -104,6 +106,9 @@ export function useMockExamSession(examId: string): ExamSessionState {
   useEffect(() => { questionsRef.current  = questions    }, [questions])
   useEffect(() => { submissionRef.current = submissionId }, [submissionId])
   useEffect(() => { examRef.current       = exam         }, [exam])
+  useEffect(() => {
+    userLabelRef.current = user?.email ?? user?.id ?? 'A student'
+  }, [user?.email, user?.id])
 
   // ── Submit (stable ref, no deps changing) ────────────────────────────────
   const doSubmit = useCallback(async () => {
@@ -118,6 +123,14 @@ export function useMockExamSession(examId: string): ExamSessionState {
 
     try {
       await dbSubmitExam(sid, startedAtRef.current ?? new Date().toISOString(), ans, qs)
+      try {
+        await sendExamSubmittedNotificationToAdmins(
+          userLabelRef.current,
+          ex.title,
+        )
+      } catch (notifyErr) {
+        console.error('Exam submitted but failed to notify admins:', notifyErr)
+      }
       setSubmitted(true)
     } catch {
       // still mark submitted client-side to avoid loops
