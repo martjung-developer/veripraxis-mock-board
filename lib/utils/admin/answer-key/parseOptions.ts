@@ -19,7 +19,7 @@ function isRawOption(item: unknown): item is RawOption {
 }
 
 export function parseOptions(raw: Json | null): QuestionOption[] | null {
-  if (!Array.isArray(raw)) return null
+  if (!Array.isArray(raw)) {return null}
   const result: QuestionOption[] = []
   for (const item of raw) {
     if (

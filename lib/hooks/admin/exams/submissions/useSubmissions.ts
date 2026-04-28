@@ -80,7 +80,7 @@ export function useSubmissions(examId: string): UseSubmissionsReturn {
       SubmissionService.getSubmissionsByExam(supabase, examId),
     ])
 
-    if (examResult.data) setExamInfo(examResult.data)
+    if (examResult.data) {setExamInfo(examResult.data)}
 
     if (subsResult.error) {
       setError(subsResult.error)
@@ -105,7 +105,7 @@ export function useSubmissions(examId: string): UseSubmissionsReturn {
       submissionId,
       startedAt,
     )
-    if (result.error) return result.error
+    if (result.error) {return result.error}
 
     // FIX J: Optimistic patch — only update the fields that changed.
     // Do NOT patch started_at (that value didn't change).

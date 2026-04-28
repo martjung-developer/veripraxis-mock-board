@@ -119,8 +119,8 @@ export async function signUpStudent(
     },
   })
 
-  if (error)      return { success: false, error: error.message }
-  if (!data.user) return { success: false, error: 'Account creation failed. Please try again.' }
+  if (error)      {return { success: false, error: error.message }}
+  if (!data.user) {return { success: false, error: 'Account creation failed. Please try again.' }}
 
   // 2. Write profiles + students rows via the create-profile API route.
   //    This runs server-side with the anon client that reads the session cookie,
@@ -166,7 +166,7 @@ export async function signInWithGoogle(): Promise<AuthResult> {
         : '/auth/callback',
     },
   })
-  if (error) return { success: false, error: error.message }
+  if (error) {return { success: false, error: error.message }}
   // OAuth flow triggers a full redirect — this line is rarely reached.
   return { success: true, redirectTo: '/auth/callback' }
 }
@@ -183,7 +183,7 @@ export async function signInWithFacebook(): Promise<AuthResult> {
         : '/auth/callback',
     },
   })
-  if (error) return { success: false, error: error.message }
+  if (error) {return { success: false, error: error.message }}
   return { success: true, redirectTo: '/auth/callback' }
 }
 

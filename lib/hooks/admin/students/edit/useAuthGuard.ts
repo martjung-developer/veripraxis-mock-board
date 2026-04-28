@@ -14,8 +14,8 @@ export function useAuthGuard(): { authLoading: boolean } {
   const router = useRouter()
 
   useEffect(() => {
-    if (authLoading) return
-    if (!user) router.replace('/login')
+    if (authLoading) {return}
+    if (!user) {router.replace('/login')}
   }, [authLoading, user, router])
 
   return { authLoading }

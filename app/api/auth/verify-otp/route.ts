@@ -1,5 +1,6 @@
 // app/api/auth/verify-otp/route.ts
-import { NextRequest, NextResponse } from 'next/server'
+import type { NextRequest} from 'next/server';
+import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { ROLE_DASHBOARDS } from '@/lib/types/auth/'
@@ -26,8 +27,8 @@ async function getSupabaseServer() {
 }
 
 function resolveRole(rawRole: unknown): UserRole {
-  if (rawRole === 'admin') return 'admin'
-  if (rawRole === 'faculty') return 'faculty'
+  if (rawRole === 'admin') {return 'admin'}
+  if (rawRole === 'faculty') {return 'faculty'}
   return 'student'
 }
 
@@ -79,8 +80,8 @@ export async function POST(req: NextRequest): Promise<NextResponse<VerifyOtpResu
 
 function mapOtpError(message: string): string {
   const lower = message.toLowerCase()
-  if (lower.includes('expired')) return 'Code expired. Please request a new one.'
-  if (lower.includes('invalid') || lower.includes('not found')) return 'Invalid code.'
-  if (lower.includes('too many')) return 'Too many attempts. Try again later.'
+  if (lower.includes('expired')) {return 'Code expired. Please request a new one.'}
+  if (lower.includes('invalid') || lower.includes('not found')) {return 'Invalid code.'}
+  if (lower.includes('too many')) {return 'Too many attempts. Try again later.'}
   return 'Verification failed.'
 }

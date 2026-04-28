@@ -53,7 +53,7 @@ function computeMetrics(
   exams:       RawExam[],
   categories:  { id: string; name: string }[],
 ): ProgressMetrics {
-  if (submissions.length === 0) return EMPTY_METRICS
+  if (submissions.length === 0) {return EMPTY_METRICS}
 
   // Build lookup maps
   const categoryNameMap  = new Map(categories.map((c) => [c.id, c.name]))
@@ -161,7 +161,7 @@ export function useProgress(): UseProgressReturn {
   const abortRef = useRef<AbortController | null>(null)
 
   const refetch = useCallback(async () => {
-    if (!user) return
+    if (!user) {return}
 
     abortRef.current?.abort()
     const controller = new AbortController()
@@ -191,7 +191,7 @@ export function useProgress(): UseProgressReturn {
   }, [user, supabase])
 
   useEffect(() => {
-    if (!authLoading && user) void refetch()
+    if (!authLoading && user) {void refetch()}
     return () => { abortRef.current?.abort() }
   }, [authLoading, user, refetch])
 

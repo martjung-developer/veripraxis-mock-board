@@ -34,12 +34,35 @@ export function useStudentDetail(studentId: string): UseStudentDetailReturn {
 
   const refetch = useCallback(() => setTick((t) => t + 1), [])
 
-  // ── Fetch notifications independently (used after send) ───────────────────
   const refetchNotifications = useCallback(async () => {
     try {
       const notifs = await getNotifications(supabase, studentId)
       setNotifications(notifs)
-    } catch { /* silently ignore refresh errors */ }
+    } catch { /* silently ignore */ }
+  }, [supabase, studentId])
+
+  // ── Realtime: re-fetch submissions when any submission for this student changes
+  useEffect(() => {
+    if (!studentId) { return }
+
+    const channel = supabase
+      .channel(`submissions:student:${studentId}`)
+      .on(
+        'postgres_changes',
+        {
+          event:  '*',           // INSERT, UPDATE, DELETE
+          schema: 'public',
+          table:  'submissions',
+          filter: `student_id=eq.${studentId}`,
+        },
+        () => {
+          // Re-fetch submissions slice only (cheap, targeted)
+          void getSubmissions(supabase, studentId).then(setSubmissions)
+        },
+      )
+      .subscribe()
+
+    return () => { void supabase.removeChannel(channel) }
   }, [supabase, studentId])
 
   // ── Main fetch ─────────────────────────────────────────────────────────────

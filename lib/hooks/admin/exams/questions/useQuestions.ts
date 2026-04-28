@@ -55,18 +55,18 @@ export function useQuestions(examId: string): UseQuestionsReturn {
   // ── Toast helpers ────────────────────────────────────────────────────────
 
   const showToast = useCallback((next: ToastState) => {
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    if (toastTimerRef.current) {clearTimeout(toastTimerRef.current)}
     setToast(next)
     toastTimerRef.current = setTimeout(() => setToast(null), 3000)
   }, [])
 
   const dismissToast = useCallback(() => {
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    if (toastTimerRef.current) {clearTimeout(toastTimerRef.current)}
     setToast(null)
   }, [])
 
   useEffect(() => () => {
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    if (toastTimerRef.current) {clearTimeout(toastTimerRef.current)}
   }, [])
 
   // ── Fetch ────────────────────────────────────────────────────────────────
@@ -91,7 +91,7 @@ export function useQuestions(examId: string): UseQuestionsReturn {
       setLoading(true)
       setError(null)
       const { data, error: fetchErr } = await QuestionsService.fetchQuestionsByExamId(examId)
-      if (cancelled) return
+      if (cancelled) {return}
       if (fetchErr || !data) {
         setError('Could not load questions.')
       } else {

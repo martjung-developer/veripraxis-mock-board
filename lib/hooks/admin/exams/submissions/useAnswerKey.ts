@@ -47,7 +47,7 @@ export function useAnswerKey(examId: string): UseAnswerKeyReturn {
   // Convenience map used by grading logic: questionId → correct_answer
   const keyMap = useMemo<Record<string, string | null>>(() => {
     const m: Record<string, string | null> = {}
-    for (const e of answerKey) m[e.question_id] = e.correct_answer
+    for (const e of answerKey) {m[e.question_id] = e.correct_answer}
     return m
   }, [answerKey])
 

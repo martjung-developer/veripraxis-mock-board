@@ -1,15 +1,7 @@
 // app/api/admin/exams/[examId]/submissions/[submissionId]/force-submit/route.ts
-// ─────────────────────────────────────────────────────────────────────────────
-// POST /api/admin/exams/[examId]/submissions/[submissionId]/force-submit
-//
-// Admin-only action: promotes an in_progress submission → submitted so it can
-// be graded even when the student never pressed the Submit button.
-//
-// Body (optional JSON):  { started_at?: string }
-//   If started_at is omitted we read it from the DB row.
-// ─────────────────────────────────────────────────────────────────────────────
 
-import { NextRequest, NextResponse } from 'next/server'
+import type { NextRequest} from 'next/server';
+import { NextResponse } from 'next/server'
 import { createServerClient }        from '@supabase/ssr'
 import { cookies }                   from 'next/headers'
 import type { Database }             from '@/lib/types/database'
@@ -42,7 +34,6 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 })
     }
 
-    // Optional body: { started_at?: string }
     let bodyStartedAt: string | null = null
     if ((req.headers.get('content-type') ?? '').includes('application/json')) {
       const body = (await req.json().catch(() => null)) as { started_at?: string } | null

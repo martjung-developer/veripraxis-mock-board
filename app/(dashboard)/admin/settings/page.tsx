@@ -86,7 +86,8 @@ export default function SettingsPage(): JSX.Element {
               onFullNameChange={settings.setFullName}
               onCancel={settings.resetProfileForm}
               onSave={settings.handleSaveProfile}
-              onAvatarChange={settings.handleAvatarChange}
+              onConfirmUpload={settings.handleConfirmUpload} 
+              onDeleteAvatar={settings.handleDeleteAvatar}
             />
           )}
 

@@ -12,7 +12,7 @@ import {
   useNotificationStore,
   selectToastQueue,
 } from '@/lib/stores/notifications/notificationStore'
-import { JSX } from 'react/jsx-dev-runtime'
+import type { JSX } from 'react'
 
 // ── Inline styles (no CSS module dependency needed for a floating overlay) ──
 
@@ -80,12 +80,12 @@ export function NotificationToastContainer(): JSX.Element | null {
 
   // Auto-dismiss the oldest toast after 4 seconds
   useEffect(() => {
-    if (toastQueue.length === 0) return
+    if (toastQueue.length === 0) {return}
     const timer = setTimeout(shiftToast, 4000)
     return () => clearTimeout(timer)
   }, [toastQueue, shiftToast])
 
-  if (toastQueue.length === 0) return null
+  if (toastQueue.length === 0) {return null}
 
   return (
     <>

@@ -37,9 +37,9 @@ export default function EditStudentPage({
   } = useUpdateStudent(studentId, initialForm)
 
   // ── State gates ───────────────────────────────────────────────────────────
-  if (authLoading || loading || !form) return <LoadingState />
-  if (error)   return <ErrorState  message={error} onBack={() => router.back()} />
-  if (success) return <SuccessState fullName={form.full_name} />
+  if (authLoading || loading || !form) {return <LoadingState />}
+  if (error)   {return <ErrorState  message={error} onBack={() => router.back()} />}
+  if (success) {return <SuccessState fullName={form.full_name} />}
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (

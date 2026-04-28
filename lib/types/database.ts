@@ -247,6 +247,7 @@ export type Database = {
           description:      string | null
           category_id:      string | null
           program_id:       string | null
+          program:          string | null
           exam_type:        ExamType
           duration_minutes: number
           passing_score:    number
@@ -265,6 +266,7 @@ export type Database = {
           description?:     string | null
           category_id?:     string | null
           program_id?:      string | null
+          program?:          string | null
           exam_type?:       ExamType
           duration_minutes: number
           passing_score:    number
@@ -282,6 +284,7 @@ export type Database = {
           description?:      string | null
           category_id?:      string | null
           program_id?:       string | null
+          program?:          string | null
           exam_type?:        ExamType
           duration_minutes?: number
           passing_score?:    number
@@ -303,6 +306,7 @@ export type Database = {
           points:         number
           options:        Json | null
           correct_answer: string | null
+          scenario:       string | null
           explanation:    string | null
           order_number:   number | null
           created_by:     string | null
@@ -316,6 +320,7 @@ export type Database = {
           points?:         number
           options?:        Json | null
           correct_answer?: string | null
+          scenario?:       string | null
           explanation?:    string | null
           order_number?:   number | null
           created_by?:     string | null
@@ -328,6 +333,7 @@ export type Database = {
           points?:         number
           options?:        Json | null
           correct_answer?: string | null
+          scenario?:       string | null
           explanation?:    string | null
           order_number?:   number | null
           created_by?:     string | null

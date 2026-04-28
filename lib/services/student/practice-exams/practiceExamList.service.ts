@@ -27,20 +27,20 @@ type ExamRaw = {
 }
 
 function unwrapCategory(raw: CategoryShape | CategoryShape[] | null): CategoryShape | null {
-  if (!raw) return null
+  if (!raw) {return null}
   return Array.isArray(raw) ? (raw[0] ?? null) : raw
 }
 
 function unwrapProgram(raw: ProgramShape | ProgramShape[] | null): ProgramShape {
-  if (!raw) return null
+  if (!raw) {return null}
   return Array.isArray(raw) ? (raw[0] ?? null) : raw
 }
 
 export function formatDuration(minutes: number): string {
   const h = Math.floor(minutes / 60)
   const m = minutes % 60
-  if (h === 0) return `${m} min`
-  if (m === 0) return `${h} hr${h > 1 ? 's' : ''}`
+  if (h === 0) {return `${m} min`}
+  if (m === 0) {return `${h} hr${h > 1 ? 's' : ''}`}
   return `${h} hr${h > 1 ? 's' : ''} ${m} min`
 }
 
@@ -49,12 +49,13 @@ export async function fetchStudentProgramId(
   signal: AbortSignal,
 ): Promise<string | null> {
   const supabase = createClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('students')
     .select('program_id')
     .eq('id', userId)
     .single()
     .abortSignal(signal)
+  if (error !== null) {return null}
   return data?.program_id ?? null
 }
 
@@ -66,6 +67,10 @@ export async function fetchReviewsForStudent(
   const supabase = createClient()
 
   try {
+    if (!programId) {
+      return { reviews: [], error: 'No degree program is assigned to your student account.' }
+    }
+
     const orFilter = programId
       ? `student_id.eq.${studentId},program_id.eq.${programId}`
       : `student_id.eq.${studentId}`
@@ -77,7 +82,7 @@ export async function fetchReviewsForStudent(
       .or(orFilter)
       .abortSignal(signal)
 
-    if (asnErr) return { reviews: [], error: 'Could not load assignments.' }
+    if (asnErr) {return { reviews: [], error: 'Could not load assignments.' }}
 
     const assignedIds = new Set<string>(
       (assignments ?? [])
@@ -94,12 +99,13 @@ export async function fetchReviewsForStudent(
       `)
       .eq('is_published', true)
       .eq('exam_type', 'practice')
+      .eq('program_id', programId)
       .order('created_at', { ascending: false })
       .abortSignal(signal)
 
-    if (examErr) return { reviews: [], error: 'Could not load practice exams.' }
+    if (examErr) {return { reviews: [], error: 'Could not load practice exams.' }}
 
-    const exams = (examData ?? []) as unknown as ExamRaw[]
+    const exams: ExamRaw[] = examData ?? []
     const examIds = exams.map(e => e.id)
     const qCountMap: Record<string, number> = {}
 
@@ -111,7 +117,7 @@ export async function fetchReviewsForStudent(
         .abortSignal(signal)
 
       ;(qRows ?? []).forEach((q: { exam_id: string | null }) => {
-        if (q.exam_id) qCountMap[q.exam_id] = (qCountMap[q.exam_id] ?? 0) + 1
+        if (q.exam_id) {qCountMap[q.exam_id] = (qCountMap[q.exam_id] ?? 0) + 1}
       })
     }
 
@@ -132,7 +138,7 @@ export async function fetchReviewsForStudent(
     return { reviews, error: null }
 
   } catch (err) {
-    if ((err as Error).name === 'AbortError') return { reviews: [], error: null }
+    if ((err as Error).name === 'AbortError') {return { reviews: [], error: null }}
     return { reviews: [], error: 'Unexpected error loading reviews.' }
   }
 }

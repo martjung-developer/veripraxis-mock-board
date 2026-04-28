@@ -17,7 +17,7 @@ export function StudyMaterialsPagination({
   pageNums,
   onPageChange,
 }: StudyMaterialsPaginationProps) {
-  if (totalPages <= 1) return null
+  if (totalPages <= 1) {return null}
 
   return (
     <div className={styles.pagination}>

@@ -21,7 +21,7 @@ export function AnswerCard({
   onCorrectToggle, onPointsChange, onFeedbackChange,
 }: AnswerCardProps) {
   const q = ans.question
-  if (!q) return null
+  if (!q) {return null}
 
   const Icon        = TYPE_ICONS[q.question_type]
   const isManual    = !AUTO_TYPES.includes(q.question_type)

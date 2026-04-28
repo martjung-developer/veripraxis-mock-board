@@ -48,34 +48,38 @@ export function useReviewsList(): UseReviewsListReturn {
   const [category,    setCategory]    = useState(ALL_CATEGORIES)
   const [page,        setPage]        = useState(1)
   const [programId,   setProgramId]   = useState<string | null>(null)
+  const [programReady, setProgramReady] = useState(false)
 
   // Load program_id once
   useEffect(() => {
-    if (!user) return
+    if (!user) {return}
     const controller = new AbortController()
     fetchStudentProgramId(user.id, controller.signal).then(id => {
-      if (!controller.signal.aborted && id) setProgramId(id)
+      if (!controller.signal.aborted) {
+        setProgramId(id)
+        setProgramReady(true)
+      }
     })
     return () => controller.abort()
   }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load reviews
   useEffect(() => {
-    if (!user) return
+    if (!user || !programReady) {return}
     const controller = new AbortController()
     setDataLoading(true)
     setDataError(null)
 
     fetchReviewsForStudent(user.id, programId, controller.signal).then(
       ({ reviews, error }) => {
-        if (controller.signal.aborted) return
+        if (controller.signal.aborted) {return}
         setAllReviews(reviews)
         setDataError(error)
         setDataLoading(false)
       },
     )
     return () => controller.abort()
-  }, [user?.id, programId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id, programId, programReady]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const categories = useMemo(() => {
     const unique = Array.from(new Set(allReviews.map(r => r.category))).sort()
@@ -98,12 +102,12 @@ export function useReviewsList(): UseReviewsListReturn {
   const pageNums = useMemo((): (number | '…')[] => {
     const nums: (number | '…')[] = []
     if (totalPages <= 7) {
-      for (let i = 1; i <= totalPages; i++) nums.push(i)
+      for (let i = 1; i <= totalPages; i++) {nums.push(i)}
     } else {
       nums.push(1)
-      if (safePage > 3) nums.push('…')
-      for (let i = Math.max(2, safePage - 1); i <= Math.min(totalPages - 1, safePage + 1); i++) nums.push(i)
-      if (safePage < totalPages - 2) nums.push('…')
+      if (safePage > 3) {nums.push('…')}
+      for (let i = Math.max(2, safePage - 1); i <= Math.min(totalPages - 1, safePage + 1); i++) {nums.push(i)}
+      if (safePage < totalPages - 2) {nums.push('…')}
       nums.push(totalPages)
     }
     return nums

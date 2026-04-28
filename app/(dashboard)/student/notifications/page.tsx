@@ -31,7 +31,7 @@ import {
 } from '@/components/dashboard/student/notifications'
 
 import styles from './notifications.module.css'
-import { JSX } from 'react/jsx-dev-runtime'
+import type { JSX } from 'react/jsx-dev-runtime'
 
 export default function StudentNotificationsPage(): JSX.Element {
   const { user } = useUser()

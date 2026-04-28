@@ -49,7 +49,7 @@ export function toDisplayStatus(raw: string): DisplaySubmissionStatus {
 export function pickBestSubmission(
   rows: SubmissionProjection[],
 ): SubmissionProjection | null {
-  if (rows.length === 0) return null
+  if (rows.length === 0) {return null}
   return rows.reduce((best, cur) => {
     const bestPrio = SUBMISSION_STATUS_PRIORITY[best.status] ?? 0
     const curPrio  = SUBMISSION_STATUS_PRIORITY[cur.status]  ?? 0
@@ -69,7 +69,7 @@ export function buildBestSubmissionMap(
   const grouped: Record<string, SubmissionProjection[]> = {}
 
   for (const sub of rows) {
-    if (!sub.student_id) continue
+    if (!sub.student_id) {continue}
     const bucket = grouped[sub.student_id]
     if (bucket) {
       bucket.push(sub)
@@ -81,7 +81,7 @@ export function buildBestSubmissionMap(
   const result: Record<string, SubmissionProjection> = {}
   for (const [sid, subs] of Object.entries(grouped)) {
     const best = pickBestSubmission(subs)
-    if (best) result[sid] = best
+    if (best) {result[sid] = best}
   }
   return result
 }
@@ -97,7 +97,7 @@ export function buildBestSubmissionMap(
 export function unwrapJoin<T extends object>(
   value: T | T[] | null | undefined,
 ): T | null {
-  if (!value) return null
+  if (!value) {return null}
   return Array.isArray(value) ? (value[0] ?? null) : value
 }
 

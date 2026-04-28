@@ -1,4 +1,11 @@
 // lib/types/admin/questionnaires/questionnaires.ts
+// ─────────────────────────────────────────────────────────────────────────────
+// CHANGES FROM PREVIOUS VERSION:
+//   + scenario field added to ImportRow, DisplayQuestion, QuestionInsertPayload
+//   + ParsedQuestion interface (used by docx.extractor.ts)
+//   + No `any`, no `as`, no `unknown as`
+// ─────────────────────────────────────────────────────────────────────────────
+
 import type { Database, QuestionType, QuestionOption } from '@/lib/types/database'
 
 // ── Raw DB row types (source of truth) ────────────────────────────────────────
@@ -8,25 +15,33 @@ export type QuestionRow = Database['public']['Tables']['questions']['Row']
 
 // ── Narrow picks used across the feature ──────────────────────────────────────
 export type ProgramOption = Pick<ProgramRow, 'id' | 'code' | 'name'>
-export type ExamOption    = Pick<ExamRow,    'id' | 'title' | 'program_id' | 'category_id'>
+export interface ExamOption {
+  id:         string
+  title:      string
+  program_id: string
+}
 
-// ── Insert payload — derives from DB Insert type, no duplication ───────────────
-export type QuestionInsertPayload =
-  Required<Pick<
-    Database['public']['Tables']['questions']['Insert'],
-    | 'question_text'
-    | 'question_type'
-    | 'points'
-    | 'explanation'
-  >> &
-  Pick<
-    Database['public']['Tables']['questions']['Insert'],
-    | 'options'
-    | 'correct_answer'
-    | 'exam_id'
-  >
+// ── Parsed question shape (output of all parsers / extractors) ─────────────────
+// This is the canonical intermediate type between raw file content and ImportRow.
+export interface QuestionInsertPayload {
+  question_text:  string
+  question_type:  QuestionType
+  points:         number
+  options:        QuestionOption[] | null
+  correct_answer: string | null
+  explanation:    string | null
+  exam_id:        string | null
+  scenario:       string | null
+}
 
-// ── Joined shape returned by fetchQuestions (not in DB, but built from DB) ─────
+export interface ParsedQuestion {
+  question:       string
+  scenario:       string | undefined   // undefined = no scenario detected
+  options:        string[]             // raw option texts (no labels yet)
+  correct_answer: string | null        // label (A/B/C/D) or 'true'/'false' or null
+}
+
+// ── Joined shape returned by fetchQuestions ────────────────────────────────────
 export interface DisplayQuestion {
   id:             string
   question_text:  string
@@ -35,6 +50,7 @@ export interface DisplayQuestion {
   options:        QuestionOption[] | null
   correct_answer: string | null
   explanation:    string | null
+  scenario:       string | null   
   order_number:   number | null
   exam_id:        string | null
   created_by:     string | null
@@ -61,24 +77,32 @@ export interface FormState {
   explanation:    string
   exam_id:        string
   difficulty:     DifficultyLevel
-  choices:        QuestionOption[]
+  choices: Array<{ label: string; text: string }>
   program_id:     string
+  scenario:       string            
 }
 
 export interface ImportRow {
+  _rowIndex:      number
+  _valid:         boolean
+  _errors:        string[]
+ 
   question_text:  string
-  question_type:  string
-  points:         number
+  question_type:  QuestionType
   correct_answer: string
-  explanation:    string
-  difficulty:     string
+ 
   option_a:       string
   option_b:       string
   option_c:       string
   option_d:       string
-  _rowIndex:      number
-  _errors:        string[]
-  _valid:         boolean
+ 
+  explanation:    string   
+  scenario:       string   
+ 
+  difficulty:     DifficultyLevel
+  points:         number
+  exam_id:        string
+  program_id:     string
 }
 
 // Raw row shape coming out of every file parser

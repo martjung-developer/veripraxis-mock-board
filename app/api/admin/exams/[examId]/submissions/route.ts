@@ -1,14 +1,7 @@
 // app/api/admin/exams/[examId]/submissions/route.ts
-// ─────────────────────────────────────────────────────────────────────────────
-// GET  /api/admin/exams/[examId]/submissions
-//   Returns all submissions for an exam (flat, no joins — see service for why).
-//
-// POST /api/admin/exams/[examId]/submissions/[submissionId]/force-submit
-//   Promotes an in_progress submission to submitted.
-//   (See the force-submit route below.)
-// ─────────────────────────────────────────────────────────────────────────────
 
-import { NextRequest, NextResponse } from 'next/server'
+import type { NextRequest} from 'next/server';
+import { NextResponse } from 'next/server'
 import { createServerClient }        from '@supabase/ssr'
 import { cookies }                   from 'next/headers'
 import type { Database }             from '@/lib/types/database'
@@ -42,8 +35,6 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 })
     }
 
-    // Flat query — no joins. Student profile data fetched separately in the
-    // client service (two-step approach to avoid PostgREST FK ambiguity).
     const { data, error } = await supabase
       .from('submissions')
       .select(

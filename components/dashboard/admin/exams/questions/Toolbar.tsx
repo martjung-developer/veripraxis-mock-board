@@ -5,7 +5,7 @@ import { Filter, Search, X } from 'lucide-react'
 import type { QuestionType, TypeFilter } from '@/lib/types/admin/exams/questions/questions.types'
 import { GROUP_ORDER, TYPE_META } from '@/lib/utils/admin/questions/helpers'
 import s from '@/app/(dashboard)/admin/exams/[examId]/questions/questions.module.css'
-import { JSX } from 'react/jsx-dev-runtime'
+import type { JSX } from 'react/jsx-dev-runtime'
 
 interface ToolbarProps {
   search:        string
@@ -24,6 +24,9 @@ export function Toolbar({
   onExpandAll,
   onCollapseAll,
 }: ToolbarProps): JSX.Element {
+  const isTypeFilter = (value: string): value is TypeFilter =>
+    value === 'all' || GROUP_ORDER.some((type) => type === value)
+
   return (
     <div className={s.toolbar}>
       {/* Search */}
@@ -48,7 +51,10 @@ export function Toolbar({
         <select
           className={s.filterSelect}
           value={typeFilter}
-          onChange={(e) => onTypeFilterChange(e.target.value as TypeFilter)}
+          onChange={(e) => {
+            const value = e.target.value
+            if (isTypeFilter(value)) {onTypeFilterChange(value)}
+          }}
         >
           <option value="all">All Types</option>
           {GROUP_ORDER.map((t: QuestionType) => (

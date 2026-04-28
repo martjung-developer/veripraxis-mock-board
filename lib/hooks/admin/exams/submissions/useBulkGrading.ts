@@ -72,7 +72,7 @@ export function useBulkGrading(): UseBulkGradingReturn {
     // FIX G: Use the same GRADEABLE_STATUSES constant as useSubmissions so
     // the count shown in the panel and the rows actually processed are identical.
     const gradeable = submissions.filter(s => GRADEABLE_STATUSES.includes(s.status))
-    if (!gradeable.length) return
+    if (!gradeable.length) {return}
 
     setBulkGrading(true)
     setBulkProgress({ done: 0, total: gradeable.length })
@@ -101,7 +101,7 @@ export function useBulkGrading(): UseBulkGradingReturn {
 
       for (const row of ansData as unknown as BulkAnsRaw[]) {
         const q = row.questions
-        if (!q || !VALID_TYPES.has(q.question_type)) continue
+        if (!q || !VALID_TYPES.has(q.question_type)) {continue}
 
         const qType = q.question_type as QuestionType
         const key   = gradingMode === 'manual'
@@ -165,33 +165,32 @@ export function useReleaseResults(): UseReleaseResultsReturn {
   const releaseResults = useCallback(async (
     submissions: Submission[],
     onUpdate:    (id: string, patch: Partial<Submission>) => void,
+    onDone?:     () => Promise<void>,   // ← ADD: trigger a refetch after all releases
   ) => {
-    // FIX F-1: Use RELEASABLE_STATUSES constant — only 'reviewed' rows qualify.
-    // Previously this was an inline filter that could get out of sync.
     const toRelease = submissions.filter(s => RELEASABLE_STATUSES.includes(s.status))
-    if (!toRelease.length) return
+    if (!toRelease.length) {return}
 
     setReleasing(true)
     const now = new Date().toISOString()
+    const failed: string[] = []
 
     for (const sub of toRelease) {
-      // FIX F-2: `satisfies SubmissionUpdate` replaces the old
-      // `as Record<string, unknown>` unsafe cast.
-      // This works because database.ts now has:
-      //   status?:      SubmissionStatus  (which includes 'released')
-      //   released_at?: string | null
       const patch = {
         status:      'released',
         released_at: now,
       } satisfies SubmissionUpdate
 
-      const { error } = await supabase
+      // CRITICAL FIX: use .select('id') to detect RLS silent failures
+      const { data, error } = await supabase
         .from('submissions')
         .update(patch)
         .eq('id', sub.id)
+        .select('id')
+        .single()
 
-      if (error) {
-        console.error('[useReleaseResults] failed to release submission:', sub.id, error.message)
+      if (error || !data) {
+        console.error('[releaseResults] failed:', sub.id, error?.message ?? 'no row returned')
+        failed.push(sub.id)
         continue
       }
 
@@ -199,6 +198,14 @@ export function useReleaseResults(): UseReleaseResultsReturn {
     }
 
     setReleasing(false)
+
+    if (failed.length > 0) {
+      console.error(`[releaseResults] ${failed.length} submissions failed to release:`, failed)
+    }
+
+    // Refetch from DB to guarantee UI reflects persisted state
+    if (onDone) {await onDone()}
+
   }, [supabase])
 
   return { releasing, releaseResults }

@@ -1,70 +1,66 @@
 // components/dashboard/admin/notifications/NotificationList.tsx
 // ─────────────────────────────────────────────────────────────────────────────
-// Pure UI components:
-//   NotificationList   – wraps the card shell + list of items
-//   NotificationItem   – single row (title, badge, message, actions)
-//   TypeBadge          – coloured pill for exam / result / general
-//   EmptyState         – zero-result placeholder
-//   SkeletonLoader     – shimmer rows shown during initial load
+// CHANGED (surgical only):
+//  1. NotificationItem — added "Preview" button (Eye icon)
+//  2. NotificationItem — "Mark as read" button now toggles read ↔ unread
+//  3. NotificationList — added onPreview + onToggleRead props
+//  All other code is identical to the original.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { Bell, CheckCheck, Clock, Trash2 } from "lucide-react";
-import type { Notification } from "@/lib/types/admin/notifications/notifications.types";
-import styles from "@/app/(dashboard)/admin/notifications/notifications.module.css";
+import { Bell, CheckCheck, Clock, Eye, RotateCcw, Trash2 } from "lucide-react"
+import type { Notification } from "@/lib/types/admin/notifications/notifications.types"
+import styles from "@/app/(dashboard)/admin/notifications/notifications.module.css"
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Helpers
+// Helpers  (unchanged)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString("en-PH", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+    month:   "short",
+    day:     "numeric",
+    year:    "numeric",
+    hour:    "2-digit",
+    minute:  "2-digit",
+  })
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TypeBadge
+// TypeBadge  (unchanged — re-exported so modal can import it)
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface TypeBadgeProps {
-  type: string | null;
-}
+interface TypeBadgeProps { type: string | null }
 
 export function TypeBadge({ type }: TypeBadgeProps) {
-  const t = (type ?? "general") as "exam" | "result" | "general";
+  const t   = (type ?? "general") as "exam" | "result" | "general"
   const cls =
-    t === "exam"
-      ? styles.typeBadgeExam
-      : t === "result"
-      ? styles.typeBadgeResult
-      : styles.typeBadgeGeneral;
-  return <span className={`${styles.typeBadge} ${cls}`}>{t}</span>;
+    t === "exam"    ? styles.typeBadgeExam    :
+    t === "result"  ? styles.typeBadgeResult  :
+    styles.typeBadgeGeneral
+  return <span className={`${styles.typeBadge} ${cls}`}>{t}</span>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// NotificationItem
+// NotificationItem  — CHANGED: preview button + toggle read/unread
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface NotificationItemProps {
-  notification: Notification;
-  onMarkRead: (id: string) => void;
-  onDelete: (id: string) => void;
+  notification:  Notification
+  onMarkRead:    (id: string) => void       // kept for back-compat (page passes markAsRead)
+  onToggleRead:  (id: string, isRead: boolean) => void   // NEW
+  onDelete:      (id: string) => void
+  onPreview:     (notification: Notification) => void    // NEW
 }
 
 export function NotificationItem({
   notification: notif,
-  onMarkRead,
+  onToggleRead,
   onDelete,
+  onPreview,
 }: NotificationItemProps) {
   return (
     <div
-      className={`${styles.notifItem} ${
-        !notif.is_read ? styles.notifItemUnread : ""
-      }`}
+      className={`${styles.notifItem} ${!notif.is_read ? styles.notifItemUnread : ""}`}
     >
       <div
         className={`${styles.notifDot} ${
@@ -75,9 +71,7 @@ export function NotificationItem({
       <div className={styles.notifContent}>
         <div className={styles.notifTop}>
           <span
-            className={`${styles.notifTitle} ${
-              notif.is_read ? styles.notifTitleRead : ""
-            }`}
+            className={`${styles.notifTitle} ${notif.is_read ? styles.notifTitleRead : ""}`}
           >
             {notif.title ?? "—"}
           </span>
@@ -91,16 +85,30 @@ export function NotificationItem({
         </span>
       </div>
 
+      {/* Actions — preview + toggle read + delete */}
       <div className={styles.notifActions}>
-        {!notif.is_read && (
-          <button
-            className={styles.btnGhost}
-            onClick={() => onMarkRead(notif.id)}
-            title="Mark as read"
-          >
-            <CheckCheck size={13} />
-          </button>
-        )}
+        {/* Preview — always visible */}
+        <button
+          className={styles.btnGhost}
+          onClick={() => onPreview(notif)}
+          title="Preview"
+        >
+          <Eye size={13} />
+        </button>
+
+        {/* Toggle read ↔ unread */}
+        <button
+          className={styles.btnGhost}
+          onClick={() => onToggleRead(notif.id, notif.is_read)}
+          title={notif.is_read ? "Mark as unread" : "Mark as read"}
+        >
+          {notif.is_read
+            ? <RotateCcw size={13} />
+            : <CheckCheck size={13} />
+          }
+        </button>
+
+        {/* Delete */}
         <button
           className={styles.btnDanger}
           onClick={() => onDelete(notif.id)}
@@ -110,11 +118,11 @@ export function NotificationItem({
         </button>
       </div>
     </div>
-  );
+  )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// EmptyState
+// EmptyState  (unchanged)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function EmptyState() {
@@ -128,11 +136,11 @@ export function EmptyState() {
         Use the Send Notification button above to reach your students.
       </p>
     </div>
-  );
+  )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SkeletonRow / SkeletonLoader
+// SkeletonRow
 // ─────────────────────────────────────────────────────────────────────────────
 
 function SkeletonRow() {
@@ -140,51 +148,45 @@ function SkeletonRow() {
     <div className={styles.skeletonItem}>
       <div
         className={styles.skeleton}
-        style={{
-          width: 7,
-          height: 7,
-          borderRadius: "50%",
-          marginTop: 5,
-          flexShrink: 0,
-        }}
+        style={{ width: 7, height: 7, borderRadius: "50%", marginTop: 5, flexShrink: 0 }}
       />
-      <div
-        style={{ flex: 1, display: "flex", flexDirection: "column", gap: 7 }}
-      >
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 7 }}>
         <div className={styles.skeleton} style={{ width: "40%", height: 12 }} />
         <div className={styles.skeleton} style={{ width: "70%", height: 11 }} />
         <div className={styles.skeleton} style={{ width: "22%", height: 10 }} />
       </div>
     </div>
-  );
+  )
 }
 
 export function SkeletonLoader() {
   return (
     <div className={styles.notifList}>
-      {[1, 2, 3, 4].map((i) => (
-        <SkeletonRow key={i} />
-      ))}
+      {[1, 2, 3, 4].map((i) => <SkeletonRow key={i} />)}
     </div>
-  );
+  )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// NotificationList  (main export — card shell + content)
+// NotificationList  
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface NotificationListProps {
-  notifications: Notification[];
-  loading: boolean;
-  onMarkRead: (id: string) => void;
-  onDelete: (id: string) => void;
+  notifications: Notification[]
+  loading:       boolean
+  onMarkRead:    (id: string) => void
+  onToggleRead:  (id: string, isRead: boolean) => void   // NEW
+  onDelete:      (id: string) => void
+  onPreview:     (notification: Notification) => void    // NEW
 }
 
 export function NotificationList({
   notifications,
   loading,
   onMarkRead,
+  onToggleRead,
   onDelete,
+  onPreview,
 }: NotificationListProps) {
   return (
     <div className={styles.card}>
@@ -211,11 +213,13 @@ export function NotificationList({
               key={notif.id}
               notification={notif}
               onMarkRead={onMarkRead}
+              onToggleRead={onToggleRead}
               onDelete={onDelete}
+              onPreview={onPreview}
             />
           ))}
         </div>
       )}
     </div>
-  );
+  )
 }

@@ -1,7 +1,7 @@
 // animations/admin/study-materials/study-materials.ts
 // 3 animations only — all use `initial: false` or zero-delay to avoid blocking render.
 
-import { Variants } from 'framer-motion'
+import type { Variants } from 'framer-motion'
 
 // ── 1. Container — instant mount, staggers children with minimal delay ─────────
 export const containerVariants: Variants = {

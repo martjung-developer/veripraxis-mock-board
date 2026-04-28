@@ -15,29 +15,51 @@ import {
   Trash2,
   TrendingUp,
 } from 'lucide-react'
+
 import { getStaggerClass, notifAnimations } from '@/animations/notifications/notifications'
 import { timeAgo } from '@/lib/utils/student/notifications/helpers'
-import type { Notification, NotifType } from '@/lib/types/student/notifications/notifications.types'
+import type {
+  Notification,
+  NotifType,
+} from '@/lib/types/student/notifications/notifications.types'
+
 import styles from '@/app/(dashboard)/student/notifications/notifications.module.css'
-import { JSX } from 'react/jsx-dev-runtime'
+import type { JSX } from 'react'
 
 // ── Icon map ───────────────────────────────────────────────────────────────
 
 const ICON_MAP: Record<NotifType, { icon: React.ReactNode; cls: string }> = {
-  exam:     { icon: <ClipboardList size={18} />, cls: styles.iconExam     },
-  progress: { icon: <TrendingUp    size={18} />, cls: styles.iconProgress },
-  reminder: { icon: <AlarmClock    size={18} />, cls: styles.iconReminder },
-  study:    { icon: <BookOpen      size={18} />, cls: styles.iconStudy    },
-  streak:   { icon: <Flame         size={18} />, cls: styles.iconStreak   },
-  system:   { icon: <ShieldCheck   size={18} />, cls: styles.iconSystem   },
+  exam: { icon: <ClipboardList size={18} />, cls: styles.iconExam },
+  progress: { icon: <TrendingUp size={18} />, cls: styles.iconProgress },
+  reminder: { icon: <AlarmClock size={18} />, cls: styles.iconReminder },
+  study: { icon: <BookOpen size={18} />, cls: styles.iconStudy },
+  streak: { icon: <Flame size={18} />, cls: styles.iconStreak },
+  system: { icon: <ShieldCheck size={18} />, cls: styles.iconSystem },
 }
 
-interface NotificationItemProps {
-  notification:  Notification
-  index:         number
-  onToggleRead:  (id: string, currentState: boolean) => void
-  onDelete:      (id: string) => void
+// ── Safe fallback for unknown DB values ────────────────────────────────────
+
+const fallbackIcon = {
+  icon: <ShieldCheck size={18} />,
+  cls: styles.iconSystem,
 }
+
+// ── Props ──────────────────────────────────────────────────────────────────
+
+interface NotificationItemProps {
+  notification: Notification
+  index: number
+  onToggleRead: (id: string, currentState: boolean) => void
+  onDelete: (id: string) => void
+}
+
+// ── Type guard (optional safety net) ───────────────────────────────────────
+
+function isNotifType(value: string): value is NotifType {
+  return value in ICON_MAP
+}
+
+// ── Component ──────────────────────────────────────────────────────────────
 
 export function NotificationItem({
   notification: n,
@@ -45,11 +67,16 @@ export function NotificationItem({
   onToggleRead,
   onDelete,
 }: NotificationItemProps): JSX.Element {
-  const { icon, cls } = ICON_MAP[n.type]
+  // SAFE ICON RESOLUTION
+  const entry = isNotifType(n.type)
+    ? ICON_MAP[n.type]
+    : fallbackIcon
+
+  const { icon, cls } = entry
 
   function handleItemClick() {
-    if (!n.is_read) onToggleRead(n.id, false)
-    if (n.link) window.location.href = n.link
+    if (!n.is_read) {onToggleRead(n.id, false)}
+    if (n.link) {window.location.href = n.link}
   }
 
   return (
@@ -68,6 +95,7 @@ export function NotificationItem({
       <div className={styles.notifBody}>
         <div className={styles.notifTitleRow}>
           <span className={styles.notifTitle}>{n.title}</span>
+
           {!n.is_read && (
             <span className={`${styles.unreadDot} ${notifAnimations.dotPulse}`} />
           )}

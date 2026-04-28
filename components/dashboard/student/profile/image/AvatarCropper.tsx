@@ -69,10 +69,10 @@ export function AvatarCropper({ file, onComplete, onCancel }: AvatarCropperProps
   const draw = useCallback(() => {
     const canvas = canvasRef.current
     const img    = imageRef.current
-    if (!canvas || !img) return
+    if (!canvas || !img) {return}
 
     const ctx = canvas.getContext('2d')
-    if (!ctx) return
+    if (!ctx) {return}
 
     const base  = (img as HTMLImageElement & { baseScale?: number }).baseScale ?? 1
     const scale = base * zoomRef.current
@@ -98,7 +98,7 @@ export function AvatarCropper({ file, onComplete, onCancel }: AvatarCropperProps
 
   // ── Pointer helpers ────────────────────────────────────────────────────────
   function getXY(e: RMouseEvent | RTouchEvent): { x: number; y: number } {
-    if ('touches' in e) return { x: e.touches[0].clientX, y: e.touches[0].clientY }
+    if ('touches' in e) {return { x: e.touches[0].clientX, y: e.touches[0].clientY }}
     return { x: e.clientX, y: e.clientY }
   }
 
@@ -108,7 +108,7 @@ export function AvatarCropper({ file, onComplete, onCancel }: AvatarCropperProps
   }, [])
 
   const onPointerMove = useCallback((e: RMouseEvent | RTouchEvent) => {
-    if (!dragging.current || !lastPos.current) return
+    if (!dragging.current || !lastPos.current) {return}
     const { x, y } = getXY(e)
     offset.current.x += x - lastPos.current.x
     offset.current.y += y - lastPos.current.y
@@ -124,7 +124,7 @@ export function AvatarCropper({ file, onComplete, onCancel }: AvatarCropperProps
   // ── Confirm ────────────────────────────────────────────────────────────────
   const handleConfirm = useCallback(() => {
     const canvas = canvasRef.current
-    if (!canvas) return
+    if (!canvas) {return}
     onComplete(canvas.toDataURL('image/png', 0.92))
   }, [onComplete])
 

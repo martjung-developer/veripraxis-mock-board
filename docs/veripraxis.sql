@@ -1,6 +1,16 @@
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
+CREATE TABLE public.admins (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid UNIQUE,
+  admin_id text NOT NULL UNIQUE,
+  full_name text NOT NULL,
+  email text NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT admins_pkey PRIMARY KEY (id),
+  CONSTRAINT admins_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
 CREATE TABLE public.analytics (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   student_id uuid,
@@ -84,17 +94,43 @@ CREATE TABLE public.exams (
   exam_type text NOT NULL DEFAULT 'mock'::text CHECK (exam_type = ANY (ARRAY['mock'::text, 'practice'::text])),
   program_id uuid,
   grading_mode text DEFAULT 'auto'::text,
+  allowed_programs ARRAY,
+  allowed_year_levels ARRAY,
+  program text,
   CONSTRAINT exams_pkey PRIMARY KEY (id),
   CONSTRAINT exams_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.exam_categories(id),
   CONSTRAINT exams_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id),
   CONSTRAINT exams_program_id_fkey FOREIGN KEY (program_id) REFERENCES public.programs(id)
 );
+CREATE TABLE public.faculty (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid UNIQUE,
+  faculty_id text NOT NULL UNIQUE,
+  full_name text NOT NULL,
+  email text NOT NULL,
+  is_active boolean NOT NULL DEFAULT true,
+  created_by uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT faculty_pkey PRIMARY KEY (id),
+  CONSTRAINT faculty_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT faculty_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
+);
+CREATE TABLE public.favorites (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  material_id uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT favorites_pkey PRIMARY KEY (id),
+  CONSTRAINT favorites_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id),
+  CONSTRAINT favorites_material_id_fkey FOREIGN KEY (material_id) REFERENCES public.study_materials(id)
+);
 CREATE TABLE public.notifications (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  user_id uuid,
-  title text,
-  message text,
-  type text,
+  user_id uuid NOT NULL,
+  title text NOT NULL,
+  message text NOT NULL,
+  type USER-DEFINED NOT NULL DEFAULT 'general'::notif_type,
   is_read boolean DEFAULT false,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT notifications_pkey PRIMARY KEY (id),
@@ -161,6 +197,7 @@ CREATE TABLE public.questions (
   order_number integer,
   created_by uuid,
   created_at timestamp with time zone DEFAULT now(),
+  scenario text,
   CONSTRAINT questions_pkey PRIMARY KEY (id),
   CONSTRAINT questions_exam_id_fkey FOREIGN KEY (exam_id) REFERENCES public.exams(id),
   CONSTRAINT questions_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
@@ -188,17 +225,19 @@ CREATE TABLE public.storage_files (
 );
 CREATE TABLE public.students (
   id uuid NOT NULL,
-  student_id text UNIQUE,
+  student_id text NOT NULL UNIQUE,
   school text,
-  year_level integer,
+  year_level integer NOT NULL,
   target_exam text,
   created_at timestamp with time zone DEFAULT now(),
-  program_id uuid,
+  program_id uuid NOT NULL,
   school_id uuid,
+  user_id uuid UNIQUE,
   CONSTRAINT students_pkey PRIMARY KEY (id),
   CONSTRAINT students_id_fkey FOREIGN KEY (id) REFERENCES public.profiles(id),
   CONSTRAINT students_program_id_fkey FOREIGN KEY (program_id) REFERENCES public.programs(id),
-  CONSTRAINT students_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id)
+  CONSTRAINT students_school_id_fkey FOREIGN KEY (school_id) REFERENCES public.schools(id),
+  CONSTRAINT students_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 ALTER TABLE public.exam_assignments
   ADD CONSTRAINT exam_assignments_student_exam_unique UNIQUE (student_id, exam_id);
@@ -243,6 +282,9 @@ CREATE TABLE public.study_materials (
   created_by uuid,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  external_url text,
+  meeting_url text,
+  link_type text CHECK (link_type IS NULL OR (link_type = ANY (ARRAY['video'::text, 'meeting'::text, 'drive'::text, 'other'::text]))),
   CONSTRAINT study_materials_pkey PRIMARY KEY (id),
   CONSTRAINT study_materials_program_id_fkey FOREIGN KEY (program_id) REFERENCES public.programs(id),
   CONSTRAINT study_materials_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
@@ -260,7 +302,37 @@ CREATE TABLE public.submissions (
   passed boolean,
   created_at timestamp with time zone DEFAULT now(),
   released_at timestamp with time zone,
+  program_id uuid,
+  year_level integer,
+  attempt_no smallint NOT NULL DEFAULT 1 CHECK (attempt_no >= 1 AND attempt_no <= 3),
   CONSTRAINT submissions_pkey PRIMARY KEY (id),
   CONSTRAINT submissions_exam_id_fkey FOREIGN KEY (exam_id) REFERENCES public.exams(id),
+<<<<<<< Updated upstream
   CONSTRAINT submissions_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id)
 );
+=======
+  CONSTRAINT submissions_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id),
+  CONSTRAINT submissions_program_id_fkey FOREIGN KEY (program_id) REFERENCES public.programs(id)
+);
+CREATE TABLE public.support_tickets (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  user_id uuid NOT NULL,
+  subject text NOT NULL,
+  category text NOT NULL DEFAULT 'other'::text,
+  priority text NOT NULL DEFAULT 'normal'::text CHECK (priority = ANY (ARRAY['low'::text, 'normal'::text, 'high'::text, 'urgent'::text])),
+  description text NOT NULL,
+  status text NOT NULL DEFAULT 'open'::text CHECK (status = ANY (ARRAY['open'::text, 'in_progress'::text, 'resolved'::text, 'closed'::text])),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  resolved_at timestamp with time zone,
+  CONSTRAINT support_tickets_pkey PRIMARY KEY (id),
+  CONSTRAINT support_tickets_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.users (
+  id uuid NOT NULL,
+  role text NOT NULL CHECK (role = ANY (ARRAY['student'::text, 'faculty'::text, 'admin'::text])),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT users_pkey PRIMARY KEY (id),
+  CONSTRAINT users_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
+);
+>>>>>>> Stashed changes

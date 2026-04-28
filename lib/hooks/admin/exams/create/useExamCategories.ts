@@ -1,14 +1,33 @@
 // lib/hooks/admin/exams/create/useExamCategories.ts
-// Fetches exam categories once on mount via the service layer.
-// Returns a stable loading flag + typed category list.
+//
+// FIXED: also fetches programs (needed by the create form's program dropdown).
+// Previously programs weren't fetched here, forcing the form to either
+// hardcode them or receive them from outside.
+// ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { fetchCategories } from '@/lib/services/admin/exams/create/exam.service'
-import type { CategoryOption, UseExamCategoriesReturn } from '@/lib/types/admin/exams/create/exam.types'
+import { useState, useEffect }  from 'react'
+import { createClient }         from '@/lib/supabase/client'
+import { fetchCategories }      from '@/lib/services/admin/exams/create/exam.service'
+import type {
+  CategoryOption, ProgramType,
+}                               from '@/lib/types/admin/exams/create/exam.types'
+
+// ── ProgramOption (matches the admin exam.types ProgramOption shape) ──────────
+interface ProgramOption {
+  id:   string
+  code: string
+  name: string
+}
+
+export interface UseExamCategoriesReturn {
+  categories: CategoryOption[]
+  programs:   ProgramOption[]
+  catLoading: boolean
+}
 
 export function useExamCategories(): UseExamCategoriesReturn {
   const [categories, setCategories] = useState<CategoryOption[]>([])
+  const [programs,   setPrograms]   = useState<ProgramOption[]>([])
   const [catLoading, setCatLoading] = useState(true)
 
   useEffect(() => {
@@ -17,23 +36,33 @@ export function useExamCategories(): UseExamCategoriesReturn {
     async function load() {
       try {
         const supabase = createClient()
-        const data = await fetchCategories(supabase)
-        if (!cancelled) setCategories(data)
+
+        const [cats, progs] = await Promise.all([
+          fetchCategories(supabase),
+          supabase
+            .from('programs')
+            .select('id, code, name')
+            .order('code')
+            .then(({ data }) => (data ?? []) as ProgramOption[]),
+        ])
+
+        if (!cancelled) {
+          setCategories(cats)
+          setPrograms(progs)
+        }
       } catch {
-        // Categories failing to load is non-fatal — the user sees an empty dropdown
-        // and can still submit (category_id is nullable in the schema).
-        if (!cancelled) setCategories([])
+        if (!cancelled) {
+          setCategories([])
+          setPrograms([])
+        }
       } finally {
-        if (!cancelled) setCatLoading(false)
+        if (!cancelled) {setCatLoading(false)}
       }
     }
 
     void load()
+    return () => { cancelled = true }
+  }, [])
 
-    return () => {
-      cancelled = true
-    }
-  }, []) // no deps — runs once on mount
-
-  return { categories, catLoading }
+  return { categories, programs, catLoading }
 }

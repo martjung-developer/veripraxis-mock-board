@@ -141,6 +141,67 @@
 .skelCell{display:flex;align-items:center;gap:10px}
 .spinner{animation:spin .8s linear infinite}
 
+/* ── Multi-attempt summary grid (below primary 6-card grid) ── */
+.multiAttemptGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-bottom:1rem}
+ 
+/* ── Expanded table row highlight ── */
+.tableRowExpanded td{background:var(--primary-pale)!important}
+ 
+/* ── Expand toggle button ── */
+.expandBtn{display:inline-flex;align-items:center;gap:4px;padding:.25rem .5rem;border-radius:7px;border:1.5px solid var(--border);background:var(--surface);color:var(--text-muted);font-family:var(--font-body);font-size:.7rem;font-weight:700;cursor:pointer;transition:all .13s;white-space:nowrap}
+.expandBtn:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-pale)}
+.expandBtnMulti{border-color:var(--primary-tint);color:var(--primary)}
+.expandBtnCount{font-size:.67rem;font-weight:800;background:var(--primary-tint);color:var(--primary);border-radius:10px;padding:1px 6px;min-width:16px;text-align:center}
+.expandBtnPlaceholder{font-size:.73rem;color:var(--border);user-select:none}
+ 
+/* ── Attempt panel row ── */
+.attemptPanelRow td{padding:0!important;border-bottom:2px solid var(--primary-tint)!important}
+.attemptPanelCell{padding:0}
+.attemptPanel{padding:.85rem 1.25rem 1rem;background:var(--surface-soft);border-top:1px solid var(--border-soft)}
+ 
+/* ── Attempt panel header ── */
+.attemptPanelHeader{display:flex;align-items:center;gap:.75rem;margin-bottom:.85rem;flex-wrap:wrap}
+.attemptPanelTitle{font-family:var(--font-head);font-size:.76rem;font-weight:800;color:var(--text);letter-spacing:-.01em}
+.attemptPanelMeta{font-size:.7rem;color:var(--text-muted);font-weight:600;background:var(--surface-tint);border:1px solid var(--border-soft);border-radius:20px;padding:2px 9px}
+.attemptPanelTrend{display:inline-flex;align-items:center;gap:4px;font-size:.7rem;font-weight:700;border-radius:20px;padding:2px 10px;border:1.5px solid transparent}
+.trendBadge_up  {background:var(--success-pale);color:var(--success);border-color:#a7f3d0}
+.trendBadge_down{background:var(--danger-pale);color:var(--danger);border-color:#fca5a5}
+.trendBadge_flat{background:var(--surface-tint);color:var(--text-muted);border-color:var(--border)}
+ 
+/* ── Attempt cards row ── */
+.attemptCards{display:flex;gap:.75rem;flex-wrap:wrap}
+ 
+/* ── Individual attempt card ── */
+.attemptCard{flex:1;min-width:180px;max-width:280px;background:var(--surface);border:1.5px solid var(--border);border-radius:11px;padding:.75rem .85rem;box-shadow:var(--shadow-card);display:flex;flex-direction:column;gap:.45rem;transition:border-color .13s}
+.attemptCardBest{border-color:var(--primary-tint);background:var(--primary-pale)}
+.attemptCardEmpty{opacity:.45;border-style:dashed}
+ 
+/* ── Attempt card header ── */
+.attemptCardHeader{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap}
+.attemptNo{font-family:var(--font-head);font-size:.71rem;font-weight:800;color:var(--text-sub)}
+.bestBadge{display:inline-flex;align-items:center;gap:3px;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;background:#fef9c3;color:#a16207;border:1px solid #fde68a;border-radius:20px;padding:1px 7px}
+.attemptStatusReleased{display:inline-flex;align-items:center;gap:3px;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;background:var(--success-pale);color:var(--success);border:1px solid #a7f3d0;border-radius:20px;padding:1px 7px;margin-left:auto}
+.attemptStatusReviewed{display:inline-flex;align-items:center;gap:3px;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;background:var(--accent-pale);color:var(--accent);border:1px solid #ddd6fe;border-radius:20px;padding:1px 7px;margin-left:auto}
+ 
+/* ── Attempt score row ── */
+.attemptScoreRow{display:flex;align-items:center;gap:.6rem}
+.attemptPercent{font-family:var(--font-head);font-size:1.1rem;font-weight:800;color:var(--text);letter-spacing:-.02em;line-height:1}
+.attemptMiniBar{flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.attemptMiniBarFill{height:100%;border-radius:3px;transition:width .6s ease}
+ 
+/* ── Attempt card footer ── */
+.attemptCardFooter{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.attemptMeta{display:inline-flex;align-items:center;gap:3px;font-size:.67rem;color:var(--text-muted);white-space:nowrap}
+ 
+/* ── Empty slot label ── */
+.attemptEmptyLabel{font-size:.72rem;color:var(--text-muted);font-style:italic;text-align:center;padding:.35rem 0}
+ 
+/* ── Trend icons ── */
+.trendUp  {color:var(--success)}
+.trendDown{color:var(--danger)}
+.trendFlat{color:var(--text-muted)}
+
+/* ── Responsive ── */
 @media(max-width:1100px){.summaryGrid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:768px){
   .page{padding:1.25rem 1.25rem 3rem}
@@ -157,4 +218,16 @@
   .page{padding:1rem .875rem 2.5rem}
   .heading{font-size:1.2rem}
   .summaryGrid{grid-template-columns:repeat(2,1fr)}
+}
+
+@media(max-width:1100px){.multiAttemptGrid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:768px){
+  .multiAttemptGrid{grid-template-columns:repeat(2,1fr)}
+  .attemptCards{flex-direction:column}
+  .attemptCard{max-width:100%}
+  /* Hide the Attempts column on small screens */
+  .table th:last-child,.table td:last-child{display:none}
+}
+@media(max-width:480px){
+  .multiAttemptGrid{grid-template-columns:1fr 1fr}
 }

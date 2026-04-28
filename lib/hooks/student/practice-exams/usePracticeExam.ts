@@ -11,6 +11,7 @@ import {
   completeAttempt,
   fetchSavedAnswers,
 } from '@/lib/services/student/practice-exams/practiceExam.service'
+import { fetchStudentProgramId } from '@/lib/services/student/practice-exams/practiceExamList.service'
 import {
   gradeAnswer,
   computeScore,
@@ -88,21 +89,27 @@ export function usePracticeExam(examId: string): UsePracticeExamReturn {
   // ── Initial load ───────────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (authLoading) return
+    if (authLoading) {return}
     if (!user) { setError('Not authenticated.'); setPhase('error'); return }
 
     const controller = new AbortController()
 
     async function load() {
       setPhase('loading')
+      const studentProgramId = await fetchStudentProgramId(user.id, controller.signal)
+      if (!studentProgramId) {
+        setError('No degree program is assigned to your student account.')
+        setPhase('error')
+        return
+      }
 
       const [metaResult, questionsResult, past] = await Promise.all([
-        fetchPracticeExamMeta(examId, controller.signal),
+        fetchPracticeExamMeta(examId, user.id, studentProgramId, controller.signal),
         fetchPracticeQuestions(examId, controller.signal),
         fetchPastAttempts(examId, user!.id, controller.signal),
       ])
 
-      if (controller.signal.aborted) return
+      if (controller.signal.aborted) {return}
 
       if (metaResult.error || !metaResult.exam) {
         setError(metaResult.error ?? 'Unknown error'); setPhase('error'); return
@@ -140,7 +147,7 @@ export function usePracticeExam(examId: string): UsePracticeExamReturn {
   // ── Resume ─────────────────────────────────────────────────────────────────
 
   const resumeAttempt = useCallback(() => {
-    if (!submissionId) return
+    if (!submissionId) {return}
     const controller = new AbortController()
     fetchSavedAnswers(submissionId, controller.signal).then(saved => {
       setAnswers(saved)
@@ -165,7 +172,7 @@ export function usePracticeExam(examId: string): UsePracticeExamReturn {
   // ── Start new attempt ──────────────────────────────────────────────────────
 
   const startNewAttempt = useCallback(async () => {
-    if (!user) return
+    if (!user) {return}
     const { submissionId: newId, error: err } = await createAttempt(examId, user.id)
     if (err || !newId) { setError(err); setPhase('error'); return }
 
@@ -198,14 +205,14 @@ export function usePracticeExam(examId: string): UsePracticeExamReturn {
   // ── Answer handler ─────────────────────────────────────────────────────────
 
   const handleAnswer = useCallback((qId: string, value: string) => {
-    if (feedbacks[qId]?.submitted) return
+    if (feedbacks[qId]?.submitted) {return}
     setAnswers(prev => ({ ...prev, [qId]: value }))
 
     // Debounced auto-save
-    if (!submissionId) return
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    if (!submissionId) {return}
+    if (saveTimerRef.current) {clearTimeout(saveTimerRef.current)}
     const q = questions.find(q => q.id === qId)
-    if (!q) return
+    if (!q) {return}
     saveTimerRef.current = setTimeout(() => {
       flushSave(submissionId, qId, value, feedbacks[qId], q)
     }, PRACTICE_AUTO_SAVE_DEBOUNCE_MS)
@@ -215,7 +222,7 @@ export function usePracticeExam(examId: string): UsePracticeExamReturn {
 
   const handleCheck = useCallback(() => {
     const q = questions[current]
-    if (!q) return
+    if (!q) {return}
     const studentAnswer = answers[q.id] ?? ''
     const isCorrect     = gradeAnswer(q, studentAnswer)
     const fb: FeedbackEntry = {
@@ -236,7 +243,7 @@ export function usePracticeExam(examId: string): UsePracticeExamReturn {
 
   const handleRetry = useCallback(() => {
     const q = questions[current]
-    if (!q) return
+    if (!q) {return}
     setAnswers(prev   => { const n = { ...prev }; delete n[q.id]; return n })
     setFeedbacks(prev => { const n = { ...prev }; delete n[q.id]; return n })
   }, [current, questions])
@@ -244,7 +251,7 @@ export function usePracticeExam(examId: string): UsePracticeExamReturn {
   // ── Finish ─────────────────────────────────────────────────────────────────
 
   const finishReview = useCallback(async () => {
-    if (!submissionId || !exam) return
+    if (!submissionId || !exam) {return}
 
     const { score, correctCount } = computeScore(questions, answers, feedbacks)
     const percentage  = exam.total_points > 0

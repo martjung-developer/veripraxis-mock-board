@@ -1,8 +1,11 @@
 // components/dashboard/admin/settings/ProfileHero.tsx
 //
-// Pure UI — renders the dark hero card showing avatar, name, email, and role badge.
+// FIXED:
+//  - Uses Next.js <Image> instead of bare <img> (removes the eslint-disable)
+//  - Accepts liveAvatarUrl so the hero reflects an upload without page refresh
+//  - Initials fallback renders correctly when no avatar exists
 
-/* eslint-disable @next/next/no-img-element */
+import Image   from 'next/image'
 import { Shield } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { avatarVariants, sectionVariants } from '@/animations/admin/settings/settings'
@@ -11,9 +14,10 @@ import s from '@/app/(dashboard)/admin/settings/settings.module.css'
 import type { JSX } from 'react'
 
 interface ProfileHeroProps {
-  profile: Profile
-  avatarUrl: string | null
-  initials: string
+  profile:      Profile
+  /** Pass avatarUrl from useSettings — updated by realtime + optimistic writes */
+  avatarUrl:    string | null
+  initials:     string
 }
 
 export function ProfileHero({ profile, avatarUrl, initials }: ProfileHeroProps): JSX.Element {
@@ -26,10 +30,18 @@ export function ProfileHero({ profile, avatarUrl, initials }: ProfileHeroProps):
         initial="visible"
         animate="visible"
       >
-        {avatarUrl
-          ? <img src={avatarUrl} alt={profile.full_name ?? 'Avatar'} className={s.avatar} />
-          : <div className={s.avatarFallback}>{initials}</div>
-        }
+        {avatarUrl ? (
+          <Image
+            src={avatarUrl}
+            alt={profile.full_name ?? 'Profile avatar'}
+            width={80}
+            height={80}
+            className={s.avatar}
+            unoptimized
+          />
+        ) : (
+          <div className={s.avatarFallback}>{initials}</div>
+        )}
       </motion.div>
 
       <div className={s.heroInfo}>

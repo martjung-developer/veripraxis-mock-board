@@ -27,7 +27,10 @@ export interface UseStudentSearchReturn {
   clearSearch:     () => void
 }
 
-export function useStudentSearch(active: boolean): UseStudentSearchReturn {
+export function useStudentSearch(
+  active: boolean,
+  examId: string,
+): UseStudentSearchReturn {
   const supabase = useMemo(() => createClient(), [])
 
   const [studentSearch,   setStudentSearch]   = useState('')
@@ -46,7 +49,7 @@ export function useStudentSearch(active: boolean): UseStudentSearchReturn {
     const timer = setTimeout(async () => {
       setSearching(true)
 
-      const { results } = await searchStudents(supabase, studentSearch.trim())
+      const { results } = await searchStudents(supabase, studentSearch.trim(), examId)
 
       if (!cancelled) {
         setStudentResults(results)
@@ -58,7 +61,7 @@ export function useStudentSearch(active: boolean): UseStudentSearchReturn {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [supabase, studentSearch, active])
+  }, [supabase, studentSearch, active, examId])
 
   function clearSearch() {
     setStudentSearch('')

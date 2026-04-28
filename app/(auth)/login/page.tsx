@@ -37,7 +37,7 @@ export default function LoginPage() {
 
   // Validate the ID prefix on blur without blocking typing
   function validateIdOnBlur() {
-    if (!userId.trim()) return
+    if (!userId.trim()) {return}
     const err = validateStudentIdInput(userId)
     // Only show the prefix warning — let the submit catch the rest
     if (err && !/^(STU|FAC|ADM)-/i.test(userId.trim())) {
@@ -50,7 +50,7 @@ export default function LoginPage() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
   e.preventDefault()
 
-  if (loading) return // prevent double submit
+  if (loading) {return} // prevent double submit
 
   setError(null)
   setIdError(null)
@@ -102,13 +102,13 @@ export default function LoginPage() {
   async function handleGoogle() {
     setError(null)
     const result = await signInWithGoogle()
-    if (!result.success) setError(result.error)
+    if (!result.success) {setError(result.error)}
   }
 
   async function handleFacebook() {
     setError(null)
     const result = await signInWithFacebook()
-    if (!result.success) setError(result.error)
+    if (!result.success) {setError(result.error)}
   }
 
   return (

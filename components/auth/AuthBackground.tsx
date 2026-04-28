@@ -13,10 +13,10 @@ export function AuthBackground() {
 
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas) return
+    if (!canvas) {return}
 
     const ctx = canvas.getContext('2d')
-    if (!ctx) return
+    if (!ctx) {return}
 
     // ── Resize handler ──────────────────────────────────────────────────────
     let W = window.innerWidth
@@ -110,10 +110,10 @@ export function AuthBackground() {
         }
 
         // Soft wrap
-        if (n.x < -20)    n.x = W + 20
-        if (n.x > W + 20) n.x = -20
-        if (n.y < -20)    n.y = H + 20
-        if (n.y > H + 20) n.y = -20
+        if (n.x < -20)    {n.x = W + 20}
+        if (n.x > W + 20) {n.x = -20}
+        if (n.y < -20)    {n.y = H + 20}
+        if (n.y > H + 20) {n.y = -20}
       }
 
       // Draw connections

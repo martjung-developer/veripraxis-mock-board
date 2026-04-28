@@ -47,7 +47,7 @@ const STRENGTH_MAP: Record<StrengthKey, string> = {
   strong: 'strengthStrong',
 }
 function strengthCls(s: StrengthKey | null): string {
-  if (!s) return ''
+  if (!s) {return ''}
   return (styles as Record<string, string>)[STRENGTH_MAP[s]] ?? ''
 }
 

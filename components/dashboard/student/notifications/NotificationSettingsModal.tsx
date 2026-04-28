@@ -4,7 +4,7 @@
 import { X } from 'lucide-react'
 import type { NotifSettings } from '@/lib/types/student/notifications/notifications.types'
 import styles from '@/app/(dashboard)/student/notifications/notifications.module.css'
-import { JSX } from 'react/jsx-dev-runtime'
+import type { JSX } from 'react'
 
 interface ToggleItem {
   key:  keyof Omit<NotifSettings, 'frequency'>

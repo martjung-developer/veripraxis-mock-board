@@ -14,12 +14,12 @@ import type {
 export function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
   const m    = Math.floor(diff / 60_000)
-  if (m < 1)  return 'Just now'
-  if (m < 60) return `${m}m ago`
+  if (m < 1)  {return 'Just now'}
+  if (m < 60) {return `${m}m ago`}
   const h = Math.floor(m / 60)
-  if (h < 24) return `${h}h ago`
+  if (h < 24) {return `${h}h ago`}
   const d = Math.floor(h / 24)
-  if (d < 7)  return `${d}d ago`
+  if (d < 7)  {return `${d}d ago`}
   return new Date(iso).toLocaleDateString()
 }
 
@@ -27,9 +27,9 @@ export function timeAgo(iso: string): string {
 
 export function dateGroup(iso: string): DateGroupLabel {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
-  if (diff === 0) return 'Today'
-  if (diff === 1) return 'Yesterday'
-  if (diff < 7)  return 'This Week'
+  if (diff === 0) {return 'Today'}
+  if (diff === 1) {return 'Yesterday'}
+  if (diff < 7)  {return 'This Week'}
   return 'Earlier'
 }
 
@@ -76,7 +76,7 @@ export function filterByTab(
     default: {
       const _exhaustive: never = tab
       return notifications
-      // eslint-disable-next-line no-unreachable
+       
       void _exhaustive
     }
   }
@@ -89,6 +89,6 @@ export function tabBadgeCount(
   tab: FilterTab,
   unreadCount: number,
 ): number {
-  if (tab === 'all' || tab === 'unread') return unreadCount
+  if (tab === 'all' || tab === 'unread') {return unreadCount}
   return filterByTab(notifications, tab).filter((n) => !n.is_read).length
 }

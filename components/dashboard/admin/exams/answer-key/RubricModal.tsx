@@ -16,7 +16,7 @@ export function RubricModal({ entry, onSave, onClose }: RubricModalProps) {
   const [text, setText] = useState(entry.explanation ?? '')
 
   function handleOverlayClick(e: React.MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget) onClose()
+    if (e.target === e.currentTarget) {onClose()}
   }
 
   return (

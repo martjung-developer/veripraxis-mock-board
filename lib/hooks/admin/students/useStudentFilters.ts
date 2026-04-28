@@ -31,12 +31,12 @@ export function useStudentFilters(students: Students[]): UseStudentFiltersReturn
 
     return students.filter((s) => {
       // Program tab filter
-      if (activeTab !== ALL_TAB && s.program_id !== activeTab) return false
+      if (activeTab !== ALL_TAB && s.program_id !== activeTab) {return false}
 
       // Year level filter
       if (yearFilter !== 'All Years') {
         const yr = YEAR_OPTIONS.indexOf(yearFilter)
-        if (s.year_level !== yr) return false
+        if (s.year_level !== yr) {return false}
       }
 
       // Text search
@@ -52,7 +52,7 @@ export function useStudentFilters(students: Students[]): UseStudentFiltersReturn
           .join(' ')
           .toLowerCase()
 
-        if (!haystack.includes(q)) return false
+        if (!haystack.includes(q)) {return false}
       }
 
       return true

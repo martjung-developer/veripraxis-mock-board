@@ -1,11 +1,18 @@
 // lib/utils/admin/study-materials/validators.ts
+//
+// Single source of truth for form shape and validation.
+// RawFormState is the canonical flat form object used by useStudyForm,
+// MaterialFormModal, and the service layer.
+
 import { z } from 'zod'
 
 export type MaterialType = 'document' | 'video' | 'notes'
+export type LinkType     = 'video' | 'meeting' | 'drive' | 'other'
 
 export const MATERIAL_TYPES: MaterialType[] = ['document', 'video', 'notes']
 
-// ── YouTube URL helper (co-located so schema can reference it) ────────────────
+// ── YouTube URL helper ────────────────────────────────────────────────────────
+
 export function extractYouTubeId(url: string): string | null {
   const match = url.match(
     /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([a-zA-Z0-9_-]{11})/,
@@ -13,21 +20,25 @@ export function extractYouTubeId(url: string): string | null {
   return match ? match[1] : null
 }
 
-// ── Base schema shared by all material types ──────────────────────────────────
+// ── Base schema (fields common to all types) ──────────────────────────────────
+
 const baseSchema = z.object({
   title:        z.string().min(1, 'Title is required.'),
   description:  z.string().optional(),
-  program_id:   z.string().min(1, 'Program is required.'),
+  program_id:   z.string().optional(),
   category:     z.string().optional(),
   is_published: z.boolean(),
+  external_url: z.string().url('Must be a valid URL.').or(z.literal('')).optional(),
+  meeting_url:  z.string().url('Must be a valid URL.').or(z.literal('')).optional(),
+  link_type:    z.enum(['video', 'meeting', 'drive', 'other']).or(z.literal('')).optional(),
 })
 
 // ── Per-type discriminated schemas ────────────────────────────────────────────
+
 export const documentSchema = baseSchema.extend({
   type:          z.literal('document'),
   youtube_url:   z.string().optional(),
   notes_content: z.string().optional(),
-  // file is validated separately (File object can't live in Zod easily)
 })
 
 export const videoSchema = baseSchema.extend({
@@ -56,7 +67,10 @@ export const studyMaterialSchema = z.discriminatedUnion('type', [
 
 export type StudyMaterialFormValues = z.infer<typeof studyMaterialSchema>
 
-// ── Flat form state (what the form actually stores before parsing) ─────────────
+// ── Flat form state ───────────────────────────────────────────────────────────
+// This is the canonical shape used across useStudyForm, MaterialFormModal,
+// and the service layer. All fields are strings/booleans for easy form binding.
+
 export interface RawFormState {
   title:         string
   description:   string
@@ -66,6 +80,10 @@ export interface RawFormState {
   program_id:    string
   category:      string
   is_published:  boolean
+  // External resource fields
+  external_url:  string
+  meeting_url:   string
+  link_type:     LinkType | ''
 }
 
 export const EMPTY_FORM: RawFormState = {
@@ -77,16 +95,24 @@ export const EMPTY_FORM: RawFormState = {
   program_id:    '',
   category:      '',
   is_published:  false,
+  external_url:  '',
+  meeting_url:   '',
+  link_type:     '',
 }
 
-// ── Validate raw form + optional file, return typed errors ───────────────────
+// ── Validation errors ─────────────────────────────────────────────────────────
+
 export interface ValidationErrors {
   title?:         string
   youtube_url?:   string
   notes_content?: string
   program_id?:    string
   file?:          string
+  external_url?:  string
+  meeting_url?:   string
 }
+
+// ── Validate raw form + optional file, return typed errors ────────────────────
 
 export function validateMaterialForm(
   raw: RawFormState,
@@ -105,9 +131,9 @@ export function validateMaterialForm(
     }
   }
 
-  // Document file: required on create, optional on edit
-  if (raw.type === 'document' && !isEditing && !file) {
-    errors.file = 'Please select a file to upload.'
+  // Document file: required on create only (edit can keep existing file)
+  if (raw.type === 'document' && !isEditing && !file && !raw.external_url.trim()) {
+    errors.file = 'Please upload a file or provide an external URL.'
   }
 
   return errors

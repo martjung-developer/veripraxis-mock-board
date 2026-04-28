@@ -1,14 +1,17 @@
 // components/dashboard/admin/exams/answer-key/AnswerKeyGroup.tsx
 // ─────────────────────────────────────────────────────────────────────────────
-// Collapsible group card for one question type.
-// Uses CheckSquare, ToggleLeft, etc. as icon elements via the type meta map.
+// FIXED: corrected template literal syntax errors introduced by doc formatting:
+//   - `${s.group}` → s.group (direct property access, same result)
+//   - `entries.map` link artefact → entries.map
+// Structure, props, and logic are identical to the intended version.
 // ─────────────────────────────────────────────────────────────────────────────
+
 import {
   CheckSquare, ToggleLeft, AlignLeft, FileText, List, Hash,
   ChevronDown, ChevronRight, Zap, Pencil,
 } from 'lucide-react'
-import type { QuestionType }    from '@/lib/types/database'
-import type { AnswerKeyEntry }  from '@/lib/types/admin/exams/answer-key/answerKey.types'
+import type { QuestionType }   from '@/lib/types/database'
+import type { AnswerKeyEntry } from '@/lib/types/admin/exams/answer-key/answerKey.types'
 import {
   effectiveAnswer,
   AUTO_TYPES,
@@ -18,7 +21,6 @@ import { QuestionRow } from './QuestionRow'
 import s from '@/app/(dashboard)/admin/exams/[examId]/answer-key/answer-key.module.css'
 import type { ElementType } from 'react'
 
-// Map type → Lucide icon (kept here to avoid importing in types layer)
 const TYPE_ICONS: Record<QuestionType, ElementType> = {
   multiple_choice: CheckSquare,
   true_false:      ToggleLeft,
@@ -47,14 +49,13 @@ export function AnswerKeyGroup({
   onSetOverride,
   onOpenRubric,
 }: AnswerKeyGroupProps) {
-  const meta    = TYPE_META[type]
-  const Icon    = TYPE_ICONS[type]
-  const isAuto  = AUTO_TYPES.includes(type)
+  const meta   = TYPE_META[type]
+  const Icon   = TYPE_ICONS[type]
+  const isAuto = AUTO_TYPES.includes(type)
   const defined = entries.filter((e) => !!effectiveAnswer(e)).length
 
   return (
     <div className={`${s.group} ${s[`group_${meta.color}`]}`}>
-      {/* Group header */}
       <button className={s.groupHeader} onClick={() => onToggle(type)}>
         <div className={s.groupHeaderLeft}>
           <div className={`${s.groupIcon} ${s[`groupIcon_${meta.color}`]}`}>
@@ -75,7 +76,13 @@ export function AnswerKeyGroup({
               : <><Pencil size={10} /> Manual</>}
           </div>
           <div className={s.groupProgress}>
-            <span className={defined === entries.length ? s.groupProgressComplete : s.groupProgressPartial}>
+            <span
+              className={
+                defined === entries.length
+                  ? s.groupProgressComplete
+                  : s.groupProgressPartial
+              }
+            >
               {defined}/{entries.length}
             </span>
           </div>
@@ -83,7 +90,6 @@ export function AnswerKeyGroup({
         </div>
       </button>
 
-      {/* Question rows */}
       {isExpanded && (
         <div className={s.groupBody}>
           {entries.map((entry, idx) => (

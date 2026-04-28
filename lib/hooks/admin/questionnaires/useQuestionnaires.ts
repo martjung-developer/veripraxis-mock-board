@@ -1,6 +1,14 @@
 // lib/hooks/admin/questionnaires/useQuestionnaires.ts
+// ─────────────────────────────────────────────────────────────────────────────
+// CHANGES FROM PREVIOUS VERSION:
+//   + BLANK_FORM now includes scenario: ''
+//   + openEdit populates form.scenario from DisplayQuestion
+//   + handleImportSave maps importRow.scenario into payload
+//   + handleSave passes form.scenario in payload
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { createClient }     from '@/lib/supabase/client'
 import type { QuestionType, QuestionOption } from '@/lib/types/database'
 import type {
   DisplayQuestion,
@@ -31,94 +39,99 @@ import {
   detectLinkSource,
 } from '@/lib/utils/admin/questionnaires/questionnaires.parsers'
 import {
-  BLANK_FORM,
   TYPE_ORDER,
   VALID_DIFF,
 } from '@/lib/constants/admin/questionnaires/questionnaires.constants'
 
-// ── Types exposed to the page ─────────────────────────────────────────────────
+// ── BLANK_FORM with scenario ───────────────────────────────────────────────────
+
+const BLANK_FORM: FormState = {
+  question_text:  '',
+  question_type:  'multiple_choice',
+  points:         1,
+  correct_answer: '',
+  explanation:    '',
+  exam_id:        '',
+  difficulty:     'medium',
+  choices: [
+    { label: 'A', text: '' },
+    { label: 'B', text: '' },
+    { label: 'C', text: '' },
+    { label: 'D', text: '' },
+  ],
+  program_id: '',
+  scenario:   '',   // NEW
+}
 
 export type ViewMode  = 'programs' | 'program-detail'
 export type ImportTab = 'file' | 'link'
 
 export interface UseQuestionnairesReturn {
-  // data
-  questions:        DisplayQuestion[]
-  exams:            ExamOption[]
-  programs:         ProgramOption[]
-  // loading / error
-  loading:          boolean
-  refreshing:       boolean
-  error:            string | null
-  // view navigation
-  viewMode:         ViewMode
-  selectedProgram:  ProgramOption | null
-  openProgram:      (p: ProgramOption) => void
-  backToPrograms:   () => void
-  // search
-  search:           string
-  setSearch:        (s: string) => void
-  // derived
-  questionsByProgram:    Record<string, DisplayQuestion[]>
-  programDetailQuestions: DisplayQuestion[]
-  questionsByType:       Record<QuestionType, DisplayQuestion[]>
-  overallStats:          { total: number; mcq: number; easy: number; hard: number }
-  // form
-  showForm:     boolean
-  formMode:     'create' | 'edit'
-  form:         FormState
-  formError:    string
-  saving:       boolean
-  openCreate:   () => void
-  openEdit:     (q: DisplayQuestion) => void
-  closeForm:    () => void
-  setField:     <K extends keyof FormState>(key: K, value: FormState[K]) => void
-  setChoiceText:(idx: number, text: string) => void
-  handleSave:   () => Promise<void>
-  examsForForm: ExamOption[]
-  // delete
-  deleteId:     string | null
-  deleting:     boolean
-  setDeleteId:  (id: string | null) => void
-  handleDelete: () => Promise<void>
-  // view modal
-  viewQ:    DisplayQuestion | null
-  setViewQ: (q: DisplayQuestion | null) => void
-  // import
-  showImport:        boolean
-  importTab:         ImportTab
-  importExamId:      string
-  importProgramId:   string
-  importRows:        ImportRow[]
-  importParsing:     boolean
-  importError:       string
-  importSaving:      boolean
-  importDone:        boolean
-  importCounts:      { inserted: number; skipped: number }
-  dragOver:          boolean
-  importedFileName:  string
-  linkUrl:           string
-  linkSource:        ReturnType<typeof detectLinkSource> | null
-  linkFetching:      boolean
-  validCount:        number
-  invalidCount:      number
-  examsForImport:    ExamOption[]
-  openImport:        () => void
-  closeImport:       () => void
-  setImportTab:      (t: ImportTab) => void
-  setImportExamId:   (id: string) => void
-  setImportProgramId:(id: string) => void
-  handleFileDrop:    (file: File) => Promise<void>
-  handleLinkChange:  (url: string) => void
-  handleFetchLink:   () => Promise<void>
-  handleImportSave:  () => Promise<void>
-  setDragOver:       (v: boolean) => void
-  handleRefresh:     () => void
-  // util
-  stripDifficultyTag: typeof stripDifficultyTag
+  questions:               DisplayQuestion[]
+  exams:                   ExamOption[]
+  programs:                ProgramOption[]
+  loading:                 boolean
+  refreshing:              boolean
+  error:                   string | null
+  viewMode:                ViewMode
+  selectedProgram:         ProgramOption | null
+  openProgram:             (p: ProgramOption) => void
+  backToPrograms:          () => void
+  search:                  string
+  setSearch:               (s: string) => void
+  questionsByProgram:      Record<string, DisplayQuestion[]>
+  programDetailQuestions:  DisplayQuestion[]
+  questionsByType:         Record<QuestionType, DisplayQuestion[]>
+  overallStats:            { total: number; mcq: number; easy: number; hard: number }
+  showForm:                boolean
+  formMode:                'create' | 'edit'
+  form:                    FormState
+  formError:               string
+  saving:                  boolean
+  openCreate:              () => void
+  openEdit:                (q: DisplayQuestion) => void
+  closeForm:               () => void
+  setField:                <K extends keyof FormState>(key: K, value: FormState[K]) => void
+  setChoiceText:           (idx: number, text: string) => void
+  handleSave:              () => Promise<void>
+  examsForForm:            ExamOption[]
+  deleteId:                string | null
+  deleting:                boolean
+  setDeleteId:             (id: string | null) => void
+  handleDelete:            () => Promise<void>
+  viewQ:                   DisplayQuestion | null
+  setViewQ:                (q: DisplayQuestion | null) => void
+  showImport:              boolean
+  importTab:               ImportTab
+  importExamId:            string
+  importProgramId:         string
+  importRows:              ImportRow[]
+  importParsing:           boolean
+  importError:             string
+  importSaving:            boolean
+  importDone:              boolean
+  importCounts:            { inserted: number; skipped: number }
+  dragOver:                boolean
+  importedFileName:        string
+  linkUrl:                 string
+  linkSource:              ReturnType<typeof detectLinkSource> | null
+  linkFetching:            boolean
+  validCount:              number
+  invalidCount:            number
+  examsForImport:          ExamOption[]
+  openImport:              () => void
+  closeImport:             () => void
+  setImportTab:            (t: ImportTab) => void
+  setImportExamId:         (id: string) => void
+  setImportProgramId:      (id: string) => void
+  handleFileDrop:          (file: File) => Promise<void>
+  handleLinkChange:        (url: string) => void
+  handleFetchLink:         () => Promise<void>
+  handleImportSave:        () => Promise<void>
+  setDragOver:             (v: boolean) => void
+  handleRefresh:           () => void
+  stripDifficultyTag:      typeof stripDifficultyTag
 }
-
-// ── Hook ──────────────────────────────────────────────────────────────────────
 
 export function useQuestionnaires(): UseQuestionnairesReturn {
   const supabase = useMemo(() => createClient(), [])
@@ -165,7 +178,6 @@ export function useQuestionnaires(): UseQuestionnairesReturn {
   const fetchAll = useCallback(async (silent = false) => {
     if (silent) { setRefreshing(true) } else { setLoading(true) }
     setError(null)
-
     try {
       const [progs, exs, qs] = await Promise.all([
         fetchPrograms(supabase),
@@ -187,13 +199,13 @@ export function useQuestionnaires(): UseQuestionnairesReturn {
 
   const handleRefresh = useCallback(() => { void fetchAll(true) }, [fetchAll])
 
-  // ── Derived data ───────────────────────────────────────────────────────────
+  // ── Derived ────────────────────────────────────────────────────────────────
 
   const questionsByProgram = useMemo(() => {
     const map: Record<string, DisplayQuestion[]> = {}
     programs.forEach((p) => { map[p.id] = [] })
     questions.forEach((q) => {
-      if (q.examProgramId && map[q.examProgramId]) {
+      if (q.examProgramId !== null && map[q.examProgramId] !== undefined) {
         map[q.examProgramId].push(q)
       }
     })
@@ -201,7 +213,7 @@ export function useQuestionnaires(): UseQuestionnairesReturn {
   }, [questions, programs])
 
   const programDetailQuestions = useMemo(() => {
-    if (!selectedProgram) { return [] }
+    if (selectedProgram === null) { return [] }
     const qs = questionsByProgram[selectedProgram.id] ?? []
     if (!search.trim()) { return qs }
     const q = search.toLowerCase()
@@ -210,7 +222,9 @@ export function useQuestionnaires(): UseQuestionnairesReturn {
 
   const questionsByType = useMemo(() => {
     const map = {} as Record<QuestionType, DisplayQuestion[]>
-    TYPE_ORDER.forEach((t) => { map[t] = programDetailQuestions.filter((q) => q.question_type === t) })
+    TYPE_ORDER.forEach((t) => {
+      map[t] = programDetailQuestions.filter((q) => q.question_type === t)
+    })
     return map
   }, [programDetailQuestions])
 
@@ -224,20 +238,29 @@ export function useQuestionnaires(): UseQuestionnairesReturn {
   // ── Navigation ─────────────────────────────────────────────────────────────
 
   function openProgram(program: ProgramOption): void {
-    setSelectedProgram(program); setViewMode('program-detail'); setSearch('')
+    setSelectedProgram(program)
+    setViewMode('program-detail')
+    setSearch('')
   }
 
   function backToPrograms(): void {
-    setViewMode('programs'); setSelectedProgram(null); setSearch('')
+    setViewMode('programs')
+    setSelectedProgram(null)
+    setSearch('')
   }
 
   // ── Form helpers ───────────────────────────────────────────────────────────
 
   function openCreate(): void {
     const pid             = selectedProgram?.id ?? ''
-    const prefilledExamId = pid ? (exams.find((e) => e.program_id === pid)?.id ?? '') : ''
+    const prefilledExamId = pid
+      ? (exams.find((e) => e.program_id === pid)?.id ?? '')
+      : ''
     setForm({ ...BLANK_FORM, exam_id: prefilledExamId, program_id: pid })
-    setFormMode('create'); setEditId(null); setFormError(''); setShowForm(true)
+    setFormMode('create')
+    setEditId(null)
+    setFormError('')
+    setShowForm(true)
   }
 
   function openEdit(q: DisplayQuestion): void {
@@ -252,11 +275,19 @@ export function useQuestionnaires(): UseQuestionnairesReturn {
       difficulty:     q.difficulty,
       program_id:     exam?.program_id ?? '',
       choices:        (q.options && q.options.length > 0) ? q.options : BLANK_FORM.choices,
+      scenario:       q.scenario ?? '',   // NEW
     })
-    setFormMode('edit'); setEditId(q.id); setFormError(''); setShowForm(true)
+    setFormMode('edit')
+    setEditId(q.id)
+    setFormError('')
+    setShowForm(true)
   }
 
-  function closeForm(): void { setShowForm(false); setFormError(''); setEditId(null) }
+  function closeForm(): void {
+    setShowForm(false)
+    setFormError('')
+    setEditId(null)
+  }
 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]): void {
     setForm((prev) => {
@@ -269,7 +300,7 @@ export function useQuestionnaires(): UseQuestionnairesReturn {
   function setChoiceText(idx: number, text: string): void {
     setForm((prev) => ({
       ...prev,
-      choices: prev.choices.map((c, i) => i === idx ? { ...c, text } : c),
+      choices: prev.choices.map((c, i) => (i === idx ? { ...c, text } : c)),
     }))
   }
 
@@ -302,6 +333,7 @@ export function useQuestionnaires(): UseQuestionnairesReturn {
       correct_answer: form.correct_answer || null,
       explanation:    encodeDifficulty(form.difficulty, form.explanation),
       exam_id:        form.exam_id || null,
+      scenario:       form.scenario.trim() || null,   
     }
 
     setSaving(true)
@@ -309,7 +341,7 @@ export function useQuestionnaires(): UseQuestionnairesReturn {
       if (formMode === 'create') {
         await insertQuestion(supabase, payload)
       } else {
-        if (!editId) { setFormError('Missing edit ID'); return }
+        if (editId === null) { setFormError('Missing edit ID'); return }
         await updateQuestion(supabase, editId, payload)
       }
       closeForm()
@@ -324,7 +356,7 @@ export function useQuestionnaires(): UseQuestionnairesReturn {
   // ── Delete ─────────────────────────────────────────────────────────────────
 
   async function handleDelete(): Promise<void> {
-    if (!deleteId) { return }
+    if (deleteId === null) { return }
     setDeleting(true)
     try {
       await deleteQuestion(supabase, deleteId)
@@ -338,19 +370,32 @@ export function useQuestionnaires(): UseQuestionnairesReturn {
   // ── Import ─────────────────────────────────────────────────────────────────
 
   function openImport(): void {
-    setShowImport(true); setImportRows([]); setImportError('')
-    setImportExamId(''); setImportProgramId(''); setImportDone(false)
+    setShowImport(true)
+    setImportRows([])
+    setImportError('')
+    setImportExamId('')
+    setImportProgramId('')
+    setImportDone(false)
     setImportCounts({ inserted: 0, skipped: 0 })
-    setImportTab('file'); setLinkUrl(''); setLinkSource(null); setImportedFileName('')
+    setImportTab('file')
+    setLinkUrl('')
+    setLinkSource(null)
+    setImportedFileName('')
   }
 
   function closeImport(): void {
-    setShowImport(false); setImportRows([]); setImportError('')
-    setImportDone(false); setLinkUrl(''); setLinkSource(null)
+    setShowImport(false)
+    setImportRows([])
+    setImportError('')
+    setImportDone(false)
+    setLinkUrl('')
+    setLinkSource(null)
   }
 
   async function handleFileDrop(file: File): Promise<void> {
-    setImportError(''); setImportRows([]); setImportParsing(true)
+    setImportError('')
+    setImportRows([])
+    setImportParsing(true)
     setImportedFileName(file.name)
     try {
       const rawRows = await parseFile(file)
@@ -368,12 +413,18 @@ export function useQuestionnaires(): UseQuestionnairesReturn {
 
   function handleLinkChange(url: string): void {
     setLinkUrl(url)
-    if (url.trim().length > 5) { setLinkSource(detectLinkSource(url.trim())) } else { setLinkSource(null) }
+    if (url.trim().length > 5) {
+      setLinkSource(detectLinkSource(url.trim()))
+    } else {
+      setLinkSource(null)
+    }
   }
 
   async function handleFetchLink(): Promise<void> {
-    if (!linkUrl.trim() || !linkSource?.valid) { return }
-    setLinkFetching(true); setImportError(''); setImportRows([])
+    if (!linkUrl.trim() || linkSource?.valid !== true) { return }
+    setLinkFetching(true)
+    setImportError('')
+    setImportRows([])
     try {
       const rawRows = await fetchAndParseLink(linkUrl.trim(), linkSource.source)
       if (rawRows.length === 0) {
@@ -396,13 +447,15 @@ export function useQuestionnaires(): UseQuestionnairesReturn {
 
   async function handleImportSave(): Promise<void> {
     if (!importExamId) {
-      setImportError('Please select an exam to assign these questions to.'); return
+      setImportError('Please select an exam to assign these questions to.')
+      return
     }
 
     const validRows = importRows.filter((r) => r._valid)
     if (validRows.length === 0) { setImportError('No valid rows to import.'); return }
 
-    setImportSaving(true); setImportError('')
+    setImportSaving(true)
+    setImportError('')
 
     try {
       const payloads: QuestionInsertPayload[] = validRows.map((r) => {
@@ -428,12 +481,16 @@ export function useQuestionnaires(): UseQuestionnairesReturn {
           correct_answer: r.correct_answer || null,
           explanation:    encodeDifficulty(diff, r.explanation),
           exam_id:        importExamId,
+          scenario:       r.scenario.trim() || null,   // NEW
         }
       })
 
       await bulkInsertQuestions(supabase, payloads)
       setImportDone(true)
-      setImportCounts({ inserted: validRows.length, skipped: importRows.length - validRows.length })
+      setImportCounts({
+        inserted: validRows.length,
+        skipped:  importRows.length - validRows.length,
+      })
       await fetchAll(true)
     } catch (err) {
       setImportError(err instanceof Error ? err.message : 'Import failed.')
@@ -444,8 +501,6 @@ export function useQuestionnaires(): UseQuestionnairesReturn {
 
   const validCount   = importRows.filter((r) =>  r._valid).length
   const invalidCount = importRows.filter((r) => !r._valid).length
-
-  // ── Return ─────────────────────────────────────────────────────────────────
 
   return {
     questions, exams, programs,

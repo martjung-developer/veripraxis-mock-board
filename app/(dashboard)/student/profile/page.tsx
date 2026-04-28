@@ -1,8 +1,14 @@
 // app/(dashboard)/student/profile/page.tsx
+//
+// FIXED:
+//  - Edit Profile opens a modal (not inline navigation)
+//  - Avatar updates reflected immediately via liveAvatarUrl
+//  - "Last 5 released exams" fetched dynamically from Supabase
+//  - Realtime handled by useProfile (via useRealtimeProfile)
+
 'use client'
 
 import { useState }    from 'react'
-import { useRouter }   from 'next/navigation'
 import { motion }      from 'framer-motion'
 import { Pencil }      from 'lucide-react'
 import { useProfile }  from '@/lib/hooks/student/profile/useProfile'
@@ -12,10 +18,11 @@ import { ProfileHero }          from '@/components/dashboard/student/profile/Pro
 import { ProfileInfo }          from '@/components/dashboard/student/profile/ProfileInfo'
 import { ProfileStats }         from '@/components/dashboard/student/profile/ProfileStats'
 import { ProfileRecentResults } from '@/components/dashboard/student/profile/ProfileRecentResults'
+import { ProfileEditModal }     from '@/components/dashboard/student/profile/ProfileEditModal'
 import { useUser }    from '@/lib/context/AuthContext'
 import styles from './profile.module.css'
 
-// ── Skeleton (kept here — it's a loading UI concern of this page) ─────────────
+// ── Skeleton ──────────────────────────────────────────────────────────────────
 function ProfileSkeleton() {
   return (
     <div className={styles.page}>
@@ -46,7 +53,6 @@ function ProfileSkeleton() {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function ProfilePage() {
-  const router = useRouter()
   const { user } = useUser()
 
   const {
@@ -57,16 +63,19 @@ export default function ProfilePage() {
     authLoading, authError,
   } = useProfile()
 
-  // animate state stays here: it's a UI-timing concern, not data
-  const [animate, setAnimate] = useState(false)
+  // ── Edit modal state ───────────────────────────────────────────────────────
+  const [editOpen, setEditOpen] = useState(false)
+  // Optimistically update display name after modal saves
+  const [liveDisplayName, setLiveDisplayName] = useState<string | null>(null)
 
-  // Trigger progress bar animation after data loads
+  // ── Progress bar animation ─────────────────────────────────────────────────
+  const [animate, setAnimate] = useState(false)
   if (!animate && !loading && !authLoading && submissions.length > 0) {
     setTimeout(() => setAnimate(true), 420)
   }
 
-  // ── Guards ──────────────────────────────────────────────────────────────────
-  if (authLoading || loading) { return <ProfileSkeleton /> }
+  // ── Guards ─────────────────────────────────────────────────────────────────
+  if (authLoading || loading) {return <ProfileSkeleton />}
 
   if (authError || error) {
     return (
@@ -85,67 +94,84 @@ export default function ProfilePage() {
     )
   }
 
-  // ── Derived display values ──────────────────────────────────────────────────
-  const displayName    = profile?.full_name  ?? 'Student'
-  const initials       = getInitials(profile?.full_name ?? null)
+  // ── Derived display values ─────────────────────────────────────────────────
+  // liveDisplayName is set after modal save; falls back to DB value
+  const displayName    = liveDisplayName ?? profile?.full_name ?? 'Student'
+  const initials       = getInitials(liveDisplayName ?? profile?.full_name ?? null)
   const schoolDisplay  = school?.name        ?? student?.school ?? '—'
   const programDisplay = program?.full_name  ?? program?.name   ?? '—'
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <motion.div className={styles.page} variants={pageVariants} initial="hidden" animate="visible">
+    <>
+      <motion.div className={styles.page} variants={pageVariants} initial="hidden" animate="visible">
 
-      {/* Header */}
-      <motion.div className={styles.header} variants={fadeUp} initial="hidden" animate="visible">
-        <div>
-          <h1 className={styles.title}>My Profile</h1>
-          <p className={styles.subtitle}>Your personal information and exam performance summary.</p>
-        </div>
-        <button className={styles.editBtn} onClick={() => router.push('/student/profile/edit')}>
-          <Pencil size={14} /> Edit Profile
-        </button>
+        {/* Header */}
+        <motion.div className={styles.header} variants={fadeUp} initial="hidden" animate="visible">
+          <div>
+            <h1 className={styles.title}>My Profile</h1>
+            <p className={styles.subtitle}>Your personal information and exam performance summary.</p>
+          </div>
+          <button className={styles.editBtn} onClick={() => setEditOpen(true)}>
+            <Pencil size={14} /> Edit Profile
+          </button>
+        </motion.div>
+
+        {/* Hero */}
+        {user && (
+          <ProfileHero
+            profile={profile}
+            student={student}
+            program={program}
+            displayName={displayName}
+            initials={initials}
+            liveAvatarUrl={liveAvatarUrl}
+            userId={user.id}
+            onAvatarChange={setLiveAvatarUrl}
+          />
+        )}
+
+        {/* Info + Stats grid */}
+        <motion.div
+          className={styles.mainGrid}
+          variants={staggerContainer}
+          initial="hidden"
+          animate="visible"
+        >
+          <ProfileInfo
+            profile={profile}
+            student={student}
+            program={program}
+            school={school}
+            schoolDisplay={schoolDisplay}
+            programDisplay={programDisplay}
+          />
+
+          <ProfileStats
+            submissions={submissions}
+            totalTaken={totalTaken}
+            animate={animate}
+          />
+        </motion.div>
+
+        {/* Recent results — dynamic from getRecentSubmissions() */}
+        <ProfileRecentResults submissions={submissions} />
+
       </motion.div>
 
-      {/* Hero */}
+      {/* Edit modal — rendered outside the motion.div to avoid layout shift */}
       {user && (
-        <ProfileHero
-          profile={profile}
-          student={student}
-          program={program}
-          displayName={displayName}
-          initials={initials}
-          liveAvatarUrl={liveAvatarUrl}
+        <ProfileEditModal
+          open={editOpen}
+          onClose={() => setEditOpen(false)}
           userId={user.id}
-          onAvatarChange={setLiveAvatarUrl}
+          initialName={liveDisplayName ?? profile?.full_name ?? null}
+          onSaved={(newName) => {
+            setLiveDisplayName(newName)
+            // Realtime subscription in useProfile will also confirm this
+          }}
         />
       )}
-
-      {/* Info + Stats grid */}
-      <motion.div
-        className={styles.mainGrid}
-        variants={staggerContainer}
-        initial="hidden"
-        animate="visible"
-      >
-        <ProfileInfo
-          profile={profile}
-          student={student}
-          program={program}
-          school={school}
-          schoolDisplay={schoolDisplay}
-          programDisplay={programDisplay}
-        />
-
-        <ProfileStats
-          submissions={submissions}
-          totalTaken={totalTaken}
-          animate={animate}
-        />
-      </motion.div>
-
-      {/* Recent results */}
-      <ProfileRecentResults submissions={submissions} />
-
-    </motion.div>
+    </>
   )
 }

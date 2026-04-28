@@ -115,15 +115,15 @@ const FACULTY_ID_RE = /^FAC-[A-Z0-9]{6,}$/
 const ADMIN_ID_RE   = /^ADM-[A-Z0-9]{3,}$/
 
 export function detectRole(id: string): UserRole | null {
-  if (STUDENT_ID_RE.test(id)) return 'student'
-  if (FACULTY_ID_RE.test(id)) return 'faculty'
-  if (ADMIN_ID_RE.test(id))   return 'admin'
+  if (STUDENT_ID_RE.test(id)) {return 'student'}
+  if (FACULTY_ID_RE.test(id)) {return 'faculty'}
+  if (ADMIN_ID_RE.test(id))   {return 'admin'}
   return null
 }
 
 export function validateStudentId(id: string): string | null {
-  if (!id.trim())                  return 'Student ID is required.'
-  if (!STUDENT_ID_RE.test(id.trim())) return 'Format must be STU-YYYYNNNNN (e.g. STU-202400123).'
+  if (!id.trim())                  {return 'Student ID is required.'}
+  if (!STUDENT_ID_RE.test(id.trim())) {return 'Format must be STU-YYYYNNNNN (e.g. STU-202400123).'}
   return null
 }
 
@@ -134,7 +134,7 @@ export function isProgramCode(value: unknown): value is ProgramCode {
 }
 
 export function getProgramLabel(code: ProgramCode | '' | null | undefined): string {
-  if (!code) return '—'
+  if (!code) {return '—'}
   const match = PROGRAMS.find((p) => p.value === code)
   return match?.label ?? '—'
 }

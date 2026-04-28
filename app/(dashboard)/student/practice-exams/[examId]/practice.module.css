@@ -170,6 +170,13 @@
   flex-shrink: 0;
 }
 
+.jumpRow {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
 .palette {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
@@ -276,6 +283,34 @@
   line-height: 1.65;
   margin-bottom: 1.5rem;
   letter-spacing: -0.01em;
+}
+
+.scenarioBlock {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border-radius: 10px;
+  border: 1px solid #dbe4ee;
+  background: #f8fafc;
+}
+
+.scenarioHeader {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  margin-bottom: 0.5rem;
+}
+
+.scenarioText {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.65;
+  color: #334155;
 }
 
 /* ── MCQ ── */
@@ -526,6 +561,13 @@
 
 .navLeft  { display: flex; gap: 0.5rem; }
 .navRight { display: flex; gap: 0.5rem; }
+.navCenter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: #64748b;
+}
 
 .btnNav {
   display: inline-flex;
@@ -686,6 +728,15 @@
   transition: background 0.15s;
 }
 .btnBackList:hover { background: #1e3a5f; }
+
+.backLinkButton {
+  margin-top: 0.75rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #64748b;
+  font-size: 0.8rem;
+}
 
 /* ═══════════════════════════
    LOADING / ERROR

@@ -16,7 +16,7 @@ export function initReveal(
   threshold   = 0.12,
 ): () => void {
   const els = document.querySelectorAll<HTMLElement>(selector)
-  if (!els.length) return () => {}
+  if (!els.length) {return () => {}}
 
   const observer = new IntersectionObserver(
     (entries) => {

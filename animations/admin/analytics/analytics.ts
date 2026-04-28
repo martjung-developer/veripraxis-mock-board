@@ -1,5 +1,5 @@
 // animations/admin/analytics/analytics.ts
-import { Variants } from 'framer-motion';
+import type { Variants } from 'framer-motion';
 
 export const containerVariants: Variants = {
   hidden: { opacity: 0 },

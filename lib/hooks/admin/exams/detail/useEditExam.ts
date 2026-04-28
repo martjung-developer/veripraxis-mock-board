@@ -44,7 +44,7 @@ export function useEditExam({
   // ── openEdit ──────────────────────────────────────────────────────────────
 
   const openEdit = useCallback(() => {
-    if (!exam) return
+    if (!exam) {return}
     setEditErrors({})
     setEditForm({
       title:            exam.title,
@@ -63,7 +63,7 @@ export function useEditExam({
   // ── closeEdit ─────────────────────────────────────────────────────────────
 
   const closeEdit = useCallback(() => {
-    if (editSaving) return
+    if (editSaving) {return}
     setShowEdit(false)
     setEditForm(null)
     setEditErrors({})
@@ -82,15 +82,15 @@ export function useEditExam({
   // ── saveEdit ──────────────────────────────────────────────────────────────
 
   const saveEdit = useCallback(async () => {
-    if (!exam || !editForm) return
+    if (!exam || !editForm) {return}
 
     // 1. Validate
     const errors = validateEditForm(editForm)
     setEditErrors(errors)
-    if (!isFormValid(errors)) return
+    if (!isFormValid(errors)) {return}
 
     // 2. Guard double-submission
-    if (editSaving) return
+    if (editSaving) {return}
 
     setEditSaving(true)
 

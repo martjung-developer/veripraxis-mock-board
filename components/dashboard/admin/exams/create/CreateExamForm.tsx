@@ -2,6 +2,8 @@
 // Composes the form layout from section components.
 // Owns the <form> element and passes state/handlers down as props.
 // No data fetching, no business logic.
+//
+// FIXED: accepts `programs` prop and passes it to ExamBasicInfoSection
 
 import React from 'react'
 import { CheckCircle, AlertCircle } from 'lucide-react'
@@ -12,10 +14,17 @@ import ExamSummaryCard      from './ExamSummaryCard'
 import type { ExamFormData, ExamFormErrors, CategoryOption } from '@/lib/types/admin/exams/create/exam.types'
 import s from '@/app/(dashboard)/admin/exams/create/create.module.css'
 
+interface ProgramOption {
+  id:   string
+  code: string
+  name: string
+}
+
 interface CreateExamFormProps {
   form:        ExamFormData
   errors:      ExamFormErrors
   categories:  CategoryOption[]
+  programs:    ProgramOption[]   // ← NEW
   catLoading:  boolean
   submitting:  boolean
   success:     boolean
@@ -28,6 +37,7 @@ export default function CreateExamForm({
   form,
   errors,
   categories,
+  programs,
   catLoading,
   submitting,
   success,
@@ -47,9 +57,9 @@ export default function CreateExamForm({
         <div
           className={s.successBanner}
           style={{
-            background:   'var(--danger-pale)',
-            borderColor:  '#fca5a5',
-            color:        'var(--danger)',
+            background:  'var(--danger-pale)',
+            borderColor: '#fca5a5',
+            color:       'var(--danger)',
           }}
         >
           <AlertCircle size={15} /> {submitError}
@@ -66,6 +76,7 @@ export default function CreateExamForm({
               form={form}
               errors={errors}
               categories={categories}
+              programs={programs}    
               catLoading={catLoading}
               setField={setField}
             />

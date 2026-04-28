@@ -62,7 +62,7 @@ export function consumeOtp(
   const k     = key(email)
   const entry = store.get(k)
 
-  if (!entry)                            return 'invalid'
+  if (!entry)                            {return 'invalid'}
   if (Date.now() > entry.expiresAt)    { store.delete(k); return 'expired'           }
   if (entry.attempts >= OTP_MAX_ATTEMPTS) { store.delete(k); return 'too_many_attempts' }
 

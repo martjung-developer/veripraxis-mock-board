@@ -1,27 +1,32 @@
 // lib/hooks/admin/exams/results/useExamResults.ts
 // ─────────────────────────────────────────────────────────────────────────────
-// FIXES vs original:
+// Fetches exam results AND attempt histories in one coordinated refresh.
+// Both fetchResults (for the flat results table) and getExamResultsWithAttempts
+// (for the expandable attempt panel) run in parallel to avoid sequential
+// round-trips.
 //
-// 1. isFetching ref guard REMOVED from the public `refresh` callback.
-//    The guard was preventing re-fetches when the user clicked Refresh after
-//    a release — because the first mount fetch set isFetching=true and the
-//    ref was never reliable across React StrictMode double-renders.
-//    We now use a simple `loading` boolean for UI debounce instead.
-//
-// 2. `refresh` is stable (useCallback with empty dep array after mount).
-//    The examId is captured via closure, not a dependency, which avoids
-//    the double-fetch in React StrictMode/dev mode.
-//
-// 3. `error` state cleared on every refresh call (not just on success).
+// The hook exposes:
+//   - allResults / filteredResults / paginated  → existing flat table
+//   - histories                                  → attempt history keyed by
+//                                                  student id for O(1) lookup
+//   - summary built from histories (richer stats)
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { fetchResults, fetchAnalytics } from '@/lib/services/admin/exams/results/results.service'
-import { computeSummary } from '@/lib/utils/admin/results/results.utils'
+import { createClient }          from '@/lib/supabase/client'
+import {
+  fetchResults,
+  fetchAnalytics,
+  getExamResultsWithAttempts,
+} from '@/lib/services/admin/exams/results/results.service'
+import {
+  computeSummaryFromHistories,
+  computeAnalyticsFromHistories,
+} from '@/lib/utils/admin/results/results.utils'
 import { INITIAL_FILTERS } from '@/lib/types/admin/exams/results/results.types'
 import type {
   Result,
+  StudentAttemptHistory,
   AggregateAnalytics,
   ResultFilters,
   ResultSummary,
@@ -52,22 +57,27 @@ export interface UseExamResultsReturn {
 
   filteredResults: Result[]
   allResults:      Result[]
+
+  /** Attempt histories keyed by student profile id for O(1) lookup */
+  historiesByStudentId: Map<string, StudentAttemptHistory>
+  /** Full ordered list (same order as the results table) */
+  histories: StudentAttemptHistory[]
 }
 
 export function useExamResults(examId: string): UseExamResultsReturn {
   const supabase  = useMemo(() => createClient(), [])
   const isMounted = useRef(true)
 
-  // Store examId in a ref so refresh() doesn't need it as a dependency
   const examIdRef = useRef(examId)
   useEffect(() => { examIdRef.current = examId }, [examId])
 
-  const [allResults, setAllResults] = useState<Result[]>([])
-  const [analytics,  setAnalytics]  = useState<AggregateAnalytics | null>(null)
-  const [loading,    setLoading]    = useState(true)
-  const [error,      setError]      = useState<string | null>(null)
-  const [filters,    setFilters]    = useState<ResultFilters>(INITIAL_FILTERS)
-  const [page,       setPage]       = useState(1)
+  const [allResults,   setAllResults]   = useState<Result[]>([])
+  const [histories,    setHistories]    = useState<StudentAttemptHistory[]>([])
+  const [analytics,    setAnalytics]    = useState<AggregateAnalytics | null>(null)
+  const [loading,      setLoading]      = useState(true)
+  const [error,        setError]        = useState<string | null>(null)
+  const [filters,      setFilters]      = useState<ResultFilters>(INITIAL_FILTERS)
+  const [page,         setPage]         = useState(1)
 
   useEffect(() => {
     isMounted.current = true
@@ -75,16 +85,18 @@ export function useExamResults(examId: string): UseExamResultsReturn {
   }, [])
 
   // ── Fetch ─────────────────────────────────────────────────────────────────
-  // No isFetching guard — the UI loading state is sufficient to prevent
-  // duplicate concurrent fetches. The guard was causing stale results.
   const refresh = useCallback(async () => {
-    if (!isMounted.current) return
+    if (!isMounted.current) {return}
     setLoading(true)
     setError(null)
 
-    const resultsOutcome = await fetchResults(supabase, examIdRef.current)
+    // Run results fetch and attempt history fetch in parallel
+    const [resultsOutcome, attemptsOutcome] = await Promise.all([
+      fetchResults(supabase, examIdRef.current),
+      getExamResultsWithAttempts(supabase, examIdRef.current),
+    ])
 
-    if (!isMounted.current) return
+    if (!isMounted.current) {return}
 
     if (!resultsOutcome.ok) {
       setError(resultsOutcome.error.message)
@@ -92,19 +104,24 @@ export function useExamResults(examId: string): UseExamResultsReturn {
       return
     }
 
-    const results = resultsOutcome.results
+    const results      = resultsOutcome.results
+    const newHistories = attemptsOutcome.ok ? attemptsOutcome.histories : []
 
-    // Analytics is non-fatal — always resolve
+    // Analytics: prefer DB table, fall back to histories-derived computation
     const analyticsOutcome = await fetchAnalytics(supabase, examIdRef.current, results)
 
-    if (!isMounted.current) return
+    if (!isMounted.current) {return}
 
     setAllResults(results)
-    setAnalytics(analyticsOutcome.ok ? analyticsOutcome.analytics : null)
+    setHistories(newHistories)
+    setAnalytics(
+      analyticsOutcome.ok && analyticsOutcome.analytics !== null
+        ? analyticsOutcome.analytics
+        : computeAnalyticsFromHistories(newHistories),
+    )
     setLoading(false)
-  }, [supabase]) // examId deliberately via ref — avoids re-creating on every render
+  }, [supabase])
 
-  // Initial load only — not re-triggered by examId changes (it's in a ref)
   useEffect(() => {
     void refresh()
   }, [refresh])
@@ -134,10 +151,10 @@ export function useExamResults(examId: string): UseExamResultsReturn {
         !r.student.full_name.toLowerCase().includes(q) &&
         !r.student.email.toLowerCase().includes(q) &&
         !(r.student.student_id ?? '').toLowerCase().includes(q)
-      ) return false
-      if (filters.passFilter === 'passed' && !r.passed)  return false
-      if (filters.passFilter === 'failed' &&  r.passed)  return false
-      if (filters.statusFilter !== 'all' && r.status !== filters.statusFilter) return false
+      ) {return false}
+      if (filters.passFilter === 'passed' && !r.passed)  {return false}
+      if (filters.passFilter === 'failed' &&  r.passed)  {return false}
+      if (filters.statusFilter !== 'all' && r.status !== filters.statusFilter) {return false}
       return true
     })
   }, [allResults, filters])
@@ -149,8 +166,20 @@ export function useExamResults(examId: string): UseExamResultsReturn {
     [filteredResults, page],
   )
 
-  // ── Derived: summary ──────────────────────────────────────────────────────
-  const summary = useMemo(() => computeSummary(allResults), [allResults])
+  // ── Derived: histories map for O(1) row lookup ────────────────────────────
+  const historiesByStudentId = useMemo<Map<string, StudentAttemptHistory>>(() => {
+    const m = new Map<string, StudentAttemptHistory>()
+    for (const h of histories) {
+      m.set(h.student.id, h)
+    }
+    return m
+  }, [histories])
+
+  // ── Derived: summary from histories (richer) ──────────────────────────────
+  const summary = useMemo<ResultSummary>(
+    () => computeSummaryFromHistories(histories),
+    [histories],
+  )
 
   return {
     loading, error, analytics, summary,
@@ -160,5 +189,7 @@ export function useExamResults(examId: string): UseExamResultsReturn {
     refresh,
     filteredResults,
     allResults,
+    historiesByStudentId,
+    histories,
   }
 }

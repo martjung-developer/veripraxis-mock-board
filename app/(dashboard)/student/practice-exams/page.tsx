@@ -22,6 +22,12 @@ export default function ReviewsPage() {
     (examId: string) => router.push(`/student/practice-exams/${examId}`),
     [router],
   )
+  const setPageIfNumber = useCallback(
+    (value: number | string) => {
+      if (typeof value === 'number') {setPage(value)}
+    },
+    [setPage],
+  )
 
   return (
     <div className={styles.page}>
@@ -114,7 +120,7 @@ export default function ReviewsPage() {
                 : <button
                     key={n}
                     className={`${styles.pageNum} ${safePage === n ? styles.pageNumActive : ''}`}
-                    onClick={() => setPage(n as number)}
+                    onClick={() => setPageIfNumber(n)}
                   >
                     {n}
                   </button>

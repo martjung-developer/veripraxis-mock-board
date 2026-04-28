@@ -1,31 +1,41 @@
 // components/dashboard/admin/settings/ProfileSection.tsx
 //
-// Pure UI — renders the Profile card (avatar upload + name / email / role form).
-// No Supabase calls, no business logic.
+// FIXED:
+//  - Passes onConfirmUpload + onDeleteAvatar to the new AvatarUploader
+//  - Removes the old onAvatarChange (raw file event) prop — crop/preview is now
+//    handled inside AvatarUploader itself; only the confirmed data-URL bubbles up
+//  - Everything else (name, email, role, save/cancel) is unchanged
 
 import { Mail, Save, Shield, User } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { motion }                   from 'framer-motion'
 import {
   buttonVariants,
   fieldVariants,
   formVariants,
   sectionVariants,
 } from '@/animations/admin/settings/settings'
-import { AvatarUploader } from './AvatarUploader'
-import type { AvatarUploadState, Profile, ProfileFormState } from '@/lib/types/admin/settings/settings.types'
+import { AvatarUploader }   from './AvatarUploader'
+import type {
+  AvatarUploadState,
+  Profile,
+  ProfileFormState,
+} from '@/lib/types/admin/settings/settings.types'
 import s from '@/app/(dashboard)/admin/settings/settings.module.css'
 import type { JSX } from 'react'
 
 interface ProfileSectionProps {
-  profile: Profile
-  avatarUrl: string | null
-  initials: string
-  form: ProfileFormState
-  avatarUpload: AvatarUploadState
+  profile:          Profile
+  avatarUrl:        string | null
+  initials:         string
+  form:             ProfileFormState
+  avatarUpload:     AvatarUploadState
   onFullNameChange: (v: string) => void
-  onCancel: () => void
-  onSave: () => void
-  onAvatarChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onCancel:         () => void
+  onSave:           () => void
+  /** Receives the cropped data-URL after the user confirms the preview */
+  onConfirmUpload:  (dataUrl: string) => Promise<void>
+  /** Removes the current avatar */
+  onDeleteAvatar?:  () => Promise<void>
 }
 
 export function ProfileSection({
@@ -37,7 +47,8 @@ export function ProfileSection({
   onFullNameChange,
   onCancel,
   onSave,
-  onAvatarChange,
+  onConfirmUpload,
+  onDeleteAvatar,
 }: ProfileSectionProps): JSX.Element {
   return (
     <motion.div
@@ -57,12 +68,13 @@ export function ProfileSection({
         </div>
       </div>
 
-      {/* Avatar upload */}
+      {/* Avatar upload — now with crop + preview flow */}
       <AvatarUploader
         avatarUrl={avatarUrl}
         initials={initials}
         upload={avatarUpload}
-        onFileChange={onAvatarChange}
+        onConfirmUpload={onConfirmUpload}
+        onDeleteAvatar={onDeleteAvatar}
       />
 
       {/* Form */}

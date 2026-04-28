@@ -124,20 +124,20 @@ const recordViewed = useCallback((materialId: string) => {
   const [programId, setProgramId] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!user) return
+    if (!user) {return}
     supabase
       .from('students')
       .select('program_id')
       .eq('id', user.id)
       .single()
       .then(({ data }: { data: { program_id: string | null } | null }) => {
-        if (isMounted.current) setProgramId(data?.program_id ?? null)
+        if (isMounted.current) {setProgramId(data?.program_id ?? null)}
       })
   }, [user, supabase])
 
   // ── Fetch ─────────────────────────────────────────────────────────────────
   const refresh = useCallback(async () => {
-    if (!user) return
+    if (!user) {return}
     if (isMounted.current) { setLoading(true); setError(null) }
 
     const [materialsOutcome, favIds] = await Promise.all([
@@ -145,7 +145,7 @@ const recordViewed = useCallback((materialId: string) => {
       getFavoriteIds(supabase, user.id),
     ])
 
-    if (!isMounted.current) return
+    if (!isMounted.current) {return}
 
     if (!materialsOutcome.ok) {
       setError(materialsOutcome.message)
@@ -167,7 +167,7 @@ const recordViewed = useCallback((materialId: string) => {
 
   // Initial fetch — wait for user AND programId to resolve
   useEffect(() => {
-    if (!user || hasFetched.current) return
+    if (!user || hasFetched.current) {return}
     hasFetched.current = true
     refresh()
   }, [user, refresh])
@@ -188,7 +188,7 @@ const recordViewed = useCallback((materialId: string) => {
 
   // ── Realtime subscription ─────────────────────────────────────────────────
   useEffect(() => {
-    if (!user) return
+    if (!user) {return}
     const channel = subscribeToStudyMaterials(supabase, () => {
       hasFetched.current = false
       refresh()
@@ -218,9 +218,9 @@ const recordViewed = useCallback((materialId: string) => {
   const filtered = useMemo<StudyMaterial[]>(() => {
     const q = debouncedSearch.toLowerCase().trim()
     return allMaterials.filter((m) => {
-      if (filters.category !== 'All Categories' && m.category !== filters.category) return false
-      if (filters.type     !== 'All Types'       && m.type     !== filters.type)     return false
-      if (!matchesSearch(m, q))                                                       return false
+      if (filters.category !== 'All Categories' && m.category !== filters.category) {return false}
+      if (filters.type     !== 'All Types'       && m.type     !== filters.type)     {return false}
+      if (!matchesSearch(m, q))                                                       {return false}
       return true
     })
   }, [allMaterials, debouncedSearch, filters.category, filters.type])
@@ -239,7 +239,7 @@ const recordViewed = useCallback((materialId: string) => {
 
   // ── Favorites ─────────────────────────────────────────────────────────────
   const toggleFav = useCallback(async (materialId: string) => {
-    if (!user) return
+    if (!user) {return}
     const isFav    = favoriteIds.includes(materialId)
     const nextFav  = await svcToggleFavorite(supabase, user.id, materialId, isFav)
     const nextIds  = nextFav

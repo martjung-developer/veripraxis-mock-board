@@ -18,6 +18,6 @@ export async function signInWithGoogle(): Promise<AuthResult> {
     },
   })
 
-  if (error) return { success: false, error: error.message }
+  if (error) {return { success: false, error: error.message }}
   return { success: true, redirectTo: '/dashboard' }
 }

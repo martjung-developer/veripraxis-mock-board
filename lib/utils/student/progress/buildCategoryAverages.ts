@@ -22,7 +22,7 @@ export function buildCategoryAverages(
   const buckets = new Map<string, number[]>()
 
   for (const s of submissions) {
-    if (!s.exam_id || s.percentage === null || s.status !== 'released') continue
+    if (!s.exam_id || s.percentage === null || s.status !== 'released') {continue}
 
     const cat    = examCategoryMap.get(s.exam_id) ?? 'Other'
     const bucket = buckets.get(cat) ?? []

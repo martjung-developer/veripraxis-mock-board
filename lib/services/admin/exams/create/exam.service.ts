@@ -1,56 +1,66 @@
 // lib/services/admin/exams/create/exam.service.ts
-// All Supabase data-fetching and mutation logic for the Create Exam page.
-// No UI, no state — pure async functions with typed inputs and return values.
+//
+// FIXED: buildInsertPayload now writes `program_id` (the UUID FK column)
+// instead of `program` (the legacy text column that the join ignores).
+// ─────────────────────────────────────────────────────────────────────────────
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database } from '@/lib/types/database'
-import type { ExamInsert, CategoryOption, ExamFormData } from '@/lib/types/admin/exams/create/exam.types'
+import type { Database }       from '@/lib/types/database'
+import type { ExamFormData }   from '@/lib/types/admin/exams/create/exam.types'
+import type { CategoryOption } from '@/lib/types/admin/exams/create/exam.types'
 
 type DB = SupabaseClient<Database>
 
-// ── Type Guard ──────────────────────────────────────────────────────────────
-
-function extractMessage(err: unknown): string {
-  if (
-    typeof err === 'object' &&
-    err !== null &&
-    'message' in err &&
-    typeof (err as Record<string, unknown>)['message'] === 'string'
-  ) {
-    return (err as Record<string, unknown>)['message'] as string
-  }
-  if (err instanceof Error) return err.message
-  return 'An unexpected error occurred.'
+// Shape written to the DB — only the columns we set on insert
+type ExamInsertPayload = {
+  title:            string
+  description:      string | null
+  category_id:      string | null
+  program_id:       string | null   // ← UUID FK, joins to programs table
+  exam_type:        string
+  duration_minutes: number
+  total_points:     number
+  passing_score:    number
+  is_published:     boolean
+  created_by:       string | null
 }
 
-// ── fetchCategories ─────────────────────────────────────────────────────────
-// Fetches id + name for the category dropdown.
+// ── getCurrentUserId ──────────────────────────────────────────────────────────
 
-export async function fetchCategories(db: DB): Promise<CategoryOption[]> {
-  const { data, error } = await db
+export async function getCurrentUserId(supabase: DB): Promise<string | null> {
+  const { data } = await supabase.auth.getUser()
+  return data.user?.id ?? null
+}
+
+// ── fetchCategories ───────────────────────────────────────────────────────────
+
+export async function fetchCategories(supabase: DB): Promise<CategoryOption[]> {
+  const { data } = await supabase
     .from('exam_categories')
     .select('id, name')
-    .order('name', { ascending: true })
+    .order('name')
 
-  if (error) throw new Error(extractMessage(error))
-
-  // Pick<CategoryRow, 'id' | 'name'> — safe cast because .select() matches exactly
   return (data ?? []) as CategoryOption[]
 }
 
-// ── buildInsertPayload ──────────────────────────────────────────────────────
-// Converts raw form strings into the typed Supabase insert shape.
-// Parsing and validation of numeric fields happens here — the form always
-// stores strings so controlled inputs stay simple.
+// ── buildInsertPayload ────────────────────────────────────────────────────────
+//
+// CRITICAL FIX: previously wrote form.program (a text value like "BSPsych")
+// to the `program` text column, leaving `program_id` null. The Supabase join
+// `programs ( id, code, name )` keys off `program_id`, so the join always
+// returned null and the table showed "—".
+//
+// Now we write form.program_id (a UUID) to `program_id` so the FK join works.
 
 export function buildInsertPayload(
   form:   ExamFormData,
   userId: string | null,
-): ExamInsert {
+): ExamInsertPayload {
   return {
     title:            form.title.trim(),
     description:      form.description.trim() || null,
-    category_id:      form.category_id        || null,
+    category_id:      form.category_id  || null,
+    program_id:       form.program_id   || null,   // ← FIXED: was form.program → wrong column
     exam_type:        form.exam_type,
     duration_minutes: Number(form.duration_minutes),
     total_points:     Number(form.total_points),
@@ -60,28 +70,21 @@ export function buildInsertPayload(
   }
 }
 
-// ── insertExam ──────────────────────────────────────────────────────────────
-// Writes one exam row. Throws on error so the hook can catch and surface it.
+// ── insertExam ────────────────────────────────────────────────────────────────
 
 export async function insertExam(
-  db:      DB,
-  payload: ExamInsert,
-): Promise<void> {
-  const { error } = await db.from('exams').insert(payload)
-  if (error) throw new Error(extractMessage(error))
-}
+  supabase: DB,
+  payload:  ExamInsertPayload,
+): Promise<string> {
+  const { data, error } = await supabase
+    .from('exams')
+    .insert(payload)
+    .select('id')
+    .single()
 
-// ── getCurrentUserId ────────────────────────────────────────────────────────
-// Retrieves the authenticated user ID for created_by.
-// Returns null when unauthenticated (handled gracefully by buildInsertPayload).
+  if (error !== null || data === null) {
+    throw new Error(error?.message ?? 'Failed to create exam.')
+  }
 
-export async function getCurrentUserId(db: DB): Promise<string | null> {
-  const {
-    data: { user },
-    error,
-  } = await db.auth.getUser()
-
-  // Auth errors are non-fatal here — we just omit created_by
-  if (error || !user) return null
-  return user.id
+  return data.id
 }

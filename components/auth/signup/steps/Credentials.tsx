@@ -15,7 +15,7 @@ const STRENGTH_CLASS_MAP: Record<PasswordStrength, string> = {
 }
 
 function strengthClass(s: PasswordStrength | null): string {
-  if (!s) return ''
+  if (!s) {return ''}
   return (styles as Record<string, string>)[STRENGTH_CLASS_MAP[s]] ?? ''
 }
 

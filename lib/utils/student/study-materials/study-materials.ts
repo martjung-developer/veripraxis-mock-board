@@ -21,7 +21,7 @@ export function extractYouTubeId(url: string): string | null {
 // Pass the already-lowercased, trimmed query for performance.
 
 export function matchesSearch(material: StudyMaterial, lowerQuery: string): boolean {
-  if (!lowerQuery) return true
+  if (!lowerQuery) {return true}
   return (
     material.title.toLowerCase().includes(lowerQuery) ||
     (material.description  ?? '').toLowerCase().includes(lowerQuery) ||
@@ -43,7 +43,7 @@ export function isNewMaterial(createdAt: string): boolean {
 // Stored as a JSON array of material IDs, newest first, capped at MAX.
 
 function safeParseIds(raw: string | null): string[] {
-  if (!raw) return []
+  if (!raw) {return []}
   try {
     const parsed = JSON.parse(raw)
     return Array.isArray(parsed) ? (parsed as unknown[]).filter((v): v is string => typeof v === 'string') : []
@@ -53,12 +53,12 @@ function safeParseIds(raw: string | null): string[] {
 }
 
 export function getRecentlyViewedIds(): string[] {
-  if (typeof window === 'undefined') return []
+  if (typeof window === 'undefined') {return []}
   return safeParseIds(localStorage.getItem(RECENTLY_VIEWED_KEY))
 }
 
 export function recordRecentlyViewed(materialId: string): void {
-  if (typeof window === 'undefined') return
+  if (typeof window === 'undefined') {return}
   const existing = getRecentlyViewedIds().filter((id) => id !== materialId)
   const next = [materialId, ...existing].slice(0, RECENTLY_VIEWED_MAX)
   localStorage.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(next))
@@ -69,15 +69,15 @@ export function recordRecentlyViewed(materialId: string): void {
 export function buildPageNums(totalPages: number, currentPage: number): (number | '…')[] {
   const nums: (number | '…')[] = []
   if (totalPages <= 7) {
-    for (let i = 1; i <= totalPages; i++) nums.push(i)
+    for (let i = 1; i <= totalPages; i++) {nums.push(i)}
     return nums
   }
   nums.push(1)
-  if (currentPage > 3) nums.push('…')
+  if (currentPage > 3) {nums.push('…')}
   const start = Math.max(2, currentPage - 1)
   const end   = Math.min(totalPages - 1, currentPage + 1)
-  for (let i = start; i <= end; i++) nums.push(i)
-  if (currentPage < totalPages - 2) nums.push('…')
+  for (let i = start; i <= end; i++) {nums.push(i)}
+  if (currentPage < totalPages - 2) {nums.push('…')}
   nums.push(totalPages)
   return nums
 }

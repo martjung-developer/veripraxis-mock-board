@@ -1,60 +1,83 @@
 // components/dashboard/admin/AdminTopbar.tsx
-"use client";
+//
+// FIXED:
+//  - Shows real avatar image from profiles.avatar_url (not just initials)
+//  - Falls back to initials if no avatar
+//  - Subscribes to realtime profile changes so avatar updates instantly
+//  - Correctly fetches full_name + avatar_url in one query
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import {
-  Search,
-  Bell,
-  Settings,
-  ChevronDown,
-  GraduationCap,
-} from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
-import styles from "./AdminTopbar.module.css";
+'use client'
 
-function getInitials(name: string | null): string {
-  if (!name) {
-    return "FA";
-  }
-  return name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import Image                   from 'next/image'
+import Link                    from 'next/link'
+import { Search, Bell, Settings, ChevronDown, GraduationCap } from 'lucide-react'
+import { createClient }        from '@/lib/supabase/client'
+import { useUnreadCount }      from '@/lib/hooks/notifications/useUnreadCount'
+import { useRealtimeProfile }  from '@/lib/hooks/shared/useRealtimeProfile'
+import styles                  from './AdminTopbar.module.css'
+
+type ProfileRow = {
+  full_name: string | null
+  avatar_url: string | null
 }
 
-/* ═════════════════════════════════════
-   COMPONENT
-═════════════════════════════════════ */
+function getInitials(name: string | null): string {
+  if (!name) {return 'FA'}
+  return name
+    .split(' ')
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
+}
+
 export default function AdminTopbar() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), [])
 
-  const [facultyName, setFacultyName] = useState<string | null>(null);
-  const [search,      setSearch]      = useState("");
-  const [hasNotif,    setHasNotif]    = useState(true);
+  const [facultyName, setFacultyName] = useState<string | null>(null)
+  const [avatarUrl,   setAvatarUrl]   = useState<string | null>(null)
+  const [userId,      setUserId]      = useState<string | null>(null)
+  const [search,      setSearch]      = useState('')
 
+  // ── Resolve current user + profile ───────────────────────────────────────
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) {
-        return;
-      }
-      supabase
-        .from("profiles")
-        .select("full_name, role")
-        .eq("id", data.user.id)
-        .single()
-        .then(({ data: profile }: { data: { full_name: string; role: string } | null }) => {
-          if (profile) {
-            setFacultyName(profile.full_name ?? "Faculty");
-          }
-        });
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    void supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) {return}
+      setUserId(data.user.id)
 
-  const initials = getInitials(facultyName);
+      void supabase
+        .from('profiles')
+        .select('full_name, avatar_url')
+        .eq('id', data.user.id)
+        .single()
+        .then(({ data }) => {
+          const profile = data as ProfileRow | null
+          if (!profile) {return}
+          setFacultyName(profile.full_name ?? 'Faculty')
+          setAvatarUrl(profile.avatar_url ?? null)
+        })
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // ── Realtime: update avatar + name without refresh ────────────────────────
+  useRealtimeProfile({
+    supabase,
+    userId,
+    onUpdate: useCallback((updated) => {
+      if (updated.avatar_url !== undefined) {setAvatarUrl(updated.avatar_url)}
+      if (updated.full_name  !== undefined) {setFacultyName(updated.full_name ?? 'Faculty')}
+    }, []),
+  })
+
+  const unreadCount = useUnreadCount(userId)
+  const initials    = getInitials(facultyName)
 
   return (
     <header className={styles.topbar}>
 
-      {/* ── Left: search bar (moved from center) ── */}
+      {/* ── Left: search ── */}
       <div className={styles.left}>
         <div className={styles.searchWrap}>
           <span className={styles.searchIcon}><Search size={14} /></span>
@@ -71,35 +94,50 @@ export default function AdminTopbar() {
       {/* ── Right: actions ── */}
       <div className={styles.right}>
 
-        {/* Faculty role pill */}
         <span className={styles.rolePill}>
           <GraduationCap size={11} />
           Faculty
         </span>
 
-        {/* Notifications */}
-        <button
+        <Link
+          href="/admin/notifications"
           className={styles.iconBtn}
-          title="Notifications"
-          onClick={() => setHasNotif(false)}
+          title={unreadCount > 0 ? `${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}` : 'Notifications'}
+          aria-label={unreadCount > 0 ? `${unreadCount} unread notifications` : 'Notifications'}
         >
           <Bell size={15} />
-          {hasNotif && <span className={styles.notifDot} />}
-        </button>
+          {unreadCount > 0 && (
+            <span className={styles.notifDot} aria-hidden="true">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </Link>
 
-        {/* Settings shortcut */}
         <Link href="/admin/settings" className={styles.iconBtn} title="Settings">
           <Settings size={15} />
         </Link>
 
-        {/* Avatar with real faculty name */}
-        <button className={styles.avatarBtn}>
-          <div className={styles.avatarCircle}>{initials}</div>
-          <span className={styles.avatarName}>{facultyName ?? "Faculty"}</span>
+        {/* Avatar — image or initials fallback */}
+        <button className={styles.avatarBtn} type="button">
+          <div className={styles.avatarCircle}>
+            {avatarUrl ? (
+              <Image
+                src={avatarUrl}
+                alt={facultyName ?? 'Avatar'}
+                width={32}
+                height={32}
+                className={styles.avatarImg}
+                unoptimized
+              />
+            ) : (
+              initials
+            )}
+          </div>
+          <span className={styles.avatarName}>{facultyName ?? 'Faculty'}</span>
           <ChevronDown size={12} className={styles.avatarChevron} />
         </button>
-      </div>
 
+      </div>
     </header>
-  );
+  )
 }

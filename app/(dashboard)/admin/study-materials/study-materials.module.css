@@ -1,3 +1,4 @@
+/* app/(dashboard)/admin/study-materials/study-materials.module.css */
 /* ── Layout ──────────────────────────────────────────────────────────────────── */
 .page {
   padding: 1.75rem 2rem 3rem;
@@ -844,6 +845,69 @@
   background-size: 200% 100%;
   animation: shimmer 1.4s infinite;
   border-radius: 6px;
+}
+
+.table tbody {
+  display: table-row-group; /* explicit — ensures AnimatePresence layout works  */
+}
+ 
+/* ── Scrollable notes preview body ──────────────────────────────────────────── */
+.notesScrollBody {
+  max-height: 260px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #e2e8f0 transparent;
+}
+ 
+.notesScrollBody::-webkit-scrollbar {
+  width: 4px;
+}
+ 
+.notesScrollBody::-webkit-scrollbar-thumb {
+  background: #e2e8f0;
+  border-radius: 4px;
+}
+ 
+/* ── Publish status chip inside preview modal ───────────────────────────────── */
+.previewStatusChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.74rem;
+  font-weight: 500;
+  color: #64748b;
+  padding: 0.25rem 0.55rem;
+  background: #f1f5f9;
+  border-radius: 20px;
+  width: fit-content;
+}
+ 
+.previewStatusChip.published {
+  color:      #047857;
+  background: rgba(16,185,129,0.08);
+}
+ 
+/* ── Video embed container ───────────────────────────────────────────────────── */
+.videoEmbed {
+  border-radius: 10px;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  width: 100%;
+}
+ 
+.videoEmbed iframe {
+  display: block;
+  border: none;
+  width: 100%;
+  height: 100%;
+}
+ 
+/* ── Skeleton row: title cell with icon ─────────────────────────────────────── */
+.skeletonTitleCell {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
 }
 
 @keyframes shimmer {

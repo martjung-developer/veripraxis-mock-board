@@ -165,7 +165,7 @@ export function useSignup(): UseSignupReturn {
         state.phone       || undefined,
       )
 
-      if (!result.success) setError(result.error)
+      if (!result.success) {setError(result.error)}
       return result
     } catch (err) {
       const msg = extractErrorMessage(err)
@@ -181,13 +181,13 @@ export function useSignup(): UseSignupReturn {
   const handleGoogle = useCallback(async () => {
     setError(null)
     const result = await signInWithGoogle()
-    if (!result.success) setError(result.error)
+    if (!result.success) {setError(result.error)}
   }, [])
 
   const handleFacebook = useCallback(async () => {
     setError(null)
     const result = await signInWithFacebook()
-    if (!result.success) setError(result.error)
+    if (!result.success) {setError(result.error)}
   }, [])
 
   return {

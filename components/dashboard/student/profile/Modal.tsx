@@ -33,9 +33,9 @@ export function Modal({
 }: ModalProps) {
   // Escape key
   useEffect(() => {
-    if (!open) return
+    if (!open) {return}
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') {onClose()}
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -56,7 +56,7 @@ export function Modal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.18 }}
-          onClick={e => { if (e.target === e.currentTarget) onClose() }}
+          onClick={e => { if (e.target === e.currentTarget) {onClose()} }}
           role="dialog"
           aria-modal="true"
           aria-label={title}

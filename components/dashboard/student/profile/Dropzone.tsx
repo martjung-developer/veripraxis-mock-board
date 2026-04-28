@@ -34,31 +34,31 @@ export function Dropzone({ onFilesAccepted, disabled }: DropzoneProps) {
   const inputRef  = useRef<HTMLInputElement>(null)
   const [active, setActive] = useState(false)
 
-  const open = () => { if (!disabled) inputRef.current?.click() }
+  const open = () => { if (!disabled) {inputRef.current?.click()} }
 
   const handleDrop = useCallback((e: DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     setActive(false)
-    if (disabled) return
+    if (disabled) {return}
     const files = Array.from(e.dataTransfer.files)
-    if (files.length) onFilesAccepted(files)
+    if (files.length) {onFilesAccepted(files)}
   }, [disabled, onFilesAccepted])
 
   const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
     e.preventDefault()
-    if (!disabled) setActive(true)
+    if (!disabled) {setActive(true)}
   }, [disabled])
 
   const handleDragLeave = useCallback(() => setActive(false), [])
 
   const handleChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? [])
-    if (files.length) onFilesAccepted(files)
+    if (files.length) {onFilesAccepted(files)}
     e.target.value = ''   // allow re-selecting the same file
   }, [onFilesAccepted])
 
   const handleKey = useCallback((e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === 'Enter' || e.key === ' ') open()
+    if (e.key === 'Enter' || e.key === ' ') {open()}
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (

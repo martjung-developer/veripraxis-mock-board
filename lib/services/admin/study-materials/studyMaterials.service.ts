@@ -2,14 +2,18 @@
 //
 // All Supabase data operations for the Study Materials feature.
 // No React, no hooks — pure async functions that accept a typed Supabase client.
-// The service layer is the ONLY place that knows about table names.
+//
+// FIX: buildPayload now includes external_url, meeting_url, link_type.
+// FIX: fetchStudyMaterials selects and maps all new columns.
+// FIX: StudyMaterialRow is imported from the types file (not re-declared).
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database } from '@/lib/types/database'
+import type { Database }       from '@/lib/types/database'
 import type {
   StudyMaterial,
   StudyMaterialRow,
   ProgramOption,
+  LinkType,
 } from '@/lib/types/admin/study-materials/study-materials'
 import type { RawFormState } from '@/lib/utils/admin/study-materials/validators'
 import { uploadMaterialFile } from './storage.service'
@@ -18,7 +22,6 @@ type SupabaseDB = SupabaseClient<Database>
 
 // ── SELECT ────────────────────────────────────────────────────────────────────
 
-/** Fetch all study materials with their joined program. */
 export async function fetchStudyMaterials(
   supabase: SupabaseDB,
 ): Promise<StudyMaterial[]> {
@@ -35,6 +38,10 @@ export async function fetchStudyMaterials(
       category,
       is_published,
       created_at,
+      updated_at,
+      external_url,
+      meeting_url,
+      link_type,
       programs:program_id ( id, code, name )
     `)
     .order('created_at', { ascending: false })
@@ -44,13 +51,13 @@ export async function fetchStudyMaterials(
   }
 
   // Remap `programs` → `program` for ergonomic UI use
-  return (data as StudyMaterialRow[]).map(({ programs, ...rest }) => ({
+  return (data as StudyMaterialRow[]).map(({ programs, link_type, ...rest }) => ({
     ...rest,
-    program: programs ?? null,
+    link_type: (link_type as LinkType | null) ?? null,
+    program:   programs ?? null,
   }))
 }
 
-/** Fetch programs for the program selector. */
 export async function fetchPrograms(
   supabase: SupabaseDB,
 ): Promise<ProgramOption[]> {
@@ -68,9 +75,9 @@ export async function fetchPrograms(
 // ── Build insert/update payload ───────────────────────────────────────────────
 
 interface BuildPayloadArgs {
-  supabase:      SupabaseDB
-  form:          RawFormState
-  file:          File | null
+  supabase:        SupabaseDB
+  form:            RawFormState
+  file:            File | null
   existingFileUrl: string | null
 }
 
@@ -79,13 +86,15 @@ async function buildPayload(args: BuildPayloadArgs) {
 
   let fileUrl: string | null = existingFileUrl
 
+  // Upload physical file for document type
   if (form.type === 'document' && file) {
     const { publicUrl } = await uploadMaterialFile(supabase, file)
     fileUrl = publicUrl
   }
 
+  // For video type, store YouTube URL in file_url
   if (form.type === 'video') {
-    fileUrl = form.youtube_url.trim()
+    fileUrl = form.youtube_url.trim() || null
   }
 
   return {
@@ -97,6 +106,10 @@ async function buildPayload(args: BuildPayloadArgs) {
     program_id:    form.program_id || null,
     category:      form.category.trim() || null,
     is_published:  form.is_published,
+    // New external resource fields
+    external_url:  form.external_url.trim() || null,
+    meeting_url:   form.meeting_url.trim() || null,
+    link_type:     (form.link_type || null) as LinkType | null,
   }
 }
 
@@ -130,10 +143,10 @@ export async function createStudyMaterial(
 // ── UPDATE ────────────────────────────────────────────────────────────────────
 
 export interface UpdateMaterialArgs {
-  supabase:  SupabaseDB
-  id:        string
-  form:      RawFormState
-  file:      File | null
+  supabase:        SupabaseDB
+  id:              string
+  form:            RawFormState
+  file:            File | null
   existingFileUrl: string | null
 }
 

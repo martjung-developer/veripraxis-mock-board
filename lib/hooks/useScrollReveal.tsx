@@ -12,7 +12,7 @@ export function useScrollReveal() {
 
   useEffect(() => {
     const container = containerRef.current
-    if (!container) return
+    if (!container) {return}
 
     const elements = container.querySelectorAll('.reveal')
 

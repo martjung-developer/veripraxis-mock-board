@@ -66,14 +66,14 @@ export function coerceStatus(raw: string | null | undefined): SubmissionStatus {
 function unwrapProfile(
   raw: RawProfileJoin | RawProfileJoin[] | null | undefined,
 ): RawProfileJoin | null {
-  if (!raw) return null
+  if (!raw) {return null}
   return Array.isArray(raw) ? (raw[0] ?? null) : raw
 }
 
 function unwrapStudent(
   raw: RawStudentJoin | RawStudentJoin[] | null | undefined,
 ): RawStudentJoin | null {
-  if (!raw) return null
+  if (!raw) {return null}
   return Array.isArray(raw) ? (raw[0] ?? null) : raw
 }
 
@@ -98,14 +98,11 @@ export function mapSubmission(row: SubmissionRaw): Submission {
       id:         row.student_id ?? '',
       full_name:  profile?.full_name  ?? 'Unknown Student',
       email:      profile?.email      ?? '',
-      // student_id here is the TEXT identifier (e.g. "STU-202400001"),
-      // NOT the UUID. It lives in students.student_id (the join leg).
       student_id: studentJoin?.student_id ?? null,
     },
     started_at:         row.started_at,
     submitted_at:       row.submitted_at,
     time_spent_seconds: row.time_spent_seconds,
-    // FIX C-1: coerce to canonical status — handles all 5 DB values
     status:             coerceStatus(row.status),
     score:              row.score,
     percentage:         row.percentage,
@@ -122,7 +119,7 @@ const VALID_QUESTION_TYPES = new Set<string>([
 function normalizeQuestionOptions(
   options: unknown,
 ): { label: string; text: string }[] | null {
-  if (!Array.isArray(options)) return null
+  if (!Array.isArray(options)) {return null}
 
   const isValid = options.every(
     (item) =>
@@ -138,7 +135,6 @@ function normalizeQuestionOptions(
 }
 
 export function mapAnswer(raw: AnswerRaw): AnswerDetail {
-  // Unwrap questions join (PostgREST may return object or single-element array)
   const q = Array.isArray(raw.questions) ? raw.questions[0] : raw.questions
 
   const question = q && VALID_QUESTION_TYPES.has(q.question_type ?? '')
@@ -155,7 +151,7 @@ export function mapAnswer(raw: AnswerRaw): AnswerDetail {
 
   return {
     id:            raw.id,
-    question_id:   raw.question_id ?? '',
+    question_id:   raw.question_id ?? '',  
     answer_text:   raw.answer_text,
     is_correct:    raw.is_correct   ?? null,
     points_earned: raw.points_earned ?? null,
@@ -170,10 +166,10 @@ import type { AnswerKeyEntry } from '@/lib/types/admin/exams/submissions/answer.
 
 export function mapAnswerKeyEntry(raw: AnswerKeyRaw): AnswerKeyEntry {
   return {
-    id: raw.id,
+    question_id:    raw.id,           
     correct_answer: raw.correct_answer,
-    question_text: raw.question_text,
-    question_type: raw.question_type as QuestionType,
-    order_number: raw.order_number ?? null,
+    question_text:  raw.question_text,
+    question_type:  raw.question_type as QuestionType,
+    order_number:   raw.order_number ?? null,
   }
 }

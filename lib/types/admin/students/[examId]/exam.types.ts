@@ -1,26 +1,37 @@
-// lib/types/admin/exams/submissions/exam.types.ts
-// ─────────────────────────────────────────────────────────────────────────────
-// GradingMode is imported from database.ts — the single source of truth.
-// Previously this imported from submission.types.ts, which itself re-exported
-// from database.ts, creating a potential circular dependency path:
-//   exam.types → submission.types → database
-// The fix is a direct import, removing the intermediate hop.
-// ─────────────────────────────────────────────────────────────────────────────
+// lib/types/admin/students/[examId]/exam.types.ts
 
-import type { GradingMode } from '@/lib/types/database'
+import type { Database } from '@/lib/types/database'
+import type { ExamType } from '@/lib/types/database'
 
-export type { GradingMode }
+// ── Raw DB row aliases ────────────────────────────────────────────────────────
+type ExamAssignmentRow = Database['public']['Tables']['exam_assignments']['Row']
 
-// ── Exam metadata needed for grading calculations ─────────────────────────────
-export interface ExamInfo {
-  passing_score: number
-  total_points:  number
-  grading_mode:  GradingMode
+// ── Joined exam shape returned inside exam_assignments query ─────────────────
+export interface JoinedExamForAssignment {
+  title:     string | null
+  exam_type: string | null
 }
 
-// ── Preview score shown in the submission-detail modal footer ─────────────────
-export interface PreviewScore {
-  earned: number
-  pct:    number
-  passed: boolean
+// ── Raw Supabase row from getAssignedExams() ──────────────────────────────────
+// Mirrors the SELECT columns exactly:
+//   id, exam_id, is_active, assigned_at, deadline,
+//   exams ( title, exam_type )
+export interface AssignedExamRow {
+  id:          ExamAssignmentRow['id']
+  exam_id:     ExamAssignmentRow['exam_id']
+  is_active:   ExamAssignmentRow['is_active']
+  assigned_at: ExamAssignmentRow['assigned_at']
+  deadline:    ExamAssignmentRow['deadline']
+  exams:       JoinedExamForAssignment | JoinedExamForAssignment[] | null
+}
+
+// ── UI-facing domain model ────────────────────────────────────────────────────
+export interface AssignedExam {
+  id:          string
+  exam_id:     string
+  exam_title:  string
+  exam_type:   ExamType
+  is_active:   boolean | null
+  assigned_at: string | null
+  deadline:    string | null
 }

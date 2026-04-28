@@ -28,8 +28,8 @@ import type { LucideIcon } from 'lucide-react'
 // Converts a raw DB row (with `Json | null` options) to the app-level Question.
 
 function parseOptions(raw: Json | null): QuestionOption[] | null {
-  if (!raw) return null
-  if (!Array.isArray(raw)) return null
+  if (!raw) {return null}
+  if (!Array.isArray(raw)) {return null}
 
   // Validate each element has the shape { label: string, text: string }
   const result: QuestionOption[] = []

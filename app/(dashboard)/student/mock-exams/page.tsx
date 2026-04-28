@@ -1,19 +1,34 @@
 // app/(dashboard)/student/mock-exams/page.tsx
+//
+// FIXED:
+//  1. Refresh button wired to useMockExams.refresh()
+//  2. lockedCount shown in header
+// ─────────────────────────────────────────────────────────────────────────────
+
 'use client'
 
-import { useRouter } from 'next/navigation'
-import { useMockExams }         from '@/lib/hooks/student/mock-exams/useMockExams'
-import { MockExamsHeader }      from '@/components/dashboard/student/mock-exams/MockExamsHeader'
-import { MockExamsFilters }     from '@/components/dashboard/student/mock-exams/MockExamsFilters'
-import { MockExamsGrid }        from '@/components/dashboard/student/mock-exams/MockExamsGrid'
+import { useRouter }             from 'next/navigation'
+import { RefreshCw }             from 'lucide-react'
+import { useMockExams }          from '@/lib/hooks/student/mock-exams/useMockExams'
+import { MockExamsFilters }      from '@/components/dashboard/student/mock-exams/MockExamsFilters'
+import { MockExamsGrid }         from '@/components/dashboard/student/mock-exams/MockExamsGrid'
 import { MockExamsEmpty, MockExamsSkeleton } from '@/components/dashboard/student/mock-exams/MockExamsEmpty'
-import { MockExamsPagination }  from '@/components/dashboard/student/mock-exams/MockExamsPagination'
-import { ALL_CATEGORIES }       from '@/lib/constants/student/mock-exams/mock-exams'
-import styles from './mock-exams.module.css'
+import { MockExamsPagination }   from '@/components/dashboard/student/mock-exams/MockExamsPagination'
+import { ALL_CATEGORIES }        from '@/lib/constants/student/mock-exams/mock-exams'
+import styles                    from './mock-exams.module.css'
+
+export function MockExamsHeader() {
+  return (
+    <div>
+      <h1 className={styles.title}>Mock Exams</h1>
+      <p className={styles.subtitle}>Take board-style exams assigned by your faculty</p>
+    </div>
+  )
+}
 
 export default function MockExamsPage() {
-  const router  = useRouter()
-  const exams   = useMockExams()
+  const router = useRouter()
+  const exams  = useMockExams()
 
   const {
     search, setSearch,
@@ -22,18 +37,52 @@ export default function MockExamsPage() {
     page, setPage, totalPages,
     paginated, filtered,
     categories,
-    availableCount, completedCount, inProgressCount, total,
+    availableCount, completedCount, inProgressCount, lockedCount,
     loading, error,
+    refresh,
   } = exams
 
   return (
-    <div className={styles.page}>
-      <MockExamsHeader
-        availableCount={availableCount}
-        completedCount={completedCount}
-        inProgressCount={inProgressCount}
-        total={total}
-      />
+    <>
+    <div className={styles.header}>  {/* reuse existing .header flex */}
+      <MockExamsHeader />
+
+      <div className={styles.headerRight}>
+        <div className={styles.statPills}>
+          <span className={styles.statPill} data-type="available">
+            <span className={styles.dot} /> {availableCount} Available
+          </span>
+          {inProgressCount > 0 && (
+            <span className={styles.statPill} data-type="in-progress">
+              <span className={styles.dotInProgress} /> {inProgressCount} In Progress
+            </span>
+          )}
+          {completedCount > 0 && (
+            <span className={styles.statPill} data-type="completed">
+              <span className={styles.dotCompleted} /> {completedCount} Completed
+            </span>
+          )}
+          {lockedCount > 0 && (
+            <span className={styles.statPill} data-type="locked">
+              <span className={styles.dot} /> {lockedCount} Locked
+            </span>
+          )}
+        </div>
+        <button
+          type="button"
+          className={styles.refreshBtn}
+          onClick={refresh}
+          disabled={loading}
+          title="Refresh exams"
+        >
+          <RefreshCw
+            size={16}
+            className={loading ? styles.spin : undefined}
+          />
+          Refresh
+        </button>
+      </div>
+    </div>
 
       <MockExamsFilters
         search={search}
@@ -48,16 +97,17 @@ export default function MockExamsPage() {
 
       {loading ? (
         <MockExamsSkeleton />
-      ) : error ? (
+      ) : error !== null ? (
         <div className={styles.emptyState}>
           <p className={styles.emptyTitle}>Something went wrong</p>
           <p className={styles.emptyText}>{error}</p>
+          <button className={styles.emptyBtn} onClick={refresh}>Try again</button>
         </div>
       ) : paginated.length > 0 ? (
         <MockExamsGrid
           exams={paginated}
-          onStart={(id) => router.push(`/student/mock-exams/${id}`)}
-          onContinue={(id) => router.push(`/student/mock-exams/${id}`)}
+          onStart={(id)       => router.push(`/student/mock-exams/${id}`)}
+          onContinue={(id)    => router.push(`/student/mock-exams/${id}`)}
           onViewAttempt={(id) => router.push(`/student/mock-exams/${id}`)}
         />
       ) : (
@@ -66,7 +116,7 @@ export default function MockExamsPage() {
         />
       )}
 
-      {!loading && !error && totalPages > 1 && (
+      {!loading && error === null && totalPages > 1 && (
         <MockExamsPagination
           page={page}
           totalPages={totalPages}
@@ -74,6 +124,7 @@ export default function MockExamsPage() {
           setPage={setPage}
         />
       )}
-    </div>
+
+    </>
   )
 }

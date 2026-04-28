@@ -1,22 +1,34 @@
 // components/dashboard/admin/exams/results/ResultsTable.tsx
-import Link from 'next/link'
-import { BarChart2, CheckCircle, XCircle, CheckSquare, Send } from 'lucide-react'
-import type { Result } from '@/lib/types/admin/exams/results/results.types'
-import { fmtTime, fmtDate, getInitials } from '@/lib/utils/admin/results/results.utils'
+// ─────────────────────────────────────────────────────────────────────────────
+// Results table with expandable per-row attempt history panel.
+// Expand state is local to the table — no external state required.
+// AttemptHistoryPanel is rendered as an inline <tr> immediately below the
+// expanded student row. The colSpan matches the number of visible columns (10).
+// ─────────────────────────────────────────────────────────────────────────────
+'use client'
+
+import React, { useState } from 'react';
+import Link                      from 'next/link'
+import { BarChart2, CheckCircle, XCircle, CheckSquare, Send, ChevronDown, ChevronRight } from 'lucide-react'
+import type { Result, StudentAttemptHistory } from '@/lib/types/admin/exams/results/results.types'
+import { fmtTime, fmtDate, getInitials }      from '@/lib/utils/admin/results/results.utils'
+import { AttemptHistoryPanel }               from './AttemptHistoryPanel'
 import s from '@/app/(dashboard)/admin/exams/[examId]/results/results.module.css'
 
-const PAGE_SIZE = 10
+const PAGE_SIZE  = 10
+// Columns: Rank | Student | Student ID | Score | % | Pass/Fail | Status | Time | Submitted | Expand
+const COL_SPAN   = 10
 
-// ── Rank badge ────────────────────────────────────────────────────────────────
+// ── Rank badge ─────────────────────────────────────────────────────────────────
 
 function RankBadge({ rank }: { rank: number }) {
-  if (rank === 1) return <span className={`${s.rankBadge} ${s.rankGold}`}>🥇</span>
-  if (rank === 2) return <span className={`${s.rankBadge} ${s.rankSilver}`}>🥈</span>
-  if (rank === 3) return <span className={`${s.rankBadge} ${s.rankBronze}`}>🥉</span>
+  if (rank === 1) {return <span className={`${s.rankBadge} ${s.rankGold}`}>1</span>}
+  if (rank === 2) {return <span className={`${s.rankBadge} ${s.rankSilver}`}>2</span>}
+  if (rank === 3) {return <span className={`${s.rankBadge} ${s.rankBronze}`}>3</span>}
   return <span className={`${s.rankBadge} ${s.rankDefault}`}>{rank}</span>
 }
 
-// ── Skeleton ──────────────────────────────────────────────────────────────────
+// ── Skeleton ───────────────────────────────────────────────────────────────────
 
 function SkeletonRow() {
   return (
@@ -31,7 +43,7 @@ function SkeletonRow() {
           </div>
         </div>
       </td>
-      {[70, 55, 70, 70, 80, 60, 50].map((w, j) => (
+      {[70, 55, 70, 70, 80, 60, 50, 32].map((w, j) => (
         <td key={j}>
           <div className={`${s.skeleton} ${s.skelText}`} style={{ width: w }} />
         </td>
@@ -40,12 +52,12 @@ function SkeletonRow() {
   )
 }
 
-// ── EmptyState ────────────────────────────────────────────────────────────────
+// ── EmptyState ─────────────────────────────────────────────────────────────────
 
 function EmptyState({ examId }: { examId: string }) {
   return (
     <tr>
-      <td colSpan={9}>
+      <td colSpan={COL_SPAN}>
         <div className={s.emptyState}>
           <div className={s.emptyIcon}>
             <BarChart2 size={22} color="var(--text-muted)" />
@@ -64,16 +76,24 @@ function EmptyState({ examId }: { examId: string }) {
   )
 }
 
-// ── ResultRow ─────────────────────────────────────────────────────────────────
+// ── ResultRow ──────────────────────────────────────────────────────────────────
 
 interface ResultRowProps {
-  result: Result
-  rank:   number
+  result:      Result
+  rank:        number
+  history:     StudentAttemptHistory | undefined
+  isExpanded:  boolean
+  onToggle:    () => void
 }
 
-function ResultRow({ result: r, rank }: ResultRowProps) {
+function ResultRow({ result: r, rank, history, isExpanded, onToggle }: ResultRowProps) {
+  const hasHistory = history !== undefined && history.attempts.length > 0
+  const multiAttempt = hasHistory && history.attempts.length > 1
+
   return (
-    <tr className={`${s.tableRow} ${r.status === 'released' ? s.tableRowReleased : ''}`}>
+    <tr
+      className={`${s.tableRow} ${r.status === 'released' ? s.tableRowReleased : ''} ${isExpanded ? s.tableRowExpanded : ''}`}
+    >
       <td><RankBadge rank={rank} /></td>
       <td>
         <div className={s.studentCell}>
@@ -113,20 +133,58 @@ function ResultRow({ result: r, rank }: ResultRowProps) {
       </td>
       <td><span className={s.timeCell}>{fmtTime(r.time_spent_seconds)}</span></td>
       <td><span className={s.dateCell}>{fmtDate(r.submitted_at)}</span></td>
+      <td>
+        {hasHistory ? (
+          <button
+            className={`${s.expandBtn} ${multiAttempt ? s.expandBtnMulti : ''}`}
+            onClick={onToggle}
+            aria-label={isExpanded ? 'Collapse attempt history' : 'Expand attempt history'}
+            title={`${history.attempts.length} attempt${history.attempts.length !== 1 ? 's' : ''}`}
+          >
+            {isExpanded
+              ? <ChevronDown  size={14} />
+              : <ChevronRight size={14} />}
+            <span className={s.expandBtnCount}>{history.attempts.length}</span>
+          </button>
+        ) : (
+          <span className={s.expandBtnPlaceholder}>—</span>
+        )}
+      </td>
     </tr>
   )
 }
 
-// ── ResultsTable ──────────────────────────────────────────────────────────────
+// ── ResultsTable ───────────────────────────────────────────────────────────────
 
 interface ResultsTableProps {
-  results:  Result[]
-  loading:  boolean
-  page:     number
-  examId:   string
+  results:              Result[]
+  loading:              boolean
+  page:                 number
+  examId:               string
+  historiesByStudentId: Map<string, StudentAttemptHistory>
 }
 
-export function ResultsTable({ results, loading, page, examId }: ResultsTableProps) {
+export function ResultsTable({
+  results,
+  loading,
+  page,
+  examId,
+  historiesByStudentId,
+}: ResultsTableProps) {
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+
+  function toggleExpand(studentId: string) {
+    setExpandedIds((prev: Set<string>) => {
+      const next = new Set(prev)
+      if (next.has(studentId)) {
+        next.delete(studentId)
+      } else {
+        next.add(studentId)
+      }
+      return next
+    })
+  }
+
   return (
     <div className={s.tableWrap}>
       <table className={s.table}>
@@ -141,6 +199,7 @@ export function ResultsTable({ results, loading, page, examId }: ResultsTablePro
             <th>Status</th>
             <th>Time</th>
             <th>Submitted</th>
+            <th>Attempts</th>
           </tr>
         </thead>
         <tbody>
@@ -151,13 +210,29 @@ export function ResultsTable({ results, loading, page, examId }: ResultsTablePro
           ) : results.length === 0 ? (
             <EmptyState examId={examId} />
           ) : (
-            results.map((r, i) => (
-              <ResultRow
-                key={r.id}
-                result={r}
-                rank={(page - 1) * PAGE_SIZE + i + 1}
-              />
-            ))
+            results.map((r, i) => {
+              const history = historiesByStudentId.get(r.student.id)
+              const isExpanded = expandedIds.has(r.student.id)
+
+              return (
+                <React.Fragment key={r.student.id}>
+                  <ResultRow
+                    result={r}
+                    rank={(page - 1) * PAGE_SIZE + i + 1}
+                    history={history}
+                    isExpanded={isExpanded}
+                    onToggle={() => toggleExpand(r.student.id)}
+                  />
+                  {history !== undefined && (
+                    <AttemptHistoryPanel
+                      history={history}
+                      colSpan={COL_SPAN}
+                      isOpen={isExpanded}
+                    />
+                  )}
+                </React.Fragment>
+              )
+            })
           )}
         </tbody>
       </table>

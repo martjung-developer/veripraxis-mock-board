@@ -4,7 +4,7 @@
 import { CheckCheck, Settings } from 'lucide-react'
 import { notifAnimations } from '@/animations/notifications/notifications'
 import styles from '@/app/(dashboard)/student/notifications/notifications.module.css'
-import { JSX } from 'react/jsx-dev-runtime'
+import type { JSX } from 'react'
 
 interface NotificationHeaderProps {
   unreadCount:   number

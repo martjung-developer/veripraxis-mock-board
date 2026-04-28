@@ -5,7 +5,7 @@ import { BookOpen, ClipboardList, Inbox } from 'lucide-react'
 import Link from 'next/link'
 import type { FilterTab } from '@/lib/types/student/notifications/notifications.types'
 import styles from '@/app/(dashboard)/student/notifications/notifications.module.css'
-import { JSX } from 'react/jsx-dev-runtime'
+import type { JSX } from 'react'
 
 interface NotificationEmptyStateProps {
   activeTab: FilterTab

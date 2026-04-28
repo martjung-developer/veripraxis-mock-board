@@ -16,7 +16,7 @@ export default async function StudentLayout({
 
   const user = session?.user
 
-  if (!user) redirect('/login')
+  if (!user) {redirect('/login')}
 
   const profile: Profile = {
     id:         user.id,
@@ -44,16 +44,17 @@ export default async function StudentLayout({
         minWidth:      0,
         background:    '#eef2f7',
       }}>
-        <StudentTopbar profile={profile} />
-        <main style={{
-          flex:      1,
-          padding:   '1.75rem 2rem',
-          overflowY: 'auto',
-        }}>
-          <AuthProvider>        
-            {children}
-          </AuthProvider>
-        </main>
+        <StudentTopbar profile={profile} userId={user!.id} />
+        <AuthProvider>
+          <main style={{
+  flex:      1,
+  padding:   '1.5rem 2rem',
+  overflowY: 'auto',
+  minWidth:  0,
+}}>
+  {children}
+</main>
+        </AuthProvider>
       </div>
     </div>
   )

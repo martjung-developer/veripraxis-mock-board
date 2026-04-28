@@ -27,7 +27,7 @@ function extractMessage(err: unknown): string {
   ) {
     return (err as Record<string, unknown>)['message'] as string
   }
-  if (err instanceof Error) return err.message
+  if (err instanceof Error) {return err.message}
   return 'An unexpected error occurred.'
 }
 
@@ -68,7 +68,7 @@ export async function getCategories(db: DB): Promise<CategoryOption[]> {
     .select('id, name')
     .order('name')
 
-  if (error) throw new Error(extractMessage(error))
+  if (error) {throw new Error(extractMessage(error))}
 
   return (data ?? []) as CategoryOption[]
 }
@@ -81,7 +81,7 @@ export async function getPrograms(db: DB): Promise<ProgramOption[]> {
     .select('id, code, name')
     .order('code')
 
-  if (error) throw new Error(extractMessage(error))
+  if (error) {throw new Error(extractMessage(error))}
 
   return (data ?? []) as ProgramOption[]
 }
@@ -113,10 +113,10 @@ export async function getExamStats(db: DB, examId: string): Promise<ExamStats> {
       .not('percentage', 'is', null),
   ])
 
-  if (qRes.error)     throw new Error(extractMessage(qRes.error))
-  if (aRes.error)     throw new Error(extractMessage(aRes.error))
-  if (subRes.error)   throw new Error(extractMessage(subRes.error))
-  if (scoreRes.error) throw new Error(extractMessage(scoreRes.error))
+  if (qRes.error)     {throw new Error(extractMessage(qRes.error))}
+  if (aRes.error)     {throw new Error(extractMessage(aRes.error))}
+  if (subRes.error)   {throw new Error(extractMessage(subRes.error))}
+  if (scoreRes.error) {throw new Error(extractMessage(scoreRes.error))}
 
   const percentages = (scoreRes.data ?? []).map(
     (r: { percentage: number | null }) => r.percentage,
@@ -156,5 +156,5 @@ export async function updateExam(
   payload: ExamUpdate,
 ): Promise<void> {
   const { error } = await db.from('exams').update(payload).eq('id', examId)
-  if (error) throw new Error(extractMessage(error))
+  if (error) {throw new Error(extractMessage(error))}
 }

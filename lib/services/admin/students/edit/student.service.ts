@@ -64,7 +64,7 @@ export async function updateStudentProfile(
     .update(payload)
     .eq('id', studentId)
 
-  if (error) return { ok: false, message: `Failed to update profile: ${error.message}` }
+  if (error) {return { ok: false, message: `Failed to update profile: ${error.message}` }}
   return { ok: true, data: null }
 }
 
@@ -80,6 +80,6 @@ export async function updateStudentRecord(
     .update(payload)
     .eq('id', studentId)
 
-  if (error) return { ok: false, message: `Failed to update student record: ${error.message}` }
+  if (error) {return { ok: false, message: `Failed to update student record: ${error.message}` }}
   return { ok: true, data: null }
 }

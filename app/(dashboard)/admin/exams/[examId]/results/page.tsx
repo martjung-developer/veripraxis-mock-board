@@ -1,16 +1,9 @@
 // app/(dashboard)/admin/exams/[examId]/results/page.tsx
 // ─────────────────────────────────────────────────────────────────────────────
-// FIXES vs original:
-//
-// 1. Added `key={examId}` to the page root — forces a full remount (and
-//    therefore a fresh fetch) if the user navigates between different exams'
-//    results pages without a full page load.
-//
-// 2. `refresh` is called once on mount via useEffect to ensure data is always
-//    current when arriving from the submissions page (where a release just happened).
-//    This guards against Next.js router cache serving a stale render.
+// Delegates ALL data fetching and state to useExamResults.
+// Passes historiesByStudentId to ResultsTable for expandable attempt panels.
+// Provides two CSV export actions: flat results and full attempt history.
 // ─────────────────────────────────────────────────────────────────────────────
-
 'use client'
 
 import { useEffect }             from 'react'
@@ -18,15 +11,16 @@ import Link                      from 'next/link'
 import { useParams }             from 'next/navigation'
 import {
   BarChart2, ArrowLeft, Download, RefreshCw,
-  AlertCircle, X, CheckSquare, Send, Clock,
+  AlertCircle, X, CheckSquare, Send, Clock, FileText,
 } from 'lucide-react'
-import { useExamResults }       from '@/lib/hooks/admin/exams/results/useExamResults'
-import { exportResultsCSV }     from '@/lib/utils/admin/results/exportResultsCSV'
-import { fmtDate }              from '@/lib/utils/admin/results/results.utils'
-import { SummaryCards }         from '@/components/dashboard/admin/exams/results/SummaryCards'
-import { ResultsFilters }       from '@/components/dashboard/admin/exams/results/ResultsFilters'
-import { ResultsTable }         from '@/components/dashboard/admin/exams/results/ResultsTable'
-import { PaginationControls }   from '@/components/dashboard/admin/exams/results/PaginationControls'
+import { useExamResults }                      from '@/lib/hooks/admin/exams/results/useExamResults'
+import { exportAttemptHistoryCSV } from '@/lib/utils/admin/results/exportResultsCSV'
+import { exportAttemptHistoryPDF } from '@/lib/utils/admin/results/exportResultsPDF'
+import { fmtDate }                             from '@/lib/utils/admin/results/results.utils'
+import { SummaryCards }                        from '@/components/dashboard/admin/exams/results/SummaryCards'
+import { ResultsFilters }                      from '@/components/dashboard/admin/exams/results/ResultsFilters'
+import { ResultsTable }                        from '@/components/dashboard/admin/exams/results/ResultsTable'
+import { PaginationControls }                  from '@/components/dashboard/admin/exams/results/PaginationControls'
 import s from './results.module.css'
 
 const PAGE_SIZE = 10
@@ -39,15 +33,18 @@ export default function ResultsPage() {
     filters, setSearch, setPass, setStatus,
     page, setPage, totalPages, paginated, totalFiltered,
     refresh, filteredResults, allResults,
+    historiesByStudentId, histories,
   } = useExamResults(examId)
 
-  // Force a fresh fetch every time this page mounts.
-  // Next.js App Router may cache the previous render; this ensures the data
-  // reflects any releases that happened on the Submissions page.
   useEffect(() => {
     void refresh()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [examId])
+
+  const isFiltered =
+    filters.search !== '' ||
+    filters.passFilter !== 'all' ||
+    filters.statusFilter !== 'all'
 
   return (
     <div className={s.page}>
@@ -65,36 +62,44 @@ export default function ResultsPage() {
             </div>
             <div>
               <h1 className={s.heading}>Results</h1>
-              <p className={s.headingSub}>
-                Read-only · Reviewed &amp; Released submissions
-              </p>
+              <p className={s.headingSub}>Read-only · Reviewed &amp; Released submissions</p>
             </div>
           </div>
 
           <div className={s.headerActions}>
             <button
               className={s.btnSecondary}
-              onClick={refresh}
+              onClick={() => void refresh()}
               disabled={loading}
             >
               <RefreshCw size={13} className={loading ? s.spinner : ''} />
               Refresh
             </button>
-            <button
-              className={s.btnExport}
-              onClick={() =>
-                exportResultsCSV(
-                  filters.search !== '' ||
-                  filters.passFilter !== 'all' ||
-                  filters.statusFilter !== 'all'
-                    ? filteredResults
-                    : allResults,
-                )
-              }
-              disabled={loading || allResults.length === 0}
-            >
-              <Download size={13} /> Export CSV
-            </button>
+
+            {/* Attempt history export — only shown when history data is available */}
+            {histories.length > 0 && (
+              <>
+                {/* CSV Attempt History */}
+                <button
+                  className={s.btnExport}
+                  onClick={() => exportAttemptHistoryCSV(histories)}
+                  disabled={loading}
+                  title="Export one row per attempt across all students (CSV)"
+                >
+                  <FileText size={13} /> Attempt CSV
+                </button>
+
+                {/* PDF Attempt History */}
+                <button
+                  className={s.btnExport}
+                  onClick={() => void exportAttemptHistoryPDF(histories)}
+                  disabled={loading}
+                  title="Export formatted attempt history report (PDF)"
+                >
+                  <FileText size={13} /> Attempt PDF
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -126,19 +131,15 @@ export default function ResultsPage() {
         </span>
         {summary.reviewed > 0 && (
           <span className={s.pendingReleaseTag}>
-            ⏳ {summary.reviewed} reviewed, not yet released
+            {summary.reviewed} reviewed, not yet released
           </span>
         )}
       </div>
 
       {/* ── Summary cards ── */}
-      <SummaryCards
-        summary={summary}
-        analytics={analytics}
-        loading={loading}
-      />
+      <SummaryCards summary={summary} analytics={analytics} loading={loading} />
 
-      {/* ── Status pills + analytics note ── */}
+      {/* ── Status pills ── */}
       <div className={s.statusPills}>
         <div className={`${s.statusPill} ${s.statusPillReviewed}`}>
           <CheckSquare size={12} /> {summary.reviewed} Reviewed
@@ -146,7 +147,7 @@ export default function ResultsPage() {
         <div className={`${s.statusPill} ${s.statusPillReleased}`}>
           <Send size={12} /> {summary.released} Released
         </div>
-        {analytics?.last_attempt_at && (
+        {analytics && analytics.last_attempt_at != null && (
           <div className={s.analyticsNote}>
             <Clock size={11} />
             Last attempt: {fmtDate(analytics.last_attempt_at)}
@@ -175,8 +176,8 @@ export default function ResultsPage() {
           loading={loading}
           page={page}
           examId={examId}
+          historiesByStudentId={historiesByStudentId}
         />
-
         {!loading && (
           <PaginationControls
             page={page}

@@ -204,7 +204,7 @@ export function useAssignments(examId: string): UseAssignmentsReturn {
 
   // ── Assign students ───────────────────────────────────────────────────────
   const handleAssignStudents = useCallback(async () => {
-    if (selected.length === 0) return
+    if (selected.length === 0) {return}
     setAssigning(true)
     setError(null)
 
@@ -230,7 +230,7 @@ export function useAssignments(examId: string): UseAssignmentsReturn {
 
   // ── Assign program ────────────────────────────────────────────────────────
   const handleAssignProgram = useCallback(async () => {
-    if (!selectedProg) return
+    if (!selectedProg) {return}
     setAssigning(true)
     setError(null)
 
@@ -255,7 +255,7 @@ export function useAssignments(examId: string): UseAssignmentsReturn {
 
   // ── Unassign ──────────────────────────────────────────────────────────────
   const handleUnassign = useCallback(async () => {
-    if (!unassignTarget) return
+    if (!unassignTarget) {return}
     setUnassigning(true)
     setError(null)
 

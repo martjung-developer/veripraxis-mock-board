@@ -22,7 +22,7 @@ import type { ResolveUserResult }         from '@/lib/types/auth/'
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) throw new Error('Missing Supabase service role env vars.')
+  if (!url || !key) {throw new Error('Missing Supabase service role env vars.')}
   return createClient<Database>(url, key, { auth: { persistSession: false } })
 }
 

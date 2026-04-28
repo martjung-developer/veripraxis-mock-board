@@ -59,7 +59,7 @@ export async function fetchSubmissions(
     .in('status', PROGRESS_STATUSES)
     .order('submitted_at', { ascending: false })
 
-  if (error) throw new Error('Could not load submissions.')
+  if (error) {throw new Error('Could not load submissions.')}
 
   return (data ?? []) as RawSubmission[]
 }
@@ -76,14 +76,14 @@ export async function fetchExamMetadata(
   supabase: SupabaseDB,
   examIds:  string[],
 ): Promise<{ exams: RawExam[]; categories: RawCategory[] }> {
-  if (examIds.length === 0) return { exams: [], categories: [] }
+  if (examIds.length === 0) {return { exams: [], categories: [] }}
 
   const { data: examData, error: examErr } = await supabase
     .from('exams')
     .select('id, title, category_id')
     .in('id', examIds)
 
-  if (examErr) throw new Error(examErr.message)
+  if (examErr) {throw new Error(examErr.message)}
 
   const exams = (examData ?? []) as RawExam[]
 
@@ -95,14 +95,14 @@ export async function fetchExamMetadata(
     ),
   ]
 
-  if (catIds.length === 0) return { exams, categories: [] }
+  if (catIds.length === 0) {return { exams, categories: [] }}
 
   const { data: catData, error: catErr } = await supabase
     .from('exam_categories')
     .select('id, name')
     .in('id', catIds)
 
-  if (catErr) throw new Error(catErr.message)
+  if (catErr) {throw new Error(catErr.message)}
 
   return { exams, categories: (catData ?? []) as RawCategory[] }
 }

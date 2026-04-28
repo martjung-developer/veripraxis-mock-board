@@ -13,9 +13,9 @@ export type AuthResult =
 
 // faculty (UI label) → admin (DB value)
 function normalizeRole(role: string): UserRole {
-  if (role === 'faculty') return 'admin'
-  if (role === 'student') return 'student'
-  if (role === 'admin')   return 'admin'
+  if (role === 'faculty') {return 'admin'}
+  if (role === 'student') {return 'student'}
+  if (role === 'admin')   {return 'admin'}
   return 'student'   // safe default
 }
 
@@ -39,7 +39,7 @@ export async function signUp(
     },
   })
 
-  if (error) return { success: false, error: formatError(error) }
+  if (error) {return { success: false, error: formatError(error) }}
 
   return { success: true, redirectTo: getDashboardByRole(normalizedRole) }
 }
@@ -55,7 +55,7 @@ export async function signIn(
     password,
   })
 
-  if (error) return { success: false, error: formatError(error) }
+  if (error) {return { success: false, error: formatError(error) }}
 
   const rawRole = (data.user?.user_metadata?.role ?? 'student') as string
   const role    = normalizeRole(rawRole)
@@ -73,7 +73,7 @@ export async function signOut(): Promise<void> {
 export async function resendVerification(email: string): Promise<AuthResult> {
   const supabase = await createClient()
   const { error } = await supabase.auth.resend({ type: 'signup', email })
-  if (error) return { success: false, error: formatError(error) }
+  if (error) {return { success: false, error: formatError(error) }}
   return { success: true, redirectTo: '/verify-email' }
 }
 
@@ -87,7 +87,7 @@ export async function verifyOtp(
     email, token, type: 'signup',
   })
 
-  if (error) return { success: false, error: formatError(error) }
+  if (error) {return { success: false, error: formatError(error) }}
 
   const role = normalizeRole(data.user?.user_metadata?.role ?? 'student')
 

@@ -51,9 +51,9 @@ export function useFaqs(): UseFaqsReturn {
         }
       } catch {
         // FAQ fetch failure is non-fatal — show fallback content
-        if (!cancelled) setFaqs(FALLBACK_FAQS)
+        if (!cancelled) {setFaqs(FALLBACK_FAQS)}
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) {setLoading(false)}
       }
     }
 

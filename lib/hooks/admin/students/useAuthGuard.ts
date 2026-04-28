@@ -21,7 +21,7 @@ export function useAuthGuard(): UseAuthGuardReturn {
   const { user, loading: authLoading } = useUser()
 
   useEffect(() => {
-    if (authLoading) return
+    if (authLoading) {return}
     if (!user) {
       router.replace('/login')
     }

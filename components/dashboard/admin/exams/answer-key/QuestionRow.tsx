@@ -1,67 +1,121 @@
 // components/dashboard/admin/exams/answer-key/QuestionRow.tsx
 // ─────────────────────────────────────────────────────────────────────────────
-// React.memo-wrapped row. Only re-renders when its own entry changes or when
-// previewMode toggles — avoiding full-list re-renders on single edits.
+// CHANGES FROM PREVIOUS VERSION:
+//   + Shows scenario block above question text when entry.scenario is set
+//   + No prop interface changes — scenario comes from AnswerKeyEntry
 // ─────────────────────────────────────────────────────────────────────────────
-import { memo }             from 'react'
-import { CheckCircle, Pencil } from 'lucide-react'
+'use client'
+
+import { BookOpen, Edit3, Pencil } from 'lucide-react'
 import type { AnswerKeyEntry } from '@/lib/types/admin/exams/answer-key/answerKey.types'
-import { effectiveAnswer }    from '@/lib/types/admin/exams/answer-key/answerKey.types'
-import { AnswerInput }        from './AnswerInput'
+import { effectiveAnswer, AUTO_TYPES } from '@/lib/types/admin/exams/answer-key/answerKey.types'
 import s from '@/app/(dashboard)/admin/exams/[examId]/answer-key/answer-key.module.css'
 
 interface QuestionRowProps {
-  entry:          AnswerKeyEntry
-  index:          number          // fallback display index within its group
-  previewMode:    boolean
-  onSetOverride:  (questionId: string, value: string | null) => void
-  onOpenRubric:   (entry: AnswerKeyEntry) => void
+  entry:         AnswerKeyEntry
+  index:         number
+  previewMode:   boolean
+  onSetOverride: (questionId: string, value: string | null) => void
+  onOpenRubric:  (entry: AnswerKeyEntry) => void
 }
 
-export const QuestionRow = memo(function QuestionRow({
+export function QuestionRow({
   entry,
   index,
   previewMode,
   onSetOverride,
   onOpenRubric,
 }: QuestionRowProps) {
-  const hasOverride = entry.override !== null
-  const isAnswered  = !!effectiveAnswer(entry)
+  const isAuto    = AUTO_TYPES.includes(entry.question_type)
+  const effective = effectiveAnswer(entry)
+  const isDirty   =
+    entry.override !== null && entry.override !== (entry.correct_answer ?? '')
+  const scenario  = (entry.scenario ?? '').trim()
 
   return (
-    <div
-      className={`${s.questionRow} ${isAnswered ? s.questionRowAnswered : ''} ${hasOverride ? s.questionRowOverridden : ''}`}
-    >
-      {/* Left: question info */}
-      <div className={s.questionInfo}>
-        <div className={s.questionMeta}>
-          <span className={s.questionNum}>Q{entry.order_number ?? index + 1}</span>
-          <span className={s.questionPoints}>
-            {entry.points} pt{entry.points !== 1 ? 's' : ''}
-          </span>
-          {hasOverride && (
-            <span className={s.overrideBadge}>
-              <Pencil size={9} /> Overridden
-            </span>
-          )}
-          {isAnswered && !hasOverride && (
-            <span className={s.storedBadge}>
-              <CheckCircle size={9} /> Stored
-            </span>
-          )}
-        </div>
+    <div className={`${s.questionRow} ${isDirty ? s.questionRowDirty : ''}`}>
+      {/* Order index */}
+      <div className={s.questionIndex}>{index + 1}</div>
+
+      {/* Main content */}
+      <div className={s.questionMain}>
+        {/* Scenario block — only when present */}
+        {scenario.length > 0 && (
+          <div style={{
+            display:      'flex',
+            alignItems:   'flex-start',
+            gap:          6,
+            marginBottom: '0.4rem',
+            padding:      '0.35rem 0.6rem',
+            background:   '#eff6ff',
+            border:       '1px solid #bfdbfe',
+            borderRadius: 7,
+            fontSize:     '0.74rem',
+            color:        '#1e40af',
+            lineHeight:   1.5,
+          }}>
+            <BookOpen size={12} style={{ flexShrink: 0, marginTop: 2 }} />
+            <span>{scenario}</span>
+          </div>
+        )}
+
         <p className={s.questionText}>{entry.question_text}</p>
+
+        {/* MCQ options */}
+        {entry.question_type === 'multiple_choice' && entry.options && (
+          <div className={s.optionsGrid}>
+            {entry.options.map((opt) => (
+              <span
+                key={opt.label}
+                className={`${s.optChip} ${
+                  effective === opt.label ? s.optChipCorrect : ''
+                }`}
+              >
+                {opt.label}: {opt.text}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Right: answer input */}
-      <div className={s.answerInputArea}>
-        <AnswerInput
-          entry={entry}
-          previewMode={previewMode}
-          onSetOverride={onSetOverride}
-          onOpenRubric={onOpenRubric}
-        />
+      {/* Answer / rubric control */}
+      <div className={s.answerControl}>
+        {isAuto ? (
+          previewMode ? (
+            <span className={s.answerPreview}>
+              {effective || <span className={s.answerEmpty}>—</span>}
+            </span>
+          ) : (
+            <div className={s.answerInputWrap}>
+              <input
+                className={`${s.answerInput} ${isDirty ? s.answerInputDirty : ''}`}
+                value={entry.override ?? (entry.correct_answer ?? '')}
+                placeholder="Enter answer…"
+                onChange={(e) =>
+                  onSetOverride(entry.question_id, e.target.value || null)
+                }
+              />
+              {isDirty && (
+                <button
+                  className={s.answerRevert}
+                  title="Revert to saved"
+                  onClick={() => onSetOverride(entry.question_id, null)}
+                >
+                  <Edit3 size={11} />
+                </button>
+              )}
+            </div>
+          )
+        ) : (
+          <button
+            className={s.rubricBtn}
+            onClick={() => onOpenRubric(entry)}
+          >
+            <Pencil size={12} />
+            {entry.explanation ? 'Edit Rubric' : 'Add Rubric'}
+          </button>
+        )}
       </div>
     </div>
   )
-})
+}

@@ -13,7 +13,7 @@ function fmtDate(iso: string): string {
 }
 
 function buildShowIndices(length: number): number[] {
-  if (length <= 8) return Array.from({ length }, (_, i) => i)
+  if (length <= 8) {return Array.from({ length }, (_, i) => i)}
   return [
     0,
     Math.floor((length - 1) / 3),

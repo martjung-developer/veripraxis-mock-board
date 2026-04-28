@@ -30,6 +30,19 @@ import {
 
 type AppClient = SupabaseClient<Database>
 
+async function fetchExamProgramId(
+  client: AppClient,
+  examId: string,
+): Promise<string | null> {
+  const { data } = await client
+    .from('exams')
+    .select('program_id')
+    .eq('id', examId)
+    .maybeSingle()
+
+  return data?.program_id ?? null
+}
+
 // ── Fetch all assignments for an exam ─────────────────────────────────────────
 
 /**
@@ -130,7 +143,11 @@ export async function fetchAssignmentsForExam(
 
     client
       .from('students')
+<<<<<<< Updated upstream
       .select('id, student_id, year_level, programs:program_id ( code, name )')
+=======
+      .select('id, student_id, programs:program_id ( code, name )')
+>>>>>>> Stashed changes
       .in('id', studentIds),
   ])
 
@@ -143,23 +160,33 @@ export async function fetchAssignmentsForExam(
   const studentMap: Record<string, {
     id: string
     student_id: string | null
+<<<<<<< Updated upstream
     year_level: number | null
     program_code: string | null
+=======
+>>>>>>> Stashed changes
     program_name: string | null
   }> = {}
   for (const s of (studentsRes.data ?? []) as unknown as Array<{
     id: string
     student_id: string | null
+<<<<<<< Updated upstream
     year_level: number | null
+=======
+>>>>>>> Stashed changes
     programs: { code: string; name: string } | { code: string; name: string }[] | null
   }>) {
     const studentProgram = unwrapJoin(s.programs)
     studentMap[s.id] = {
       id: s.id,
       student_id: s.student_id,
+<<<<<<< Updated upstream
       year_level: s.year_level,
       program_code: studentProgram?.code ?? null,
       program_name: studentProgram?.name ?? null,
+=======
+      program_name: studentProgram ? `${studentProgram.code} — ${studentProgram.name}` : null,
+>>>>>>> Stashed changes
     }
   }
 
@@ -184,12 +211,18 @@ export async function fetchAssignmentsForExam(
         email:      profile?.email     ?? '',
         student_id: student?.student_id ?? null,
       },
+<<<<<<< Updated upstream
       program_name:      student?.program_code && student?.program_name
         ? `${student.program_code} — ${student.program_name}`
         : prog
           ? `${prog.code} — ${prog.name}`
           : null,
       assignment_source: isProgramAssignment ? 'program' : 'manual',
+=======
+      program_name:      prog
+        ? `${prog.code} — ${prog.name}`
+        : (student?.program_name ?? null),
+>>>>>>> Stashed changes
       assigned_at:       a.assigned_at,
       deadline:          a.deadline,
       is_active:         a.is_active,
@@ -213,6 +246,23 @@ export async function assignStudentsToExam(
   payload: AssignStudentsPayload,
 ): Promise<MutationResult> {
   const { examId, studentIds, deadline } = payload
+  const examProgramId = await fetchExamProgramId(client, examId)
+  if (!examProgramId) {
+    return { error: 'This exam has no designated degree program.' }
+  }
+
+  const { data: students } = await client
+    .from('students')
+    .select('id, program_id')
+    .in('id', studentIds)
+
+  const invalidStudents = (students ?? [])
+    .filter((row: { id: string; program_id: string | null }) => row.program_id !== examProgramId)
+    .map((row: { id: string }) => row.id)
+
+  if (invalidStudents.length > 0) {
+    return { error: 'Some selected students are from a different degree program than this exam.' }
+  }
 
   // Check for existing active assignments to avoid duplicates
   const { data: existing } = await client
@@ -237,7 +287,7 @@ export async function assignStudentsToExam(
       is_active:  true,
     }))
 
-  if (toInsert.length === 0) return { error: null }
+  if (toInsert.length === 0) {return { error: null }}
 
   const { error } = await client
     .from('exam_assignments')
@@ -256,7 +306,18 @@ export async function assignProgramToExam(
   client:  AppClient,
   payload: AssignProgramPayload,
 ): Promise<MutationResult> {
+<<<<<<< Updated upstream
   const { examId, programId, deadline, yearLevel = null } = payload
+=======
+  const { examId, programId, deadline } = payload
+  const examProgramId = await fetchExamProgramId(client, examId)
+  if (!examProgramId) {
+    return { error: 'This exam has no designated degree program.' }
+  }
+  if (programId !== examProgramId) {
+    return { error: 'Cannot assign this exam to a different degree program.' }
+  }
+>>>>>>> Stashed changes
 
   const { data: programRow, error: programErr } = await client
     .from('programs')
@@ -366,7 +427,13 @@ export async function unassignFromExam(
 export async function searchStudents(
   client: AppClient,
   query:  string,
+  examId: string,
 ): Promise<{ results: StudentSearchResult[]; error: string | null }> {
+  const examProgramId = await fetchExamProgramId(client, examId)
+  if (!examProgramId) {
+    return { results: [], error: 'This exam has no designated degree program.' }
+  }
+
   const { data: profileData, error: profileErr } = await client
     .from('profiles')
     .select('id, full_name, email')
@@ -374,15 +441,16 @@ export async function searchStudents(
     .or(`full_name.ilike.%${query}%,email.ilike.%${query}%`)
     .limit(10)
 
-  if (profileErr)        return { results: [], error: profileErr.message }
-  if (!profileData?.length) return { results: [], error: null }
+  if (profileErr)        {return { results: [], error: profileErr.message }}
+  if (!profileData?.length) {return { results: [], error: null }}
 
   const profileIds = profileData.map((p: ProfileProjection) => p.id)
 
   const { data: studentData } = await client
     .from('students')
-    .select('id, student_id, programs:program_id ( code )')
+    .select('id, student_id, program_id, programs:program_id ( code )')
     .in('id', profileIds)
+    .eq('program_id', examProgramId)
 
   // Build lookup: profile_id → { student_id, program_code }
   const studentMeta: Record<string, { student_id: string | null; program_code: string | null }> = {}
@@ -390,6 +458,7 @@ export async function searchStudents(
   for (const row of (studentData ?? []) as unknown as Array<{
     id:         string
     student_id: string | null
+    program_id: string | null
     programs:   { code: string } | { code: string }[] | null
   }>) {
     const prog = unwrapJoin(row.programs)
@@ -399,13 +468,15 @@ export async function searchStudents(
     }
   }
 
-  const results: StudentSearchResult[] = (profileData as ProfileProjection[]).map((p) => ({
-    id:           p.id,
-    full_name:    p.full_name ?? 'Unknown',
-    email:        p.email,
-    student_id:   studentMeta[p.id]?.student_id   ?? null,
-    program_code: studentMeta[p.id]?.program_code ?? null,
-  }))
+  const results: StudentSearchResult[] = (profileData as ProfileProjection[])
+    .filter((p) => studentMeta[p.id] !== undefined)
+    .map((p) => ({
+      id:           p.id,
+      full_name:    p.full_name ?? 'Unknown',
+      email:        p.email,
+      student_id:   studentMeta[p.id]?.student_id   ?? null,
+      program_code: studentMeta[p.id]?.program_code ?? null,
+    }))
 
   return { results, error: null }
 }

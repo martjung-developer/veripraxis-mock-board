@@ -1,6 +1,6 @@
 // animations/admin/programs/programs.ts
 
-import { Variants } from 'framer-motion'
+import type { Variants } from 'framer-motion'
 
 export const containerVariants: Variants = {
   hidden: {

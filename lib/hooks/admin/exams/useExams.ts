@@ -78,14 +78,14 @@ export interface UseExamsReturn {
 
 function validateEditForm(form: EditForm): EditFormErrors {
   const errs: EditFormErrors = {}
-  if (!form.title.trim()) errs.title = 'Title is required.'
+  if (!form.title.trim()) {errs.title = 'Title is required.'}
   if (!form.duration_minutes || Number(form.duration_minutes) < 1)
-    errs.duration_minutes = 'Must be at least 1 minute.'
+    {errs.duration_minutes = 'Must be at least 1 minute.'}
   if (!form.total_points || Number(form.total_points) < 1)
-    errs.total_points = 'Must be at least 1 point.'
+    {errs.total_points = 'Must be at least 1 point.'}
   const ps = Number(form.passing_score)
   if (isNaN(ps) || ps < 0 || ps > 100)
-    errs.passing_score = 'Must be 0–100.'
+    {errs.passing_score = 'Must be 0–100.'}
   return errs
 }
 
@@ -135,7 +135,7 @@ export function useExams(): UseExamsReturn {
 
   // ── Fetch ─────────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (hasFetched.current) return
+    if (hasFetched.current) {return}
     hasFetched.current = true
 
     async function load() {
@@ -174,12 +174,12 @@ export function useExams(): UseExamsReturn {
   const filtered = useMemo<Exam[]>(() => {
     const { search, category, status, examType, programId } = filters
     return allExams.filter((e) => {
-      if (search    && !e.title.toLowerCase().includes(search.toLowerCase())) return false
-      if (category !== 'All Categories' && e.category?.name !== category)    return false
-      if (status === 'published' && !e.is_published)                         return false
-      if (status === 'draft'     && e.is_published)                          return false
-      if (examType !== 'all'     && e.exam_type !== examType)                return false
-      if (programId !== 'all'    && e.program?.id !== programId)             return false
+      if (search    && !e.title.toLowerCase().includes(search.toLowerCase())) {return false}
+      if (category !== 'All Categories' && e.category?.name !== category)    {return false}
+      if (status === 'published' && !e.is_published)                         {return false}
+      if (status === 'draft'     && e.is_published)                          {return false}
+      if (examType !== 'all'     && e.exam_type !== examType)                {return false}
+      if (programId !== 'all'    && e.program?.id !== programId)             {return false}
       return true
     })
   }, [allExams, filters])
@@ -211,14 +211,14 @@ export function useExams(): UseExamsReturn {
   }, [])
 
   const closeEdit = useCallback(() => {
-    if (editSaving) return
+    if (editSaving) {return}
     setEditTarget(null)
     setEditForm(null)
     setEditErrors({})
   }, [editSaving])
 
   const saveEdit = useCallback(async () => {
-    if (!editTarget || !editForm) return
+    if (!editTarget || !editForm) {return}
 
     const errs = validateEditForm(editForm)
     if (Object.keys(errs).length > 0) {
@@ -276,7 +276,7 @@ export function useExams(): UseExamsReturn {
 
   // ── Delete ────────────────────────────────────────────────────────────────
   const confirmDelete = useCallback(async () => {
-    if (!deleteTarget) return
+    if (!deleteTarget) {return}
     setDeleting(true)
 
     try {

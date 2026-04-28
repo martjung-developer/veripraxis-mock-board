@@ -17,7 +17,7 @@ export function PaginationControls({
   pageSize,
   onPageChange,
 }: PaginationControlsProps) {
-  if (totalItems === 0) return null
+  if (totalItems === 0) {return null}
 
   const from = (page - 1) * pageSize + 1
   const to   = Math.min(page * pageSize, totalItems)

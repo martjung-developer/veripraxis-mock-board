@@ -1,24 +1,22 @@
 // components/dashboard/admin/exams/questions/QuestionGroup.tsx
 // Pure UI — collapsible group header + list of QuestionRows.
 
-import { ChevronDown, ChevronRight, Plus } from 'lucide-react'
+import { ChevronDown, ChevronRight, FilePenLine, Plus, Zap } from 'lucide-react'
 import { QuestionRow } from './QuestionRow'
 import type { Question, QuestionType } from '@/lib/types/admin/exams/questions/questions.types'
 import { TYPE_META } from '@/lib/utils/admin/questions/helpers'
 import s from '@/app/(dashboard)/admin/exams/[examId]/questions/questions.module.css'
-import { JSX } from 'react/jsx-dev-runtime'
+import type { JSX } from 'react/jsx-dev-runtime'
 
 interface QuestionGroupProps {
-  type:            QuestionType
-  /** All questions of this type in the exam (used for header stats) */
-  allOfType:       Question[]
-  /** Subset visible after search/filter (used for the rows list) */
+  type: QuestionType
+  allOfType: Question[]
   visibleQuestions: Question[]
-  isExpanded:      boolean
-  onToggleExpand:  (type: QuestionType) => void
-  onAddInGroup:    (type: QuestionType) => void
-  onEdit:          (q: Question)        => void
-  onDelete:        (q: Question)        => void
+  isExpanded: boolean
+  onToggleExpand: (type: QuestionType) => void
+  onAddInGroup: (type: QuestionType) => void
+  onEdit: (q: Question) => void
+  onDelete: (q: Question) => void
 }
 
 export function QuestionGroup({
@@ -31,14 +29,13 @@ export function QuestionGroup({
   onEdit,
   onDelete,
 }: QuestionGroupProps): JSX.Element {
-  const meta  = TYPE_META[type]
-  const Icon  = meta.icon
+  const meta = TYPE_META[type]
+  const Icon = meta.icon
   const count = allOfType.length
-  const pts   = allOfType.reduce((sum, q) => sum + q.points, 0)
+  const pts = allOfType.reduce((sum, q) => sum + q.points, 0)
 
   return (
     <div className={`${s.group} ${s[`group_${meta.color}`]}`}>
-      {/* ── Group Header ── */}
       <div className={s.groupHeader}>
         <button className={s.groupToggle} onClick={() => onToggleExpand(type)}>
           {isExpanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
@@ -53,7 +50,8 @@ export function QuestionGroup({
 
         <div className={s.groupHeaderRight}>
           <div className={`${s.groupModeBadge} ${meta.autoGrade ? s.groupModeBadgeAuto : s.groupModeBadgeManual}`}>
-            {meta.autoGrade ? '⚡ Auto' : '✍ Manual'}
+            {meta.autoGrade ? <Zap size={11} /> : <FilePenLine size={11} />}
+            {meta.autoGrade ? 'Auto' : 'Manual'}
           </div>
           <div className={s.groupStats}>
             <span className={s.groupCount}>{count} question{count !== 1 ? 's' : ''}</span>
@@ -69,7 +67,6 @@ export function QuestionGroup({
         </div>
       </div>
 
-      {/* ── Group Body ── */}
       {isExpanded && (
         <div className={s.groupBody}>
           {visibleQuestions.length === 0 ? (
@@ -88,7 +85,6 @@ export function QuestionGroup({
             ))
           )}
 
-          {/* Add in group footer */}
           <button
             className={s.addInGroupFooter}
             onClick={() => onAddInGroup(type)}

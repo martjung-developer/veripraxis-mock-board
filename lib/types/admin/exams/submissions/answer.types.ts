@@ -47,7 +47,7 @@ export interface AnswerDetail {
 }
 
 export interface AnswerKeyEntry {
-  question_id:    string
+  question_id:    string // questions.id (UUID)
   correct_answer: string | null
   question_text:  string
   question_type:  QuestionType

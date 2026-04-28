@@ -45,7 +45,7 @@ export default function SubmissionsPage() {
   const preview = grading.previewScore(details.answers, subs.examInfo)
 
   async function handleToggleAnswerKey() {
-    if (key.answerKey.length === 0) await key.loadAnswerKey()
+    if (key.answerKey.length === 0) {await key.loadAnswerKey()}
     key.setShowAnswerKey(!key.showAnswerKey)
   }
 
@@ -56,28 +56,32 @@ export default function SubmissionsPage() {
   }
 
   function handleBulkGrade() {
-    if (!subs.examInfo) return
+    if (!subs.examInfo) {return}
     void bulk.bulkGradeAll(
       subs.submissions, subs.examInfo, grading.gradingMode, key.keyMap, patchSubmission,
     )
   }
 
-  function handleRelease() {
-    void release.releaseResults(subs.submissions, patchSubmission)
-  }
+async function handleRelease() {
+  await release.releaseResults(
+    subs.submissions,
+    patchSubmission,
+  )
+  await subs.refetch()
+}
 
-  function handleGradeSubmission() {
-    if (!details.viewTarget || !subs.examInfo) return
-    void grading.gradeSubmission(
-      details.viewTarget,
-      details.answers,
-      key.keyMap,
-      subs.examInfo,
-      details.setAnswers,
-      patch => patchSubmission(details.viewTarget!.id, patch),
-      details.closeModal,
-    )
-  }
+function handleGradeSubmission() {
+  if (!details.viewTarget || !subs.examInfo) {return}
+  void grading.gradeSubmission(
+    details.viewTarget,
+    details.answers,
+    key.keyMap,
+    subs.examInfo,
+    details.setAnswers,
+    patch => patchSubmission(details.viewTarget!.id, patch),
+    async () => { details.closeModal() },
+  )
+}
 
   return (
     <div className={s.page}>

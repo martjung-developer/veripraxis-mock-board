@@ -22,7 +22,7 @@ export function formatDate(iso: string): string {
  * Returns "—" for null/undefined/0.
  */
 export function yearLabel(n: number | null | undefined): string {
-  if (!n) return '—'
+  if (!n) {return '—'}
   const suffixes = ['st', 'nd', 'rd']
   const suffix   = suffixes[n - 1] ?? 'th'
   return `${n}${suffix} Year`

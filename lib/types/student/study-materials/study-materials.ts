@@ -59,7 +59,7 @@ export const RECENTLY_VIEWED_MAX = 5
 
 /** Returns true when the external_url is a recognisable YouTube link. */
 export function isYouTubeUrl(url: string | null | undefined): boolean {
-  if (!url) return false
+  if (!url) {return false}
   return /youtube\.com\/watch|youtu\.be\//.test(url)
 }
 

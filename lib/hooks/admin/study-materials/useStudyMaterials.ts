@@ -5,10 +5,15 @@
 //   - optimistic updates for toggle-publish and delete
 //   - delegating mutations to the service layer
 //
+// FIX: remove() uses functional setState to avoid capturing stale `materials`
+// in the closure, which caused the rollback snapshot to always be empty.
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { StudyMaterial, ProgramOption } from '@/lib/types/admin/study-materials/study-materials'
+import type {
+  StudyMaterial,
+  ProgramOption,
+} from '@/lib/types/admin/study-materials/study-materials'
 import type { RawFormState } from '@/lib/utils/admin/study-materials/validators'
 import {
   fetchStudyMaterials,
@@ -22,18 +27,20 @@ import {
 // ── Hook return shape ─────────────────────────────────────────────────────────
 
 export interface UseStudyMaterialsReturn {
-  // data
-  materials:  StudyMaterial[]
-  programs:   ProgramOption[]
-  // status
-  loading:    boolean
-  error:      string | null
-  // actions
-  refresh:    () => Promise<void>
-  clearError: () => void
-  create:     (form: RawFormState, file: File | null) => Promise<void>
-  update:     (id: string, form: RawFormState, file: File | null, existingFileUrl: string | null) => Promise<void>
-  remove:     (id: string) => Promise<void>
+  materials:     StudyMaterial[]
+  programs:      ProgramOption[]
+  loading:       boolean
+  error:         string | null
+  refresh:       () => Promise<void>
+  clearError:    () => void
+  create:        (form: RawFormState, file: File | null) => Promise<void>
+  update:        (
+    id: string,
+    form: RawFormState,
+    file: File | null,
+    existingFileUrl: string | null,
+  ) => Promise<void>
+  remove:        (id: string) => Promise<void>
   togglePublish: (id: string, currentValue: boolean) => Promise<void>
 }
 
@@ -47,12 +54,11 @@ export function useStudyMaterials(): UseStudyMaterialsReturn {
   const [loading,   setLoading]   = useState(true)
   const [error,     setError]     = useState<string | null>(null)
 
-  // Abort controller ref: cancels in-flight fetches when component unmounts
-  // or when refresh() is called again before the previous one finishes.
   const abortRef = useRef<AbortController | null>(null)
 
+  // ── Fetch ─────────────────────────────────────────────────────────────────
+
   const refresh = useCallback(async () => {
-    // Cancel any in-flight fetch
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
@@ -66,7 +72,6 @@ export function useStudyMaterials(): UseStudyMaterialsReturn {
         fetchPrograms(supabase),
       ])
 
-      // Only commit if this fetch wasn't aborted
       if (!controller.signal.aborted) {
         setMaterials(mats)
         setPrograms(progs)
@@ -92,7 +97,6 @@ export function useStudyMaterials(): UseStudyMaterialsReturn {
   const togglePublish = useCallback(async (id: string, currentValue: boolean) => {
     const next = !currentValue
 
-    // Optimistic update
     setMaterials((prev) =>
       prev.map((m) => (m.id === id ? { ...m, is_published: next } : m)),
     )
@@ -109,30 +113,30 @@ export function useStudyMaterials(): UseStudyMaterialsReturn {
   }, [supabase])
 
   // ── Optimistic delete ─────────────────────────────────────────────────────
+  // FIX: capture snapshot inside functional updater to avoid stale closure
 
   const remove = useCallback(async (id: string) => {
-    const snapshot = materials.find((m) => m.id === id) ?? null
+    let snapshot: StudyMaterial | null = null
 
-    // Optimistic remove
-    setMaterials((prev) => prev.filter((m) => m.id !== id))
+    setMaterials((prev) => {
+      snapshot = prev.find((m) => m.id === id) ?? null
+      return prev.filter((m) => m.id !== id)
+    })
 
     try {
       await deleteStudyMaterial(supabase, id)
     } catch (err) {
-      // Roll back
       if (snapshot) {
-        setMaterials((prev) => [snapshot, ...prev])
+        const captured = snapshot
+        setMaterials((prev) => [captured, ...prev])
       }
       setError(err instanceof Error ? err.message : 'Failed to delete material.')
     }
-  }, [supabase, materials])
+  }, [supabase])
 
   // ── Create ────────────────────────────────────────────────────────────────
 
-  const create = useCallback(async (
-    form: RawFormState,
-    file: File | null,
-  ) => {
+  const create = useCallback(async (form: RawFormState, file: File | null) => {
     await createStudyMaterial({ supabase, form, file })
     await refresh()
   }, [supabase, refresh])

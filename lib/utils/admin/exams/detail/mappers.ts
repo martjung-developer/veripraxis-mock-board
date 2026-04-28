@@ -17,7 +17,7 @@ import type {
 // Narrows a DB string (which may be null) to the ExamType union.
 
 export function safeExamType(raw: string | null): ExamType {
-  if (raw === 'practice') return 'practice'
+  if (raw === 'practice') {return 'practice'}
   return 'mock'
 }
 
@@ -28,8 +28,8 @@ export function safeExamType(raw: string | null): ExamType {
 export function unwrapCategory(
   raw: ExamCategoryJoin | ExamCategoryJoin[] | null,
 ): ExamCategoryJoin | null {
-  if (!raw) return null
-  if (Array.isArray(raw)) return raw[0] ?? null
+  if (!raw) {return null}
+  if (Array.isArray(raw)) {return raw[0] ?? null}
   return raw
 }
 
@@ -38,8 +38,8 @@ export function unwrapCategory(
 export function unwrapProgram(
   raw: ExamProgramJoin | ExamProgramJoin[] | null,
 ): ExamProgramJoin | null {
-  if (!raw) return null
-  if (Array.isArray(raw)) return raw[0] ?? null
+  if (!raw) {return null}
+  if (Array.isArray(raw)) {return raw[0] ?? null}
   return raw
 }
 
@@ -86,7 +86,7 @@ export function mapRawToExamDetail(
 
 export function computeAvgScore(percentages: (number | null)[]): number | null {
   const valid = percentages.filter((p): p is number => p !== null)
-  if (valid.length === 0) return null
+  if (valid.length === 0) {return null}
   return valid.reduce((a, b) => a + b, 0) / valid.length
 }
 

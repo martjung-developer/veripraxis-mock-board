@@ -36,7 +36,7 @@ export function sliceTimeline(
   timeline: TimelinePoint[],
   range:    FilterRange,
 ): TimelinePoint[] {
-  if (range === 'all' || timeline.length === 0) return timeline
+  if (range === 'all' || timeline.length === 0) {return timeline}
 
   const days    = range === '7d' ? 7 : 30
   const cutoff  = new Date()

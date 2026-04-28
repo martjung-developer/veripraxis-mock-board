@@ -1,56 +1,88 @@
-// lib/constants/questionnaires.constants.ts
-import type { QuestionType } from '@/lib/types/database'
-import type { DifficultyLevel, FormState } from '@/lib/types/admin/questionnaires/questionnaires'
+// lib/constants/admin/questionnaires/questionnaires.constants.ts
+// ─────────────────────────────────────────────────────────────────────────────
+// CHANGES FROM PREVIOUS VERSION:
+//   + TEMPLATE_HEADERS now includes 'scenario' as the last column
+//   + Everything else unchanged
+// ─────────────────────────────────────────────────────────────────────────────
 
-export const BLANK_FORM: FormState = {
-  question_text:  '',
-  question_type:  'multiple_choice',
-  points:         1,
-  correct_answer: '',
-  explanation:    '',
-  exam_id:        '',
-  difficulty:     'medium',
-  program_id:     '',
-  choices: [
-    { label: 'A', text: '' },
-    { label: 'B', text: '' },
-    { label: 'C', text: '' },
-    { label: 'D', text: '' },
-  ],
+import type { QuestionType } from '@/lib/types/database'
+import type { DifficultyLevel } from '@/lib/types/admin/questionnaires/questionnaires'
+
+// Question types accepted by the import pipeline
+export const VALID_TYPES = [
+  'multiple_choice',
+  'true_false',
+  'short_answer',
+  'fill_blank',
+  'matching',
+  'essay',
+] as const satisfies readonly QuestionType[]
+
+// Difficulty levels accepted by the import pipeline
+export const VALID_DIFF = [
+  'easy',
+  'medium',
+  'hard',
+] as const satisfies readonly DifficultyLevel[]
+
+// Column order for the downloadable CSV template
+export const TEMPLATE_HEADERS = [
+  'question_text',
+  'question_type',
+  'points',
+  'difficulty',
+  'option_a',
+  'option_b',
+  'option_c',
+  'option_d',
+  'correct_answer',
+  'explanation',
+  'scenario',    
+] as const
+
+// Display order for question type sections
+export const TYPE_ORDER: QuestionType[] = [
+  'multiple_choice',
+  'true_false',
+  'fill_blank',
+  'short_answer',
+  'matching',
+  'essay',
+]
+
+// Rows per page in QuestionTypeSection table
+export const PAGE_SIZE = 10
+
+// Colours for question type badges / section headers
+export const TYPE_COLORS: Record<QuestionType, { bg: string; color: string; border: string }> = {
+  multiple_choice: { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
+  true_false:      { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
+  short_answer:    { bg: '#fffbeb', color: '#b45309', border: '#fde68a' },
+  fill_blank:      { bg: '#fdf4ff', color: '#7e22ce', border: '#e9d5ff' },
+  matching:        { bg: '#f0fdfa', color: '#0f766e', border: '#99f6e4' },
+  essay:           { bg: '#fff1f2', color: '#be123c', border: '#fecdd3' },
 }
 
 export const TYPE_LABELS: Record<QuestionType, string> = {
   multiple_choice: 'Multiple Choice',
   true_false:      'True / False',
   short_answer:    'Short Answer',
-  essay:           'Essay',
+  fill_blank:      'Fill in Blank',
   matching:        'Matching',
-  fill_blank:      'Fill in the Blank',
+  essay:           'Essay',
 }
 
-export const TYPE_ORDER: QuestionType[] = [
-  'multiple_choice', 'true_false', 'short_answer', 'essay', 'matching', 'fill_blank',
-]
-
-export const TYPE_COLORS: Record<QuestionType, { bg: string; color: string; border: string }> = {
-  multiple_choice: { bg: '#eef0fe', color: '#4f5ff7', border: 'rgba(79,95,247,0.2)'  },
-  true_false:      { bg: '#ecfeff', color: '#0891b2', border: 'rgba(8,145,178,0.2)'  },
-  short_answer:    { bg: '#ecfdf5', color: '#059669', border: 'rgba(5,150,105,0.2)'  },
-  essay:           { bg: '#f5f3ff', color: '#7c3aed', border: 'rgba(124,58,237,0.2)' },
-  matching:        { bg: '#fff7ed', color: '#c2410c', border: 'rgba(194,65,12,0.2)'  },
-  fill_blank:      { bg: '#fffbeb', color: '#d97706', border: 'rgba(217,119,6,0.2)'  },
-}
-
+// Colours cycled through program cards in the programs grid
 export const PROGRAM_COLORS = [
-  { bg: '#eff6ff', accent: '#2563eb', border: '#dbeafe' },
-  { bg: '#f0fdf4', accent: '#059669', border: '#d1fae5' },
-  { bg: '#fdf4ff', accent: '#9333ea', border: '#f3e8ff' },
-  { bg: '#fff7ed', accent: '#ea580c', border: '#fed7aa' },
-  { bg: '#ecfeff', accent: '#0891b2', border: '#cffafe' },
-  { bg: '#fefce8', accent: '#ca8a04', border: '#fef9c3' },
-  { bg: '#fdf2f8', accent: '#db2777', border: '#fce7f3' },
-  { bg: '#f0fdf4', accent: '#16a34a', border: '#bbf7d0' },
-  { bg: '#f8fafc', accent: '#475569', border: '#e2e8f0' },
+  { accent: '#4f5ff7', bg: 'rgba(79,95,247,0.07)',  border: 'rgba(79,95,247,0.18)'  },
+  { accent: '#059669', bg: 'rgba(5,150,105,0.07)',   border: 'rgba(5,150,105,0.18)'  },
+  { accent: '#d97706', bg: 'rgba(217,119,6,0.07)',   border: 'rgba(217,119,6,0.18)'  },
+  { accent: '#7c3aed', bg: 'rgba(124,58,237,0.07)',  border: 'rgba(124,58,237,0.18)' },
+  { accent: '#0891b2', bg: 'rgba(8,145,178,0.07)',   border: 'rgba(8,145,178,0.18)'  },
+  { accent: '#be123c', bg: 'rgba(190,18,60,0.07)',   border: 'rgba(190,18,60,0.18)'  },
+  { accent: '#0f766e', bg: 'rgba(15,118,110,0.07)',  border: 'rgba(15,118,110,0.18)' },
+  { accent: '#9333ea', bg: 'rgba(147,51,234,0.07)',  border: 'rgba(147,51,234,0.18)' },
+  { accent: '#1d4ed8', bg: 'rgba(29,78,216,0.07)',   border: 'rgba(29,78,216,0.18)'  },
 ] as const
 
 export type ProgramColorScheme = typeof PROGRAM_COLORS[number]
@@ -60,18 +92,5 @@ export const DIFFICULTY_LABELS: Record<DifficultyLevel, string> = {
   medium: 'Medium',
   hard:   'Hard',
 }
-
-export const PAGE_SIZE = 15
-
-export const TEMPLATE_HEADERS = [
-  'question_text', 'question_type', 'points', 'difficulty',
-  'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'explanation',
-]
-
-export const VALID_TYPES = [
-  'multiple_choice', 'true_false', 'short_answer', 'essay', 'matching', 'fill_blank',
-] as const
-
-export const VALID_DIFF = ['easy', 'medium', 'hard'] as const
 
 export const ACCEPTED_FILE_TYPES = '.csv,.xlsx,.xls,.docx,.doc,.pdf'

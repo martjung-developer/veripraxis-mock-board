@@ -1,30 +1,39 @@
 // app/(exam)/student/mock-exams/[examId]/page.tsx
+//
+// FIXED:
+//  1. Renders <LockedScreen> when isLocked === true
+//  2. Better error messages with specific context
+//  3. Guards check isLocked before rendering exam shell
+// ─────────────────────────────────────────────────────────────────────────────
+
 'use client'
 
 import { useParams, useRouter } from 'next/navigation'
-import { XCircle } from 'lucide-react'
-import { useMockExamSession } from '@/lib/hooks/student/mock-exams/useMockExamSession'
-import { ExamTopBar }          from '@/components/dashboard/student/mock-exams/ExamTopBar'
-import { ExamSidebar }         from '@/components/dashboard/student/mock-exams/ExamSidebar'
-import { QuestionCard }        from '@/components/dashboard/student/mock-exams/QuestionCard'
-import { ExamNavigation }      from '@/components/dashboard/student/mock-exams/ExamNavigation'
-import { SubmitModal }         from '@/components/dashboard/student/mock-exams/SubmitModal'
-import { ResumeModal }         from '@/components/dashboard/student/mock-exams/ResumeModal'
-import { AttemptHistoryModal } from '@/components/dashboard/student/mock-exams/AttemptHistoryModal'
-import { SubmittedScreen }     from '@/components/dashboard/student/mock-exams/SubmittedScreen'
-import { resolveQState }       from '@/lib/utils/student/mock-exams/mock-exams'
-import { MAX_TAB_VIOLATIONS }  from '@/lib/constants/student/mock-exams/mock-exams'
+import { XCircle }               from 'lucide-react'
+import { useMockExamSession }    from '@/lib/hooks/student/mock-exams/useMockExamSession'
+import { ExamTopBar }            from '@/components/dashboard/student/mock-exams/ExamTopBar'
+import { ExamSidebar }           from '@/components/dashboard/student/mock-exams/ExamSidebar'
+import { QuestionCard }          from '@/components/dashboard/student/mock-exams/QuestionCard'
+import { ExamNavigation }        from '@/components/dashboard/student/mock-exams/ExamNavigation'
+import { SubmitModal }           from '@/components/dashboard/student/mock-exams/SubmitModal'
+import { ResumeModal }           from '@/components/dashboard/student/mock-exams/ResumeModal'
+import { AttemptHistoryModal }   from '@/components/dashboard/student/mock-exams/AttemptHistoryModal'
+import { SubmittedScreen }       from '@/components/dashboard/student/mock-exams/SubmittedScreen'
+import { LockedScreen }          from '@/components/dashboard/student/mock-exams/LockedScreen'
+import { MAX_TAB_VIOLATIONS }    from '@/lib/constants/student/mock-exams/mock-exams'
 import styles from './mock.module.css'
 
 export default function MockExamPage() {
-  const router  = useRouter()
-  const params  = useParams()
-  const examId  = params.examId as string
+  const router = useRouter()
+  const params = useParams()
+  const examParam = params.examId
+  const examId = Array.isArray(examParam) ? (examParam[0] ?? '') : (examParam ?? '')
 
   const session = useMockExamSession(examId)
 
   const {
     loading, error,
+    isLocked, attemptsUsed,
     exam, questions,
     current, setCurrent,
     answers, qStates,
@@ -38,44 +47,57 @@ export default function MockExamPage() {
     answeredCount, skippedCount, unansweredCount,
   } = session
 
-  // ── Guards ──────────────────────────────────────────────────────────────
-  if (loading) return <div className={styles.center}>Loading exam…</div>
+  const backToList = () => router.push('/student/mock-exams')
+
+  // ── Guards ──────────────────────────────────────────────────────────────────
+  if (loading) {return <div className={styles.center}>Loading exam…</div>}
 
   if (error) {
     return (
       <div className={styles.center}>
         <XCircle size={28} color="#dc2626" />
-        <span>{error}</span>
-        <button className={styles.btnCenter} onClick={() => router.back()}>Go back</button>
+        <span style={{ maxWidth: 360, textAlign: 'center', color: '#dc2626' }}>{error}</span>
+        <button className={styles.btnCenter} onClick={backToList}>Go back</button>
       </div>
     )
   }
 
-  if (submitted) {
+  // ── Locked: max attempts reached ────────────────────────────────────────────
+  if (isLocked) {
     return (
-      <SubmittedScreen
-        examTitle={exam?.title ?? 'Mock Exam'}
-        onBack={() => router.push('/student/mock-exams')}
+      <LockedScreen
+        attemptsUsed={attemptsUsed}
+        examTitle={exam?.title ?? 'this exam'}
+        onBack={backToList}
       />
     )
   }
 
+  // ── Already submitted / graded / released ───────────────────────────────────
+  if (submitted) {
+    return (
+      <SubmittedScreen
+        examTitle={exam?.title ?? 'Mock Exam'}
+        onBack={backToList}
+      />
+    )
+  }
+
+  // ── Null guard (should not normally reach here after guards above) ──────────
   const q = questions[current]
-  if (!q || !exam) return null
+  if (q === undefined || exam === null) {return null}
 
   const isFlagged = qStates[q.id] === 'flagged' || qStates[q.id] === 'flagged-answered'
 
-  // ── Anti-cheat banner (shown after first violation but before auto-submit) ──
+  // ── Anti-cheat banner ───────────────────────────────────────────────────────
   const showViolationBanner = tabViolations > 0 && tabViolations < MAX_TAB_VIOLATIONS
 
   return (
     <div className={styles.shell}>
-
-      {/* Anti-cheat warning banner */}
       {showViolationBanner && (
         <div className={styles.violationBanner}>
-          ⚠ Tab switching detected ({tabViolations}/{MAX_TAB_VIOLATIONS}). Your exam will be
-          auto-submitted after {MAX_TAB_VIOLATIONS} violations.
+          ⚠ Tab switching detected ({tabViolations}/{MAX_TAB_VIOLATIONS}).
+          Your exam will be auto-submitted after {MAX_TAB_VIOLATIONS} violations.
         </div>
       )}
 

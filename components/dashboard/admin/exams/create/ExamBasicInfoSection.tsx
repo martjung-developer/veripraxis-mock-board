@@ -1,6 +1,12 @@
 // components/dashboard/admin/exams/create/ExamBasicInfoSection.tsx
-// Pure UI — renders the Basic Information card (title, description, category, exam type).
+// Pure UI — renders the Basic Information card (title, description, category, program, exam type).
 // No data fetching, no business logic.
+//
+// FIXED:
+//  1. Program dropdown removed hardcoded text options
+//  2. Now receives `programs` prop (array of { id, code, name } from DB)
+//  3. option value={p.id} (UUID) — matches program_id FK column
+//  4. Binds to form.program_id / errors.program_id
 
 import React from 'react'
 import { BookOpen, FileText, Tag, AlignLeft, Layers, AlertCircle } from 'lucide-react'
@@ -8,10 +14,18 @@ import { EXAM_TYPE_META, type ExamType } from '@/lib/types/database'
 import type { ExamFormData, ExamFormErrors, CategoryOption } from '@/lib/types/admin/exams/create/exam.types'
 import s from '@/app/(dashboard)/admin/exams/create/create.module.css'
 
+// ProgramOption matches what useExamCategories returns
+interface ProgramOption {
+  id:   string
+  code: string
+  name: string
+}
+
 interface ExamBasicInfoSectionProps {
   form:        ExamFormData
   errors:      ExamFormErrors
   categories:  CategoryOption[]
+  programs:    ProgramOption[]        // ← NEW: from DB via useExamCategories
   catLoading:  boolean
   setField:    <K extends keyof ExamFormData>(field: K, value: ExamFormData[K]) => void
 }
@@ -20,6 +34,7 @@ export default function ExamBasicInfoSection({
   form,
   errors,
   categories,
+  programs,
   catLoading,
   setField,
 }: ExamBasicInfoSectionProps) {
@@ -105,13 +120,43 @@ export default function ExamBasicInfoSection({
           )}
         </div>
 
+        {/* Program — FIXED: values are UUIDs from DB, bound to form.program_id */}
+        <div className={s.fieldGroup}>
+          <label className={s.label} htmlFor="program">
+            <BookOpen size={12} /> Program <span className={s.required}>*</span>
+          </label>
+          <div className={`${s.selectWrap} ${errors.program_id ? s.inputError : ''}`}>
+            <select
+              id="program"
+              className={s.select}
+              value={form.program_id}
+              onChange={(e) => setField('program_id', e.target.value)}
+              disabled={catLoading}
+            >
+              <option value="">
+                {catLoading ? 'Loading programs…' : 'Select a program…'}
+              </option>
+              {programs.map((p) => (
+                // value is the UUID — this is what gets written to program_id FK column
+                <option key={p.id} value={p.id}>
+                  {p.code} — {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {errors.program_id && (
+            <p className={s.fieldError}>
+              <AlertCircle size={11} /> {errors.program_id}
+            </p>
+          )}
+        </div>
+
         {/* Exam Type */}
         <div className={s.fieldGroup}>
           <label className={s.label} htmlFor="examType">
             <Layers size={12} /> Exam Type <span className={s.required}>*</span>
           </label>
 
-          {/* Visual type selector — two clickable cards */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
             {examTypes.map((type) => {
               const isSelected = form.exam_type === type

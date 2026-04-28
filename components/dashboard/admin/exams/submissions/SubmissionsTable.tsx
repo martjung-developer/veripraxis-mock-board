@@ -25,7 +25,7 @@ export function SubmissionsTable({
   const [forcingId, setForcingId] = useState<string | null>(null)
 
   async function handleForceSubmit(sub: Submission) {
-    if (!onForceSubmit) return
+    if (!onForceSubmit) {return}
     setForcingId(sub.id)
     await onForceSubmit(sub.id, sub.started_at)
     setForcingId(null)

@@ -8,8 +8,13 @@ interface Props {
   submissions: Submission[]
 }
 
+// All statuses that carry a final score
+const GRADED_STATUSES = new Set(['graded', 'reviewed', 'released'])
+
 const STATUS_STYLES: Record<string, { background: string; color: string }> = {
+  released:    { background: '#f0fdf4', color: '#15803d' },
   graded:      { background: '#f5f3ff', color: '#7c3aed' },
+  reviewed:    { background: '#eff6ff', color: '#1d4ed8' },
   submitted:   { background: '#fffbeb', color: '#d97706' },
   in_progress: { background: '#f0f9ff', color: '#0369a1' },
 }
@@ -43,8 +48,8 @@ export function SubmissionsTable({ submissions }: Props) {
         </thead>
         <tbody>
           {submissions.map((s) => {
-            const isGraded    = s.status === 'graded'
-            const statusStyle = STATUS_STYLES[s.status] ?? { background: '#f0f9ff', color: '#0369a1' }
+            const hasScore    = GRADED_STATUSES.has(s.status)
+            const statusStyle = STATUS_STYLES[s.status] ?? STATUS_STYLES['in_progress']
 
             return (
               <tr key={s.id}>
@@ -54,8 +59,10 @@ export function SubmissionsTable({ submissions }: Props) {
                     {s.exam_type}
                   </span>
                 </td>
+
+                {/* Score */}
                 <td>
-                  {isGraded && s.percentage !== null ? (
+                  {hasScore && s.percentage !== null ? (
                     <strong style={{ color: s.percentage >= 75 ? '#059669' : '#dc2626' }}>
                       {Math.round(s.percentage)}%
                     </strong>
@@ -63,9 +70,11 @@ export function SubmissionsTable({ submissions }: Props) {
                     <span className={styles.cellMuted}>—</span>
                   )}
                 </td>
+
+                {/* Result */}
                 <td>
-                  {isGraded ? (
-                    s.passed === true  ? (
+                  {hasScore ? (
+                    s.passed === true ? (
                       <span style={{ color: '#059669', fontWeight: 700, fontSize: '0.78rem' }}>✓ Passed</span>
                     ) : s.passed === false ? (
                       <span style={{ color: '#dc2626', fontWeight: 700, fontSize: '0.78rem' }}>✗ Failed</span>
@@ -76,11 +85,15 @@ export function SubmissionsTable({ submissions }: Props) {
                     <span className={styles.cellMuted}>Pending</span>
                   )}
                 </td>
+
+                {/* Status */}
                 <td>
                   <span className={styles.statusBadge} style={statusStyle}>
                     {s.status}
                   </span>
                 </td>
+
+                {/* Submitted date */}
                 <td>{formatDate(s.submitted_at)}</td>
               </tr>
             )

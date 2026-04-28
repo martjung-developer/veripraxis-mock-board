@@ -23,8 +23,8 @@ const TYPE_META: Record<MaterialType, { label: string; accentClass: string; icon
 }
 
 function typeIcon(type: MaterialType) {
-  if (type === 'document') return <FileText   size={18} strokeWidth={1.75} />
-  if (type === 'video')    return <Video      size={18} strokeWidth={1.75} />
+  if (type === 'document') {return <FileText   size={18} strokeWidth={1.75} />}
+  if (type === 'video')    {return <Video      size={18} strokeWidth={1.75} />}
   return                          <StickyNote size={18} strokeWidth={1.75} />
 }
 

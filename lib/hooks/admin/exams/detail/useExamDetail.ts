@@ -26,7 +26,7 @@ export function useExamDetail(examId: string | undefined): UseExamDetailReturn {
   const [error,      setError]      = useState<string | null>(null)
 
   useEffect(() => {
-    if (!examId) return
+    if (!examId) {return}
 
     let cancelled = false
 
@@ -44,12 +44,12 @@ export function useExamDetail(examId: string | undefined): UseExamDetailReturn {
           getPrograms(db),
         ])
 
-        if (cancelled) return
+        if (cancelled) {return}
 
         // ── Step 2: Stats (depends on knowing the exam exists) ───────────────
         const stats = await getExamStats(db, examId)
 
-        if (cancelled) return
+        if (cancelled) {return}
 
         setExam(mapRawToExamDetail(raw, stats))
         setCategories(cats)
@@ -59,7 +59,7 @@ export function useExamDetail(examId: string | undefined): UseExamDetailReturn {
           setError(err instanceof Error ? err.message : 'Failed to load exam.')
         }
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) {setLoading(false)}
       }
     }
 

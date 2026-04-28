@@ -2,7 +2,7 @@
 // Pure UI — fully controlled form modal.
 // Receives all state + handlers from useQuestionForm via props.
 
-import { AlertCircle, Loader2, Pencil, Plus, Save, X } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Loader2, Pencil, Plus, Save, X } from 'lucide-react'
 import Link from 'next/link'
 import type {
   QuestionForm,
@@ -11,7 +11,7 @@ import type {
 } from '@/lib/types/admin/exams/questions/questions.types'
 import { GROUP_ORDER, TYPE_META } from '@/lib/utils/admin/questions/helpers'
 import s from '@/app/(dashboard)/admin/exams/[examId]/questions/questions.module.css'
-import { JSX } from 'react/jsx-dev-runtime'
+import type { JSX } from 'react/jsx-dev-runtime'
 
 interface QuestionModalProps {
   examId:    string
@@ -57,7 +57,7 @@ export function QuestionModal({
   return (
     <div
       className={s.modalOverlay}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      onClick={(e) => { if (e.target === e.currentTarget) {onClose()} }}
     >
       <div className={s.modal}>
         {/* ── Header ── */}
@@ -179,7 +179,9 @@ export function QuestionModal({
                 </button>
               )}
               {form.correct_answer && (
-                <p className={s.correctHint}>✓ Correct answer: Option {form.correct_answer}</p>
+                <p className={s.correctHint}>
+                  <CheckCircle2 size={12} /> Correct answer: Option {form.correct_answer}
+                </p>
               )}
             </div>
           )}

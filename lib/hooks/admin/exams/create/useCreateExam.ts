@@ -1,23 +1,32 @@
 // lib/hooks/admin/exams/create/useCreateExam.ts
-// Manages form state, validation, and submission for the Create Exam page.
-// Delegates all Supabase work to exam.service.ts.
+//
+// FIXED:
+//  1. DEFAULT_FORM: program → program_id (stores UUID, not text)
+//  2. validate():   checks program_id, not program
+//  3. submit():     passes form with program_id to buildInsertPayload
+// ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
-import { buildInsertPayload, insertExam, getCurrentUserId } from '@/lib/services/admin/exams/create/exam.service'
+import { useState, useCallback }   from 'react'
+import { useRouter }               from 'next/navigation'
+import { createClient }            from '@/lib/supabase/client'
+import {
+  buildInsertPayload,
+  insertExam,
+  getCurrentUserId,
+}                                  from '@/lib/services/admin/exams/create/exam.service'
 import type {
   ExamFormData,
   ExamFormErrors,
   UseCreateExamReturn,
-} from '@/lib/types/admin/exams/create/exam.types'
+}                                  from '@/lib/types/admin/exams/create/exam.types'
 
-// ── Default form state ──────────────────────────────────────────────────────
+// ── Default form state ────────────────────────────────────────────────────────
 
 const DEFAULT_FORM: ExamFormData = {
   title:            '',
   description:      '',
   category_id:      '',
+  program_id:       '',   // ← was "program: ''" — now correctly stores a UUID
   exam_type:        'mock',
   duration_minutes: '60',
   total_points:     '100',
@@ -25,8 +34,7 @@ const DEFAULT_FORM: ExamFormData = {
   is_published:     false,
 }
 
-// ── Validation ──────────────────────────────────────────────────────────────
-// Returns an error map. Empty map = valid form.
+// ── Validation ────────────────────────────────────────────────────────────────
 
 function validate(data: ExamFormData): ExamFormErrors {
   const errors: ExamFormErrors = {}
@@ -36,6 +44,9 @@ function validate(data: ExamFormData): ExamFormErrors {
   }
   if (!data.category_id) {
     errors.category_id = 'Please select a category.'
+  }
+  if (!data.program_id) {
+    errors.program_id = 'Please select a program.'   // ← was errors.program
   }
   if (!data.exam_type) {
     errors.exam_type = 'Please select an exam type.'
@@ -59,7 +70,7 @@ function validate(data: ExamFormData): ExamFormErrors {
   return errors
 }
 
-// ── Hook ────────────────────────────────────────────────────────────────────
+// ── Hook ──────────────────────────────────────────────────────────────────────
 
 export function useCreateExam(): UseCreateExamReturn {
   const router = useRouter()
@@ -70,46 +81,33 @@ export function useCreateExam(): UseCreateExamReturn {
   const [success,     setSuccess]     = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
-  // ── setField ──────────────────────────────────────────────────────────────
-  // Generic typed setter — no per-field handlers needed in components.
-
   const setField = useCallback(
     <K extends keyof ExamFormData>(field: K, value: ExamFormData[K]) => {
       setForm((prev) => ({ ...prev, [field]: value }))
+      // Clear the field error as the user corrects it
+      setErrors((prev) => ({ ...prev, [field]: undefined }))
     },
     [],
   )
 
-  // ── submit ────────────────────────────────────────────────────────────────
-
   const submit = useCallback(
-    async (e: React.FormEvent) => {
+    async (e: React.FormEvent<Element>) => {
       e.preventDefault()
 
-      // 1. Validate
       const errs = validate(form)
       setErrors(errs)
-      if (Object.keys(errs).length > 0) return
+      if (Object.keys(errs).length > 0) {return}
 
-      // 2. Guard against double-submission
-      if (submitting) return
-
+      if (submitting) {return}
       setSubmitting(true)
       setSubmitError(null)
 
       try {
         const supabase = createClient()
-
-        // 3. Resolve current user (non-fatal if unavailable)
-        const userId = await getCurrentUserId(supabase)
-
-        // 4. Build typed insert payload
-        const payload = buildInsertPayload(form, userId)
-
-        // 5. Insert via service (throws on error)
+        const userId   = await getCurrentUserId(supabase)
+        const payload  = buildInsertPayload(form, userId)
         await insertExam(supabase, payload)
 
-        // 6. Success — redirect after short delay so the banner is visible
         setSuccess(true)
         setTimeout(() => router.push('/admin/exams'), 1500)
       } catch (err) {
@@ -122,13 +120,5 @@ export function useCreateExam(): UseCreateExamReturn {
     [form, submitting, router],
   )
 
-  return {
-    form,
-    errors,
-    submitting,
-    success,
-    submitError,
-    setField,
-    submit,
-  }
+  return { form, errors, submitting, success, submitError, setField, submit }
 }

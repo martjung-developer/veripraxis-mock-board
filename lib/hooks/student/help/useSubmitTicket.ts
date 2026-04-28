@@ -58,10 +58,10 @@ export function useSubmitTicket(userId: string | null): UseSubmitTicketReturn {
       // 2. Validate
       const errors = validateTicketForm(form)
       setFormErrors(errors)
-      if (!isTicketFormValid(errors)) return
+      if (!isTicketFormValid(errors)) {return}
 
       // 3. Guard double-submission
-      if (submitting) return
+      if (submitting) {return}
 
       setSubmitting(true)
       setSubmitError(null)

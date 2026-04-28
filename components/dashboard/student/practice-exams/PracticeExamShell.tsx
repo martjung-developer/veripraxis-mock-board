@@ -18,6 +18,23 @@ interface Props {
   onBack:   () => void
 }
 
+const TRUE_FALSE_CHOICES: readonly ('true' | 'false')[] = ['true', 'false']
+
+function parseMatchingAnswer(raw: string | undefined): Record<string, string> {
+  if (!raw) {return {}}
+  try {
+    const parsed = JSON.parse(raw)
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {return {}}
+    const result: Record<string, string> = {}
+    for (const [key, value] of Object.entries(parsed)) {
+      if (typeof value === 'string') {result[key] = value}
+    }
+    return result
+  } catch {
+    return {}
+  }
+}
+
 // ── History / Lobby screen ────────────────────────────────────────────────────
 
 function HistoryScreen({ hook, onBack }: Props) {
@@ -88,10 +105,7 @@ function ResumePrompt({ hook, onBack }: Props) {
             <RotateCcw size={14} /> Restart (new attempt #{pastAttempts.length + 1})
           </button>
         </div>
-        <button
-          style={{ marginTop: '0.75rem', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: '0.8rem' }}
-          onClick={onBack}
-        >
+        <button className={styles.backLinkButton} onClick={onBack}>
           ← Back to list
         </button>
       </div>
@@ -194,10 +208,10 @@ export default function PracticeExamShell({ hook, onBack }: Props) {
 
   // ── Keyboard navigation ────────────────────────────────────────────────────
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (phase !== 'exam') return
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
-    if (e.key === 'ArrowLeft')  setCurrent(Math.max(0, current - 1))
-    if (e.key === 'ArrowRight') setCurrent(Math.min(questions.length - 1, current + 1))
+    if (phase !== 'exam') {return}
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {return}
+    if (e.key === 'ArrowLeft')  {setCurrent(Math.max(0, current - 1))}
+    if (e.key === 'ArrowRight') {setCurrent(Math.min(questions.length - 1, current + 1))}
   }, [phase, current, questions.length, setCurrent])
 
   useEffect(() => {
@@ -207,7 +221,7 @@ export default function PracticeExamShell({ hook, onBack }: Props) {
 
   // ── Phase routing ──────────────────────────────────────────────────────────
 
-  if (phase === 'loading') return <div className={styles.center}>Loading reviewer…</div>
+  if (phase === 'loading') {return <div className={styles.center}>Loading reviewer…</div>}
 
   if (phase === 'error') {
     return (
@@ -219,9 +233,9 @@ export default function PracticeExamShell({ hook, onBack }: Props) {
     )
   }
 
-  if (phase === 'resume_prompt') return <ResumePrompt hook={hook} onBack={onBack} />
-  if (phase === 'history')       return <HistoryScreen hook={hook} onBack={onBack} />
-  if (phase === 'completed')     return <CompletionScreen hook={hook} onBack={onBack} />
+  if (phase === 'resume_prompt') {return <ResumePrompt hook={hook} onBack={onBack} />}
+  if (phase === 'history')       {return <HistoryScreen hook={hook} onBack={onBack} />}
+  if (phase === 'completed')     {return <CompletionScreen hook={hook} onBack={onBack} />}
 
   // ── Exam phase ─────────────────────────────────────────────────────────────
 
@@ -236,7 +250,7 @@ export default function PracticeExamShell({ hook, onBack }: Props) {
 
   const canCheck = !!(answers[q?.id ?? '']?.trim()) && !fb?.submitted
 
-  if (!q || !exam) return null
+  if (!q || !exam) {return null}
 
   return (
     <div className={styles.shell}>
@@ -276,12 +290,12 @@ export default function PracticeExamShell({ hook, onBack }: Props) {
             <div className={styles.sidebarHeading}>Questions</div>
 
             {/* Jump helpers */}
-            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+            <div className={styles.jumpRow}>
               <button
                 className={styles.jumpBtn}
                 onClick={() => {
                   const idx = questions.findIndex(q => !answers[q.id])
-                  if (idx !== -1) setCurrent(idx)
+                  if (idx !== -1) {setCurrent(idx)}
                 }}
               >
                 Jump to Unanswered
@@ -290,7 +304,7 @@ export default function PracticeExamShell({ hook, onBack }: Props) {
                 className={styles.jumpBtn}
                 onClick={() => {
                   const idx = questions.findIndex(q => feedbacks[q.id]?.isCorrect === false)
-                  if (idx !== -1) setCurrent(idx)
+                  if (idx !== -1) {setCurrent(idx)}
                 }}
               >
                 Jump to Incorrect
@@ -356,6 +370,16 @@ export default function PracticeExamShell({ hook, onBack }: Props) {
               </div>
             </div>
 
+            {q.scenario?.trim() ? (
+              <div className={styles.scenarioBlock}>
+                <div className={styles.scenarioHeader}>
+                  <BookOpen size={14} />
+                  <span>Scenario</span>
+                </div>
+                <p className={styles.scenarioText}>{q.scenario}</p>
+              </div>
+            ) : null}
+
             <p className={styles.questionText}>{q.question_text}</p>
 
             {/* MCQ */}
@@ -390,7 +414,7 @@ export default function PracticeExamShell({ hook, onBack }: Props) {
             {/* True / False */}
             {q.question_type === 'true_false' && (
               <div className={styles.tfRow}>
-                {(['true', 'false'] as const).map(v => {
+                {TRUE_FALSE_CHOICES.map(v => {
                   const isSel     = answers[q.id] === v
                   const isChecked = fb?.submitted
                   const isCorr    = fb?.correctAnswer === v
@@ -440,10 +464,7 @@ export default function PracticeExamShell({ hook, onBack }: Props) {
             {q.question_type === 'matching' && q.options && (
               <div className={styles.matchList}>
                 {q.options.map((opt: QuestionOption) => {
-                  const parsed = (() => {
-                    try { return JSON.parse(answers[q.id] ?? '{}') as Record<string, string> }
-                    catch { return {} }
-                  })()
+                  const parsed = parseMatchingAnswer(answers[q.id])
                   return (
                     <div key={opt.label} className={styles.matchRow}>
                       <div className={styles.matchLeft}>{opt.label}. {opt.text}</div>
@@ -520,7 +541,7 @@ export default function PracticeExamShell({ hook, onBack }: Props) {
           </button>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: '#64748b' }}>
+        <div className={styles.navCenter}>
           <Target size={12} />
           {answeredCount} answered · {questions.length - answeredCount} remaining
         </div>

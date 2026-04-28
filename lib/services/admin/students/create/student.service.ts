@@ -43,7 +43,7 @@ export async function checkEmailExists(
     .eq('email', email)
     .maybeSingle()
 
-  if (error) throw makeError('UNKNOWN', error.message)
+  if (error) {throw makeError('UNKNOWN', error.message)}
   return data !== null
 }
 

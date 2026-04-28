@@ -13,21 +13,21 @@ interface PaginationProps {
 function buildPageNums(page: number, totalPages: number): (number | '…')[] {
   const nums: (number | '…')[] = []
   if (totalPages <= 7) {
-    for (let i = 1; i <= totalPages; i++) nums.push(i)
+    for (let i = 1; i <= totalPages; i++) {nums.push(i)}
     return nums
   }
   nums.push(1)
-  if (page > 3) nums.push('…')
+  if (page > 3) {nums.push('…')}
   for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) {
     nums.push(i)
   }
-  if (page < totalPages - 2) nums.push('…')
+  if (page < totalPages - 2) {nums.push('…')}
   nums.push(totalPages)
   return nums
 }
 
 export function Pagination({ page, totalPages, totalItems, pageSize, onPageChange }: PaginationProps) {
-  if (totalItems === 0) return null
+  if (totalItems === 0) {return null}
 
   const pageNums = buildPageNums(page, totalPages)
   const from     = (page - 1) * pageSize + 1

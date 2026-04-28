@@ -64,8 +64,8 @@ interface FallbackRow {
 }
 
 function unwrapProgram(raw: ProgramJoin): { code: string; name: string } | null {
-  if (!raw) return null
-  if (Array.isArray(raw)) return raw[0] ?? null
+  if (!raw) {return null}
+  if (Array.isArray(raw)) {return raw[0] ?? null}
   return raw
 }
 

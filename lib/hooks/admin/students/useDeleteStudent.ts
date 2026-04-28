@@ -35,7 +35,7 @@ export function useDeleteStudent(
   const closeDeleteModal = useCallback(() => setDeleteModal(null), [])
 
   const handleDelete = useCallback(async () => {
-    if (!deleteModal) return
+    if (!deleteModal) {return}
     setDeleting(true)
 
     // Optimistic: remove from UI immediately

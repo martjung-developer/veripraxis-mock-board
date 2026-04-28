@@ -36,7 +36,7 @@ export function ViewSubmissionModal({
   const canGrade = ['submitted', 'graded', 'reviewed'].includes(target.status)
 
   function handleOverlayClick(e: React.MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget) onClose()
+    if (e.target === e.currentTarget) {onClose()}
   }
 
   return (

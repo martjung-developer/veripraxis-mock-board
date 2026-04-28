@@ -146,7 +146,7 @@ export default function AnswerKeyPage() {
         <div className={s.groups}>
           {GROUP_ORDER.map((type) => {
             const typeEntries = grouped[type]
-            if (!typeEntries?.length) return null
+            if (!typeEntries?.length) {return null}
             return (
               <AnswerKeyGroup
                 key={type}

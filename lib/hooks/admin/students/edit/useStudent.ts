@@ -24,7 +24,7 @@ export function useStudent(studentId: string): UseStudentReturn {
   const [initialForm, setInitialForm] = useState<EditStudentForm | null>(null)
 
   useEffect(() => {
-    if (!studentId || hasFetched.current) return
+    if (!studentId || hasFetched.current) {return}
     hasFetched.current = true
 
     let cancelled = false
@@ -35,7 +35,7 @@ export function useStudent(studentId: string): UseStudentReturn {
 
       const result = await getStudentById(supabase, studentId)
 
-      if (cancelled) return
+      if (cancelled) {return}
 
       if (!result.ok) {
         setError(result.message)

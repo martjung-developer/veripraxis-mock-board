@@ -15,7 +15,7 @@ export function SubmitModal({
   answeredCount, skippedCount, unansweredCount, submitting, onCancel, onConfirm,
 }: Props) {
   return (
-    <div className={styles.overlay} onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}>
+    <div className={styles.overlay} onClick={(e) => { if (e.target === e.currentTarget) {onCancel()} }}>
       <div className={styles.modal}>
         <div className={styles.modalIcon} style={{ background: '#fffbeb', border: '2px solid #fde68a' }}>
           <AlertTriangle size={24} color="#d97706" />

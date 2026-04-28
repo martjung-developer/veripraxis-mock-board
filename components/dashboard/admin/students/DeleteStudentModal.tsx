@@ -12,7 +12,7 @@ interface DeleteStudentModalProps {
 
 export function DeleteStudentModal({ student, deleting, onConfirm, onCancel }: DeleteStudentModalProps) {
   return (
-    <div className={styles.overlay} onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}>
+    <div className={styles.overlay} onClick={(e) => { if (e.target === e.currentTarget) {onCancel()} }}>
       <div className={styles.modal}>
         <div className={styles.modalIcon} style={{ background: '#fee2e2', border: '2px solid #fca5a5' }}>
           <Trash2 size={22} color="#dc2626" />

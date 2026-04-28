@@ -74,7 +74,7 @@ export async function markAsRead(id: string): Promise<ServiceResult<void>> {
     .update({ is_read: true })
     .eq('id', id)
 
-  if (error) return { data: null, error: error.message }
+  if (error) {return { data: null, error: error.message }}
   return { data: null, error: null }
 }
 
@@ -89,7 +89,7 @@ export async function markAsUnread(id: string): Promise<ServiceResult<void>> {
     .update({ is_read: false })
     .eq('id', id)
 
-  if (error) return { data: null, error: error.message }
+  if (error) {return { data: null, error: error.message }}
   return { data: null, error: null }
 }
 
@@ -105,7 +105,7 @@ export async function markAllAsRead(userId: string): Promise<ServiceResult<void>
     .eq('user_id', userId)
     .eq('is_read', false)
 
-  if (error) return { data: null, error: error.message }
+  if (error) {return { data: null, error: error.message }}
   return { data: null, error: null }
 }
 
@@ -119,7 +119,7 @@ export async function deleteNotification(id: string): Promise<ServiceResult<void
     .delete()
     .eq('id', id)
 
-  if (error) return { data: null, error: error.message }
+  if (error) {return { data: null, error: error.message }}
   return { data: null, error: null }
 }
 
@@ -178,7 +178,7 @@ export async function createBulkNotifications(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase as any).from('notifications').insert(inserts)
 
-  if (error) return { data: null, error: error.message }
+  if (error) {return { data: null, error: error.message }}
   return { data: null, error: null }
 }
 

@@ -9,7 +9,7 @@ import type {
   Notification,
 } from '@/lib/types/student/notifications/notifications.types'
 import styles from '@/app/(dashboard)/student/notifications/notifications.module.css'
-import { JSX } from 'react/jsx-dev-runtime'
+import type { JSX } from 'react'
 
 interface NotificationListProps {
   notifications:  Notification[]

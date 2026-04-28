@@ -7,6 +7,7 @@ import type { QuestionType, QuestionOption, SubmissionStatus } from '@/lib/types
 export interface PracticeQuestion {
   id:             string
   question_text:  string
+  scenario?:      string | null
   question_type:  QuestionType
   points:         number
   options:        QuestionOption[] | null
@@ -70,6 +71,7 @@ export type ExamMeta = {
 export type Question = {
   id: string;
   question_text: string;
+  scenario?: string | null;
   question_type: string;
   points: number;
   options: string;

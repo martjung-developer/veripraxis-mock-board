@@ -10,7 +10,7 @@ interface PaginationProps {
 }
 
 export function Pagination({ safePage, totalPages, totalItems, onPageChange }: PaginationProps) {
-  if (totalPages <= 1) return null
+  if (totalPages <= 1) {return null}
   return (
     <div className={styles.pagination}>
       <span className={styles.pageInfo}>Page {safePage} of {totalPages} · {totalItems} total</span>

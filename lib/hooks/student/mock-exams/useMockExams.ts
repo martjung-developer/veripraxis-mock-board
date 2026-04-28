@@ -1,63 +1,88 @@
 // lib/hooks/student/mock-exams/useMockExams.ts
+//
+// FIXED:
+//  1. Fetches attemptCounts per exam and populates MockExam.attemptCount
+//  2. Derives 'locked' status when attemptCount >= MAX_ATTEMPTS
+//  3. Exposes refresh() for manual refetch
+//  4. No `any` types
+// ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useEffect, useMemo, useRef } from 'react'
-import { useUser } from '@/lib/context/AuthContext'
-import { createClient } from '@/lib/supabase/client'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { useUser }              from '@/lib/context/AuthContext'
+import { createClient }         from '@/lib/supabase/client'
 import {
   fetchAssignedExamIds,
+  fetchStudentProgramId,
   fetchPublishedMockExams,
   fetchQuestionCounts,
   fetchStudentSubmissionStatuses,
-} from '@/lib/services/student/mock-exams/mockExams.service'
-import { unwrapCategory, unwrapProgram, formatDuration } from '@/lib/utils/student/mock-exams/mock-exams'
-import { ALL_CATEGORIES, PAGE_SIZE } from '@/lib/constants/student/mock-exams/mock-exams'
-import type { MockExam, ExamRaw, ExamStatus } from '@/lib/types/student/mock-exams/mock-exams'
+  fetchAttemptCounts,
+}                               from '@/lib/services/student/mock-exams/mockExams.service'
+import {
+  unwrapCategory,
+  unwrapProgram,
+  formatDuration,
+}                               from '@/lib/utils/student/mock-exams/mock-exams'
+import {
+  ALL_CATEGORIES,
+  PAGE_SIZE,
+}                               from '@/lib/constants/student/mock-exams/mock-exams'
+import { MAX_ATTEMPTS }         from '@/lib/types/student/mock-exams/mock-exams'
+import type {
+  MockExam, ExamRaw, ExamStatus,
+}                               from '@/lib/types/student/mock-exams/mock-exams'
 
 type SortOption = 'newest' | 'oldest' | 'duration'
 
 export function useMockExams() {
   const { user, loading: authLoading } = useUser()
 
-  const [allExams,    setAllExams]    = useState<MockExam[]>([])
-  const [dataLoading, setDataLoading] = useState(false)
-  const [dataError,   setDataError]   = useState<string | null>(null)
-  const [search,      setSearchRaw]   = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [category,    setCategory]    = useState(ALL_CATEGORIES)
-  const [sort,        setSort]        = useState<SortOption>('newest')
-  const [page,        setPage]        = useState(1)
-  const [programId,   setProgramId]   = useState<string | null>(null)
+  const [allExams,        setAllExams]        = useState<MockExam[]>([])
+  const [dataLoading,     setDataLoading]      = useState(false)
+  const [dataError,       setDataError]        = useState<string | null>(null)
+  const [search,          setSearchRaw]        = useState('')
+  const [debouncedSearch, setDebouncedSearch]  = useState('')
+  const [category,        setCategory]         = useState(ALL_CATEGORIES)
+  const [sort,            setSort]             = useState<SortOption>('newest')
+  const [page,            setPage]             = useState(1)
+  const [programId,       setProgramId]        = useState<string | null>(null)
+  const [programReady,    setProgramReady]     = useState(false)
+  const [refreshTick,     setRefreshTick]      = useState(0)
 
-  // ── Debounced search ─────────────────────────────────────────────────────
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   function setSearch(val: string) {
     setSearchRaw(val)
-    if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (debounceRef.current !== null) {clearTimeout(debounceRef.current)}
     debounceRef.current = setTimeout(() => {
       setDebouncedSearch(val)
       setPage(1)
     }, 250)
   }
 
+  /** Manually trigger a full refetch of exams + attempts */
+  const refresh = useCallback(() => {
+    setRefreshTick((t) => t + 1)
+  }, [])
+
   // ── Load student's program_id ────────────────────────────────────────────
   useEffect(() => {
-    if (!user) return
-    const supabase   = createClient()
-    const controller = new AbortController()
-
-    supabase
-      .from('students')
-      .select('program_id')
-      .eq('id', user.id)
-      .single()
-      .then(({ data }: { data: { program_id: string } | null }) => { if (data?.program_id) setProgramId(data.program_id) })
-
-    return () => controller.abort()
+    if (user === null || user === undefined) {return}
+    void fetchStudentProgramId(user.id).then((pid) => {
+      setProgramId(pid)
+      setProgramReady(true)
+    })
   }, [user?.id])
 
   // ── Fetch exams ──────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!user) return
+    if (user === null || user === undefined || !programReady) {return}
+    if (!programId) {
+      setAllExams([])
+      setDataLoading(false)
+      setDataError('No degree program is assigned to your student account.')
+      return
+    }
     let cancelled = false
 
     async function load() {
@@ -67,28 +92,33 @@ export function useMockExams() {
       try {
         const [assignedIds, examData] = await Promise.all([
           fetchAssignedExamIds(user!.id, programId),
-          fetchPublishedMockExams(),
+          fetchPublishedMockExams(programId),
         ])
 
         const exams   = examData as unknown as ExamRaw[]
         const examIds = exams.map((e) => e.id)
 
-        const [qCountMap, submissionMap] = await Promise.all([
+        const [qCountMap, submissionMap, attemptCountMap] = await Promise.all([
           fetchQuestionCounts(examIds),
           fetchStudentSubmissionStatuses(user!.id, examIds),
+          fetchAttemptCounts(user!.id, examIds),
         ])
 
         const mapped: MockExam[] = exams.map((exam) => {
-          const cat   = unwrapCategory(exam.exam_categories)
-          const prog  = unwrapProgram(exam.programs)
-          const sub   = submissionMap[exam.id]
-          const isAssigned = assignedIds.has(exam.id)
+          const cat         = unwrapCategory(exam.exam_categories)
+          const prog        = unwrapProgram(exam.programs)
+          const sub         = submissionMap[exam.id]
+          const isAssigned  = assignedIds.has(exam.id)
+          const attemptCount = attemptCountMap[exam.id] ?? 0
 
           let status: ExamStatus
+
           if (!isAssigned) {
             status = 'coming_soon'
-          } else if (sub?.status === 'submitted') {
-            status = 'completed'
+          } else if (attemptCount >= MAX_ATTEMPTS) {
+            status = 'locked'
+          } else if (sub?.status === 'submitted' || sub?.status === 'graded' || sub?.status === 'released') {
+            status = attemptCount < MAX_ATTEMPTS ? 'available' : 'completed'
           } else if (sub?.status === 'in_progress') {
             status = 'in_progress'
           } else {
@@ -105,6 +135,7 @@ export function useMockExams() {
             duration:     formatDuration(exam.duration_minutes),
             durationMins: exam.duration_minutes,
             submissionId: sub?.submissionId,
+            attemptCount,
           }
         })
 
@@ -122,7 +153,7 @@ export function useMockExams() {
 
     void load()
     return () => { cancelled = true }
-  }, [user?.id, programId])
+  }, [user?.id, programId, programReady, refreshTick])
 
   // ── Derived ──────────────────────────────────────────────────────────────
   const categories = useMemo(() => {
@@ -154,6 +185,7 @@ export function useMockExams() {
   const availableCount  = allExams.filter((e) => e.status === 'available').length
   const completedCount  = allExams.filter((e) => e.status === 'completed').length
   const inProgressCount = allExams.filter((e) => e.status === 'in_progress').length
+  const lockedCount     = allExams.filter((e) => e.status === 'locked').length
 
   const loading = authLoading || dataLoading
   const error   = dataError
@@ -169,6 +201,7 @@ export function useMockExams() {
     page: safePage,
     setPage,
     totalPages,
+    refresh,
     // data
     paginated,
     filtered,
@@ -178,6 +211,7 @@ export function useMockExams() {
     availableCount,
     completedCount,
     inProgressCount,
+    lockedCount,
     total: allExams.length,
     // meta
     loading,

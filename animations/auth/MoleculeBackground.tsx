@@ -136,7 +136,7 @@ export function MoleculeBackground() {
 
   useEffect(() => {
     const mount = mountRef.current
-    if (!mount) return
+    if (!mount) {return}
 
     const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false })
     renderer.setPixelRatio(1)
@@ -151,7 +151,7 @@ export function MoleculeBackground() {
 
     function spawnRipple(nx: number, ny: number, amp: number) {
       ripples.push({ x: nx, y: 1.0 - ny, age: 0, amp })
-      if (ripples.length > MAX_RIPPLES) ripples.shift()
+      if (ripples.length > MAX_RIPPLES) {ripples.shift()}
     }
 
     const posArr = new Float32Array(MAX_RIPPLES * 2)
@@ -205,7 +205,7 @@ export function MoleculeBackground() {
       for (let i = ripples.length - 1; i >= 0; i--) {
         ripples[i].age += RIPPLE_SPEED
         ripples[i].amp *= RIPPLE_DECAY
-        if (ripples[i].amp < 0.004) ripples.splice(i, 1)
+        if (ripples[i].amp < 0.004) {ripples.splice(i, 1)}
       }
       const count = Math.min(ripples.length, MAX_RIPPLES)
       for (let i = 0; i < count; i++) {
@@ -222,7 +222,7 @@ export function MoleculeBackground() {
       cancelAnimationFrame(raf)
       window.removeEventListener('resize', onResize)
       renderer.dispose(); mat.dispose(); geo.dispose()
-      if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement)
+      if (mount.contains(renderer.domElement)) {mount.removeChild(renderer.domElement)}
     }
   }, [])
 

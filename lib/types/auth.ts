@@ -38,7 +38,7 @@ export const canManageContent  = (role: UserRole) => isAdmin(role)
 
 // ONLY two dashboard destinations
 export function getDashboardByRole(role: UserRole): string {
-  if (role === 'student') return '/student/dashboard'
+  if (role === 'student') {return '/student/dashboard'}
   return '/admin/dashboard'   // covers both 'admin' and 'faculty'
 }
 

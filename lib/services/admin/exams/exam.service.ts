@@ -37,7 +37,7 @@ type AssignmentCountRow = Pick<Database['public']['Tables']['exam_assignments'][
  * This unwraps both safely without casting.
  */
 function unwrapCategory(raw: RawCategoryJoin): CategoryOption | null {
-  if (!raw) return null
+  if (!raw) {return null}
   if (Array.isArray(raw)) {
     const first = raw[0]
     return first ? { id: first.id, name: first.name } : null
@@ -46,7 +46,7 @@ function unwrapCategory(raw: RawCategoryJoin): CategoryOption | null {
 }
 
 function unwrapProgram(raw: RawProgramJoin): ProgramOption | null {
-  if (!raw) return null
+  if (!raw) {return null}
   if (Array.isArray(raw)) {
     const first = raw[0]
     return first ? { id: first.id, code: first.code, name: first.name } : null
@@ -121,7 +121,7 @@ export async function getExamCounts(
   supabase: DB,
   examIds:  string[],
 ): Promise<ExamCounts> {
-  if (examIds.length === 0) return { qCountMap: {}, aCountMap: {} }
+  if (examIds.length === 0) {return { qCountMap: {}, aCountMap: {} }}
 
   const [qRes, aRes] = await Promise.all([
     supabase
@@ -142,10 +142,10 @@ export async function getExamCounts(
   const aCountMap: Record<string, number> = {}
 
   for (const q of qRes.data ?? []) {
-    if (q.exam_id) qCountMap[q.exam_id] = (qCountMap[q.exam_id] ?? 0) + 1
+    if (q.exam_id) {qCountMap[q.exam_id] = (qCountMap[q.exam_id] ?? 0) + 1}
   }
   for (const a of aRes.data ?? []) {
-    if (a.exam_id) aCountMap[a.exam_id] = (aCountMap[a.exam_id] ?? 0) + 1
+    if (a.exam_id) {aCountMap[a.exam_id] = (aCountMap[a.exam_id] ?? 0) + 1}
   }
 
   return { qCountMap, aCountMap }
@@ -165,7 +165,7 @@ export async function getAllExamsWithMeta(supabase: DB): Promise<Exam[]> {
     .order('created_at', { ascending: false })
     .returns<RawExamRow[]>()
 
-  if (error) throw new Error(error.message)
+  if (error) {throw new Error(error.message)}
 
   const rows    = rawExams ?? []
   const examIds = rows.map((e) => e.id)
@@ -187,12 +187,12 @@ export async function updateExam(
     .eq('id', id)
     .returns<void>()
 
-  if (error) throw new Error(error.message)
+  if (error) {throw new Error(error.message)}
 }
 
 // ── deleteExam ────────────────────────────────────────────────────────────────
 
 export async function deleteExam(supabase: DB, id: string): Promise<void> {
   const { error } = await supabase.from('exams').delete().eq('id', id)
-  if (error) throw new Error(error.message)
+  if (error) {throw new Error(error.message)}
 }

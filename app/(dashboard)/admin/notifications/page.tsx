@@ -1,39 +1,25 @@
 // app/(dashboard)/admin/notifications/page.tsx
-// ─────────────────────────────────────────────────────────────────────────────
-//
-// ✅ WHAT THIS FILE CONTAINS
-//   • Client boundary declaration
-//   • useNotifications hook usage
-//   • Derived counts for the filter bar
-//   • Props passed down to pure UI components
-//
-// ❌ WHAT THIS FILE MUST NEVER CONTAIN
-//   • Supabase logic
-//   • Filtering / sorting logic
-//   • Direct notification utility calls
-//   • State management beyond hook destructuring
-// ─────────────────────────────────────────────────────────────────────────────
 
-"use client";
+"use client"
 
-import { useMemo } from "react";
-import { useNotifications } from "@/lib/hooks/admin/notifications/useNotifications";
-import type { NotifType } from "@/lib/types/admin/notifications/notifications.types";
+import { useMemo }             from "react"
+import { useNotifications }    from "@/lib/hooks/admin/notifications/useNotifications"
+import type { NotifType }      from "@/lib/types/admin/notifications/notifications.types"
 import {
   NotificationsHeader,
   NotificationForm,
   NotificationFilterBar,
   NotificationList,
-} from "@/components/dashboard/admin/notifications";
-import styles from "./notifications.module.css";
+}                              from "@/components/dashboard/admin/notifications"
+import { NotificationPreviewModal } from "@/components/dashboard/admin/notifications/NotificationPreviewModal"
+import styles from "./notifications.module.css"
 
-const TYPE_OPTIONS: NotifType[] = ["exam", "result", "general"];
+const TYPE_OPTIONS: NotifType[] = ["exam", "result", "general"]
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function AdminNotificationsPage() {
   const {
-    // State
     notifications,
     students,
     loading,
@@ -41,19 +27,21 @@ export default function AdminNotificationsPage() {
     fetchError,
     filterType,
     showForm,
-    // Derived
     filteredNotifications,
     unreadCount,
-    // Actions
+    
     setFilterType,
     setShowForm,
     markAsRead,
     markAllAsRead,
     deleteNotification,
     sendNotification,
-  } = useNotifications();
+    toggleRead,
+    previewNotif,
+    openPreview,
+    closePreview,
+  } = useNotifications()
 
-  /** Per-type counts – memoised so the filter bar never triggers extra renders. */
   const countByType = useMemo(
     () =>
       TYPE_OPTIONS.reduce<Record<NotifType, number>>(
@@ -61,13 +49,14 @@ export default function AdminNotificationsPage() {
           ...acc,
           [t]: notifications.filter((n) => n.type === t).length,
         }),
-        { exam: 0, result: 0, general: 0 }
+        { exam: 0, result: 0, general: 0 },
       ),
-    [notifications]
-  );
+    [notifications],
+  )
 
   return (
     <div className={styles.page}>
+
       {/* ── Header ── */}
       <NotificationsHeader
         totalCount={notifications.length}
@@ -101,8 +90,21 @@ export default function AdminNotificationsPage() {
         notifications={filteredNotifications}
         loading={loading}
         onMarkRead={markAsRead}
+        onToggleRead={toggleRead}
         onDelete={deleteNotification}
+        onPreview={openPreview}
       />
+
+      {/* ── Preview Modal ── */}
+      {previewNotif !== null && (
+        <NotificationPreviewModal
+          notification={previewNotif}
+          onClose={closePreview}
+          onToggleRead={toggleRead}
+          onDelete={deleteNotification}
+        />
+      )}
+
     </div>
-  );
+  )
 }

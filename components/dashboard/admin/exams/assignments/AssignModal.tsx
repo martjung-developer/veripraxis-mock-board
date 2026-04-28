@@ -8,6 +8,7 @@
  *
  * All state callbacks are passed in from the parent via props.
  */
+'use client'
 
 import {
   X, Search, Loader2, UserPlus, Layers, CheckCircle, ChevronDown,
@@ -303,7 +304,7 @@ export function AssignModal({
     <div
       className={s.modalOverlay}
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
+        if (e.target === e.currentTarget) {onClose()}
       }}
     >
       <div className={s.assignModal}>

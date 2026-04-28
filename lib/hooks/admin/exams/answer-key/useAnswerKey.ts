@@ -101,7 +101,7 @@ export function useAnswerKey(examId: string): UseAnswerKeyReturn {
 
   // ── Derived: filtered + grouped ─────────────────────────────────────────────
   const filtered = useMemo<AnswerKeyEntry[]>(() => {
-    if (!search.trim()) return entries
+    if (!search.trim()) {return entries}
     const q = search.toLowerCase()
     return entries.filter(
       (e) =>
@@ -135,7 +135,7 @@ export function useAnswerKey(examId: string): UseAnswerKeyReturn {
 
   // ── Fetch ───────────────────────────────────────────────────────────────────
   const refetch = useCallback(async () => {
-    if (!mountedRef.current) return
+    if (!mountedRef.current) {return}
     setLoading(true)
     setError(null)
 
@@ -144,10 +144,10 @@ export function useAnswerKey(examId: string): UseAnswerKeyReturn {
       AnswerKeyService.fetchAnswerKeyEntries(supabase, examId),
     ])
 
-    if (!mountedRef.current) return
+    if (!mountedRef.current) {return}
 
-    if (metaResult.data)    setExamMeta(metaResult.data)
-    if (entriesResult.error) setError(entriesResult.error)
+    if (metaResult.data)    {setExamMeta(metaResult.data)}
+    if (entriesResult.error) {setError(entriesResult.error)}
     setEntries(entriesResult.data ?? [])
     setLoading(false)
   }, [supabase, examId])
@@ -157,14 +157,14 @@ export function useAnswerKey(examId: string): UseAnswerKeyReturn {
     void refetch()
     return () => {
       mountedRef.current = false
-      if (autosaveTimer.current) clearTimeout(autosaveTimer.current)
+      if (autosaveTimer.current) {clearTimeout(autosaveTimer.current)}
     }
   }, [refetch])
 
   // ── Warn on unload when dirty ───────────────────────────────────────────────
   useEffect(() => {
     function handleBeforeUnload(e: BeforeUnloadEvent) {
-      if (!dirty) return
+      if (!dirty) {return}
       e.preventDefault()
     }
     window.addEventListener('beforeunload', handleBeforeUnload)
@@ -206,7 +206,7 @@ export function useAnswerKey(examId: string): UseAnswerKeyReturn {
   // ── Save all ────────────────────────────────────────────────────────────────
   const handleSaveAll = useCallback(async () => {
     const dirtyEntries = entries.filter(isEntryDirty)
-    if (!dirtyEntries.length) return
+    if (!dirtyEntries.length) {return}
 
     setSaving(true)
 
@@ -227,7 +227,7 @@ export function useAnswerKey(examId: string): UseAnswerKeyReturn {
     // Merge overrides into correct_answer, advance snapshots, clear overrides
     setEntries((prev) =>
       prev.map((e) => {
-        if (!isEntryDirty(e)) return e
+        if (!isEntryDirty(e)) {return e}
         const savedAnswer = e.override !== null
           ? (e.override || null)
           : e.correct_answer
@@ -246,13 +246,13 @@ export function useAnswerKey(examId: string): UseAnswerKeyReturn {
 
   // ── Autosave (debounced) ────────────────────────────────────────────────────
   useEffect(() => {
-    if (!dirty) return
-    if (autosaveTimer.current) clearTimeout(autosaveTimer.current)
+    if (!dirty) {return}
+    if (autosaveTimer.current) {clearTimeout(autosaveTimer.current)}
     autosaveTimer.current = setTimeout(() => {
       void handleSaveAll()
     }, AUTOSAVE_DELAY_MS)
     return () => {
-      if (autosaveTimer.current) clearTimeout(autosaveTimer.current)
+      if (autosaveTimer.current) {clearTimeout(autosaveTimer.current)}
     }
   }, [dirty, entries, handleSaveAll])
 

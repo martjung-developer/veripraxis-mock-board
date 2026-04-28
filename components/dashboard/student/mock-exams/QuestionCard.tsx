@@ -1,5 +1,5 @@
 // components/dashboard/student/mock-exams/QuestionCard.tsx
-import { Flag } from 'lucide-react'
+import { BookOpen, Flag } from 'lucide-react'
 import type { Question, AnswerMap, StateMap } from '@/lib/types/student/mock-exams/mock-exams'
 import styles from '@/app/(dashboard)/student/mock-exams/[examId]/mock.module.css'
 
@@ -29,6 +29,16 @@ export function QuestionCard({ question: q, index, total, answer, isFlagged, onA
           </button>
         </div>
       </div>
+
+      {q.scenario?.trim() ? (
+        <div className={styles.scenarioBlock}>
+          <div className={styles.scenarioHeader}>
+            <BookOpen size={14} />
+            <span>Scenario</span>
+          </div>
+          <p className={styles.scenarioText}>{q.scenario}</p>
+        </div>
+      ) : null}
 
       <p className={styles.questionText}>{q.question_text}</p>
 

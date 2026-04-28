@@ -1,6 +1,6 @@
 // animations/admin/settings/settings.ts
 
-import { Variants } from 'framer-motion'
+import type { Variants } from 'framer-motion'
 
 // ── Page container — staggered children on mount ─────────────────────────────
 export const containerVariants: Variants = {

@@ -28,13 +28,13 @@ interface NotificationActions {
   /** Remove a notification by id */
   removeNotification: (id: string) => void
   /** Mark every notification in the store as read */
-  markAllRead:   () => void
+  markAllRead: () => void
   /** Set loading state */
-  setLoading:    (loading: boolean) => void
+  setLoading: (loading: boolean) => void
   /** Enqueue a toast (called by realtime handler) */
-  pushToast:     (toast: NotifToast)  => void
+  pushToast: (toast: NotifToast) => void
   /** Dequeue the oldest toast (called by ToastContainer after display) */
-  shiftToast:    ()                   => void
+  shiftToast: () => void
 }
 
 // ── Store ──────────────────────────────────────────────────────────────────

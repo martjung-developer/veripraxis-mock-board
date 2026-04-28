@@ -19,8 +19,8 @@ type StudentJoinItem = NonNullable<
 >
 
 export function unwrapStudentJoin(raw: RawStudentJoin): StudentJoinItem | null {
-  if (!raw) return null
-  if (Array.isArray(raw)) return raw[0] ?? null
+  if (!raw) {return null}
+  if (Array.isArray(raw)) {return raw[0] ?? null}
   return raw
 }
 

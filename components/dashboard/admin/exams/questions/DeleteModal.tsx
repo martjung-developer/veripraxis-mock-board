@@ -4,7 +4,7 @@
 import { Loader2, Trash2 } from 'lucide-react'
 import type { Question } from '@/lib/types/admin/exams/questions/questions.types'
 import s from '@/app/(dashboard)/admin/exams/[examId]/questions/questions.module.css'
-import { JSX } from 'react/jsx-dev-runtime'
+import type { JSX } from 'react/jsx-dev-runtime'
 
 interface DeleteModalProps {
   target:    Question

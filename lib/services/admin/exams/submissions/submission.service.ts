@@ -42,6 +42,15 @@ type SubmissionRowLite = Pick<
 type ProfileLite = Pick<Database['public']['Tables']['profiles']['Row'], 'id' | 'full_name' | 'email'>
 type StudentLite = Pick<Database['public']['Tables']['students']['Row'], 'id' | 'student_id'>
 
+type ExamAccessLite = {
+  allowed_programs: string[] | null
+  allowed_year_levels: number[] | null
+}
+type StudentAccessLite = {
+  program_id: string | null
+  year_level: number | null
+}
+
 function ok<T>(data: T): ServiceResult<T>             { return { data, error: null } }
 function err<T = void>(msg: string): ServiceResult<T> { return { data: null, error: msg } }
 
@@ -63,12 +72,12 @@ export async function getSubmissionsByExam(
     )
     .eq('exam_id', examId)
     .order('started_at', { ascending: false })
-    .returns<SubmissionRowLite[]>()
+    .overrideTypes<SubmissionRowLite[], { merge: false }>()
 
-  if (subErr) return err(subErr.message)
+  if (subErr) {return err(subErr.message)}
 
   const rows: SubmissionRowLite[] = subRows ?? []
-  if (rows.length === 0) return ok([])
+  if (rows.length === 0) {return ok([])}
 
   // Step 2: batch-fetch profiles + students
   const studentIds = [
@@ -84,20 +93,20 @@ export async function getSubmissionsByExam(
       .from('profiles')
       .select('id, full_name, email')
       .in('id', studentIds)
-      .returns<ProfileLite[]>(),
+      .overrideTypes<ProfileLite[], { merge: false }>(),
     supabase
       .from('students')
       .select('id, student_id')
       .in('id', studentIds)
-      .returns<StudentLite[]>(),
+      .overrideTypes<StudentLite[], { merge: false }>(),
   ])
 
   // Step 3: O(1) lookup maps
   const profileMap = new Map<string, { id: string; full_name: string | null; email: string }>()
-  for (const p of profilesRes.data ?? []) profileMap.set(p.id, p)
+  for (const p of profilesRes.data ?? []) {profileMap.set(p.id, p)}
 
   const studentMap = new Map<string, { id: string; student_id: string | null }>()
-  for (const s of studentsRes.data ?? []) studentMap.set(s.id, s)
+  for (const s of studentsRes.data ?? []) {studentMap.set(s.id, s)}
 
   // Step 4: assemble SubmissionRaw[]
   // FIX E-3: status is coerced to SubmissionStatus here so the assembled
@@ -150,10 +159,10 @@ export async function forceSubmitInProgress(
 
   const { error } = await supabase
     .from('submissions')
-    .update(patch as Parameters<ReturnType<typeof supabase.from<'submissions'>>['update']>[0])
+    .update(patch)
     .eq('id', submissionId)
 
-  if (error) return err(error.message)
+  if (error) {return err(error.message)}
   return ok({ submitted_at: now, time_spent_seconds: timeSpent })
 }
 
@@ -163,12 +172,17 @@ export async function updateSubmission(
   supabase: DB,
   id:       string,
   patch:    SubmissionUpdate,
-): Promise<ServiceResult> {
-  const { error } = await supabase
+): Promise<ServiceResult<{ id: string }>> {
+  const { data, error } = await supabase
     .from('submissions')
-    .update(patch as Parameters<ReturnType<typeof supabase.from<'submissions'>>['update']>[0])
+    .update(patch)
     .eq('id', id)
-  return error ? err(error.message) : ok(undefined)
+    .select('id')
+    .single()
+
+  if (error) {return err(error.message)}
+  if (!data) {return err('Update succeeded but no row returned — RLS may have blocked it')}
+  return ok(data)
 }
 
 // ── getSubmissionAnswers ──────────────────────────────────────────────────────
@@ -199,7 +213,7 @@ export async function getSubmissionAnswers(
     .eq('submission_id', submissionId)
     .order('created_at', { ascending: true })
 
-  if (error) return err(error.message)
+  if (error) {return err(error.message)}
   return ok((data ?? []) as unknown as AnswerRaw[])
 }
 
@@ -212,7 +226,7 @@ export async function updateAnswer(
 ): Promise<ServiceResult> {
   const { error } = await supabase
     .from('answers')
-    .update(patch as Parameters<ReturnType<typeof supabase.from<'answers'>>['update']>[0])
+    .update(patch)
     .eq('id', id)
   return error ? err(error.message) : ok(undefined)
 }
@@ -229,6 +243,46 @@ export async function getAnswerKey(
     .eq('exam_id', examId)
     .order('order_number', { ascending: true, nullsFirst: false })
 
-  if (error) return err(error.message)
+  if (error) {return err(error.message)}
   return ok((data ?? []) as AnswerKeyRaw[])
+}
+
+// ── validateExamAccess ───────────────────────────────────────────────────────
+
+export async function validateExamAccess(
+  supabase: DB,
+  examId: string,
+  studentId: string,
+): Promise<ServiceResult<boolean>> {
+  // Fetch exam constraints
+  const { data: exam, error: examErr } = await supabase
+    .from('exams')
+    .select('allowed_programs, allowed_year_levels')
+    .eq('id', examId)
+    .single()
+    .overrideTypes<ExamAccessLite, { merge: false }>()
+
+  if (examErr || !exam) {return err(examErr?.message ?? 'Exam not found')}
+
+  // Fetch student info
+  const { data: student, error: studentErr } = await supabase
+    .from('students')
+    .select('program_id, year_level')
+    .eq('id', studentId)
+    .single()
+    .overrideTypes<StudentAccessLite, { merge: false }>()
+
+  if (studentErr || !student) {return err(studentErr?.message ?? 'Student not found')}
+
+  const programAllowed =
+    !exam.allowed_programs ||
+    exam.allowed_programs.length === 0 ||
+    (student.program_id !== null && exam.allowed_programs.includes(student.program_id))
+
+  const yearAllowed =
+    !exam.allowed_year_levels ||
+    exam.allowed_year_levels.length === 0 ||
+    (student.year_level !== null && exam.allowed_year_levels.includes(student.year_level))
+
+  return ok(programAllowed && yearAllowed)
 }

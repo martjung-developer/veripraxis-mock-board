@@ -3,7 +3,7 @@
 // Pure display helpers: labels, CSS class lookups, color tokens.
 // Imported by components — no React, no hooks.
 
-import type { MaterialType } from '@/lib/types/study-materials'
+import type { MaterialType } from '@/lib/types/admin/study-materials/study-materials'
 
 export function typeLabel(type: MaterialType): string {
   switch (type) {

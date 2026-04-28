@@ -141,8 +141,8 @@ export default function LegalModal({ open, onClose }: LegalModalProps) {
 
   /* Close on Escape */
   useEffect(() => {
-    if (!open) return
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    if (!open) {return}
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') {onClose()} }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onClose])
@@ -155,7 +155,7 @@ export default function LegalModal({ open, onClose }: LegalModalProps) {
 
   /* Reset scroll position when switching documents */
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = 0
+    if (scrollRef.current) {scrollRef.current.scrollTop = 0}
   }, [open])
 
   const isTerms   = open === 'terms'

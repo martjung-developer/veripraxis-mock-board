@@ -10,7 +10,7 @@ import type {
 } from '@/lib/types/admin/exams/questions/questions.types'
 import { GROUP_ORDER } from '@/lib/types/admin/exams/questions/questions.types'
 import s from '@/app/(dashboard)/admin/exams/[examId]/questions/questions.module.css'
-import { JSX } from 'react/jsx-dev-runtime'
+import type { JSX } from 'react/jsx-dev-runtime'
 
 interface QuestionListProps {
   questions:       Question[]
@@ -53,8 +53,7 @@ export function QuestionList({
         <p className={s.emptyTitle}>No questions yet</p>
         <p className={s.emptySub}>Click "Add Question" to create your first question.</p>
         <button
-          className={s.btnPrimary}
-          style={{ marginTop: '1rem' }}
+          className={`${s.btnPrimary} ${s.addFirstBtn}`}
           onClick={onAddFirst}
         >
           <Plus size={14} /> Add First Question
@@ -67,7 +66,7 @@ export function QuestionList({
     <div className={s.groups}>
       {GROUP_ORDER.map((type: QuestionType) => {
         const allOfType = questions.filter((q) => q.question_type === type)
-        if (allOfType.length === 0) return null
+        if (allOfType.length === 0) {return null}
 
         // Respect filtered subset from parent
         const visibleQuestions = grouped[type] ?? []

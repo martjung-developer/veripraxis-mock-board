@@ -36,7 +36,7 @@ export default function EditExamModal({
   onClose,
 }: EditExamModalProps) {
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) onClose()
+    if (e.target === e.currentTarget) {onClose()}
   }
 
   return (

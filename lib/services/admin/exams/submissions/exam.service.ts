@@ -13,7 +13,10 @@ import type { ServiceResult }  from '@/lib/types/admin/exams/submissions/submiss
 import type { ExamInfo }       from '@/lib/types/admin/exams/submissions/exam.types'
 export { validateExamAccess } from '@/lib/services/admin/exams/submissions/submission.service'
 
-type DB = SupabaseClient<Database>
+type PublicSchema = Database['public']
+type ExamsRow     = PublicSchema['Tables']['exams']['Row']
+type ExamsUpdate  = PublicSchema['Tables']['exams']['Update']
+type DB           = SupabaseClient<Database>
 
 function ok<T>(data: T): ServiceResult<T>             { return { data, error: null } }
 function err<T = void>(msg: string): ServiceResult<T> { return { data: null, error: msg } }
@@ -25,15 +28,17 @@ export async function getExamAccessConstraints(
 ): Promise<ServiceResult<{ allowed_programs: string[] | null; allowed_year_levels: number[] | null }>> {
   const { data, error } = await supabase
     .from('exams')
-    .select('allowed_programs, allowed_year_levels')
+    .select('allowed_programs,allowed_year_levels')
     .eq('id', examId)
-    .single()
+    .single<Pick<ExamsRow, 'allowed_programs' | 'allowed_year_levels'>>()
 
-  if (error || !data) return err(error?.message ?? 'Exam not found')
+  if (error || !data) {return err(error?.message ?? 'Exam not found')}
+
+  const exam = data
 
   return ok({
-    allowed_programs:    data.allowed_programs    ?? null,
-    allowed_year_levels: data.allowed_year_levels ?? null,
+    allowed_programs:    exam.allowed_programs    ?? null,
+    allowed_year_levels: exam.allowed_year_levels ?? null,
   })
 }
 
@@ -48,19 +53,18 @@ export async function getExamInfo(
 ): Promise<ServiceResult<ExamInfo>> {
   const { data, error } = await supabase
     .from('exams')
-    .select('passing_score, total_points, grading_mode')
+    .select('passing_score,total_points,grading_mode')
     .eq('id', examId)
-    .single()
+    .single<Pick<ExamsRow, 'passing_score' | 'total_points' | 'grading_mode'>>()
 
-  if (error || !data) return err(error?.message ?? 'Exam not found')
+  if (error || !data) {return err(error?.message ?? 'Exam not found')}
 
-  // grading_mode is GradingMode in database.ts; default to 'auto' if null
-  // (the DB column has DEFAULT 'auto' but Insert allows it to be omitted).
-  const mode: GradingMode = data.grading_mode ?? 'auto'
+  const exam = data
+  const mode: GradingMode = exam.grading_mode ?? 'auto'
 
   return ok<ExamInfo>({
-    passing_score: data.passing_score,
-    total_points:  data.total_points,
+    passing_score: exam.passing_score,
+    total_points:  exam.total_points,
     grading_mode:  mode,
   })
 }
@@ -75,7 +79,7 @@ export async function updateGradingMode(
 ): Promise<ServiceResult> {
   const { error } = await supabase
     .from('exams')
-    .update({ grading_mode: mode })
+    .update({ grading_mode: mode } satisfies ExamsUpdate)
     .eq('id', examId)
 
   return error ? err(error.message) : ok(undefined)

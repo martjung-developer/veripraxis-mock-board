@@ -22,7 +22,7 @@ export function Pagination({
   totalItems,
   onPageChange,
 }: PaginationProps) {
-  if (totalItems === 0) return null
+  if (totalItems === 0) {return null}
 
   const start = (page - 1) * PAGE_SIZE + 1
   const end   = Math.min(page * PAGE_SIZE, totalItems)

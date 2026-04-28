@@ -44,7 +44,7 @@ export default function VerifyEmailPage() {
   }, [])
 
   useEffect(() => {
-    if (countdown <= 0) return
+    if (countdown <= 0) {return}
     const t = setTimeout(() => setCountdown((s) => s - 1), 1000)
     return () => clearTimeout(t)
   }, [countdown])
@@ -69,7 +69,7 @@ export default function VerifyEmailPage() {
 
   function handlePaste(e: React.ClipboardEvent) {
     const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, OTP_LENGTH)
-    if (!pasted) return
+    if (!pasted) {return}
 
     e.preventDefault()
     const next = [...code]
@@ -83,7 +83,7 @@ export default function VerifyEmailPage() {
 
   async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!email) return
+    if (!email) {return}
 
     const token = code.join('')
     console.log('Submitting OTP:', token)  
@@ -124,7 +124,7 @@ export default function VerifyEmailPage() {
   }
 
   async function handleResend() {
-    if (!email) return
+    if (!email) {return}
 
     setResending(true)
     setError(null)

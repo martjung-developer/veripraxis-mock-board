@@ -200,10 +200,10 @@ const publishedCount: number = exams.filter(
   const examQMap: ExamKeyMap = {};
  
   for (const q of (qRows ?? [])) {
-    if (!q.exam_id) continue;
-    if (!examQMap[q.exam_id]) examQMap[q.exam_id] = { total: 0, withKey: 0 };
+    if (!q.exam_id) {continue;}
+    if (!examQMap[q.exam_id]) {examQMap[q.exam_id] = { total: 0, withKey: 0 };}
     examQMap[q.exam_id].total++;
-    if (q.correct_answer) examQMap[q.exam_id].withKey++;
+    if (q.correct_answer) {examQMap[q.exam_id].withKey++;}
   }
  
   const examsNeedingKey: ExamNeedingKey[] = exams

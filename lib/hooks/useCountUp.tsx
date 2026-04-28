@@ -23,9 +23,9 @@ export function useCountUp({
   const ref = useRef<HTMLElement>(null)
 
   useEffect(() => {
-    if (startOnMount) return 
+    if (startOnMount) {return} 
     const el = ref.current
-    if (!el) return
+    if (!el) {return}
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -42,16 +42,16 @@ export function useCountUp({
   }, [startOnMount])
 
   useEffect(() => {
-    if (!started) return
+    if (!started) {return}
 
     let startTime: number | null = null
     const step = (timestamp: number) => {
-      if (!startTime) startTime = timestamp
+      if (!startTime) {startTime = timestamp}
       const progress = Math.min((timestamp - startTime) / duration, 1)
       const eased = 1 - Math.pow(1 - progress, 3)
       setValue(Math.floor(eased * end))
 
-      if (progress < 1) requestAnimationFrame(step)
+      if (progress < 1) {requestAnimationFrame(step)}
     }
 
     requestAnimationFrame(step)

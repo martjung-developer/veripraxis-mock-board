@@ -39,7 +39,7 @@ export interface UseGradingReturn {
     examInfo:           ExamInfo,
     onAnswersUpdate:    (a: AnswerDetail[]) => void,
     onSubmissionUpdate: (patch: Partial<Submission>) => void,
-    onClose:            () => void,
+    onClose:            () => Promise<void>,
   ) => Promise<void>
   handleAnswerCorrectToggle: (
     id:         string,
@@ -86,69 +86,84 @@ export function useGrading(examId: string): UseGradingReturn {
     setSavingMode(false)
   }, [supabase, examId])
 
-  const gradeSubmission = useCallback(async (
-    target:             Submission,
-    answers:            AnswerDetail[],
-    keyMap:             Record<string, string | null>,
-    examInfo:           ExamInfo,
-    onAnswersUpdate:    (a: AnswerDetail[]) => void,
-    onSubmissionUpdate: (patch: Partial<Submission>) => void,
-    onClose:            () => void,
-  ) => {
-    setGradingSubmission(true)
+const gradeSubmission = useCallback(async (
+  target: Submission,
+  answers: AnswerDetail[],
+  keyMap: Record<string, string | null>,
+  examInfo: ExamInfo,
+  onAnswersUpdate: (a: AnswerDetail[]) => void,
+  onSubmissionUpdate: (patch: Partial<Submission>) => void,
+  onClose: () => void,
+) => {
+  setGradingSubmission(true)
 
-    const gradedAnswers = answers.map(ans => {
-      if (!ans.question) return ans
-      // Only auto-grade answers that haven't been manually reviewed yet
-      if (ans.is_correct === null && AUTO_TYPES.includes(ans.question.question_type as never)) {
-        const key = gradingMode === 'manual'
-          ? (keyMap[ans.question_id] ?? ans.question.correct_answer)
-          : ans.question.correct_answer
-        const result = gradeAnswer(
-          ans.answer_text, key,
-          ans.question.question_type,
-          ans.question.points,
-        )
-        return { ...ans, ...result }
-      }
-      return ans
-    })
+  const gradedAnswers = answers.map((ans: AnswerDetail) => {
+    if (!ans.question) {return ans}
 
-    const earned = sumPoints(gradedAnswers.map(a => a.points_earned))
-    const { percentage, passed } = computeScore(
-      earned, examInfo.total_points, examInfo.passing_score,
-    )
+    const isAutoType = AUTO_TYPES.includes(ans.question.question_type)
 
-    for (const a of gradedAnswers) {
-      await SubmissionService.updateAnswer(supabase, a.id, {
+    // FIX: Grade ALL auto-type answers, not just null ones.
+    // Previously `ans.is_correct === null` check skipped already-graded
+    // answers that might have wrong scores from a prior partial grade.
+    if (isAutoType) {
+      const key = gradingMode === 'manual'
+        ? (keyMap[ans.question_id] ?? ans.question.correct_answer)
+        : ans.question.correct_answer
+      const result = gradeAnswer(
+        ans.answer_text, key,
+        ans.question.question_type,
+        ans.question.points,
+      )
+      return { ...ans, ...result }
+    }
+
+    // Manual types: preserve whatever the grader set
+    return ans
+  })
+
+  const earned = sumPoints(gradedAnswers.map((a: AnswerDetail) => a.points_earned))
+  const { percentage, passed } = computeScore(
+    earned, examInfo.total_points, examInfo.passing_score,
+  )
+
+  // Persist answers
+  await Promise.all(
+    gradedAnswers.map((a: AnswerDetail) =>
+      SubmissionService.updateAnswer(supabase, a.id, {
         is_correct:    a.is_correct,
         points_earned: a.points_earned,
         feedback:      a.feedback || null,
       })
-    }
+    )
+  )
 
-    // FIX L: satisfies guarantees 'reviewed' is a valid SubmissionStatus
-    const patch = {
-      score:      earned,
-      percentage,
-      passed,
-      status:     'reviewed',
-    } satisfies SubmissionUpdate
+  const patch = {
+    score:      earned,
+    percentage,
+    passed,
+    status:     'reviewed',
+  } satisfies SubmissionUpdate
 
-    await SubmissionService.updateSubmission(supabase, target.id, patch)
-
-    onAnswersUpdate(gradedAnswers)
-    onSubmissionUpdate({ score: earned, percentage, passed, status: 'reviewed' })
+  const { error } = await SubmissionService.updateSubmission(supabase, target.id, patch)
+  
+  if (error) {
+    console.error('[gradeSubmission] failed to persist:', error)
     setGradingSubmission(false)
-    onClose()
-  }, [supabase, gradingMode])
+    return  // Don't close modal or update UI if DB write failed
+  }
+
+  onAnswersUpdate(gradedAnswers)
+  onSubmissionUpdate({ score: earned, percentage, passed, status: 'reviewed' })
+  setGradingSubmission(false)
+  onClose()
+}, [supabase, gradingMode])
 
   const handleAnswerCorrectToggle = useCallback((
     id: string, isCorrect: boolean,
     answers: AnswerDetail[], setAnswers: (a: AnswerDetail[]) => void,
   ) => {
     setAnswers(answers.map(a => {
-      if (a.id !== id) return a
+      if (a.id !== id) {return a}
       return {
         ...a,
         is_correct:    isCorrect,
@@ -175,7 +190,7 @@ export function useGrading(examId: string): UseGradingReturn {
   const previewScore = useCallback((
     answers: AnswerDetail[], examInfo: ExamInfo | null,
   ): PreviewScore | null => {
-    if (!examInfo || answers.length === 0) return null
+    if (!examInfo || answers.length === 0) {return null}
     const earned = sumPoints(answers.map(a => a.points_earned))
     const pct    = examInfo.total_points > 0
       ? parseFloat(((earned / examInfo.total_points) * 100).toFixed(2))

@@ -146,7 +146,7 @@
 .avatarCircle {
   width: 28px;
   height: 28px;
-  border-radius: 7px;
+  border-radius: 25px;
   background: linear-gradient(135deg, #059669, #34d399);
   display: flex;
   align-items: center;

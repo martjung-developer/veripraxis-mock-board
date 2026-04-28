@@ -51,7 +51,7 @@ export default function AssignmentsPage() {
     studentResults,
     searching,
     clearSearch,
-  } = useStudentSearch(showPanel && assignMode === 'student')
+  } = useStudentSearch(showPanel && assignMode === 'student', examId)
 
   // When the panel closes, also clear the student search
   function handleClosePanel() {

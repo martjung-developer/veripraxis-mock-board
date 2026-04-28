@@ -18,7 +18,7 @@ function extractMessage(err: unknown): string {
   ) {
     return (err as Record<string, unknown>)['message'] as string
   }
-  if (err instanceof Error) return err.message
+  if (err instanceof Error) {return err.message}
   return 'An unexpected error occurred.'
 }
 
@@ -33,7 +33,7 @@ export async function getFaqs(db: DB): Promise<FaqItem[]> {
     .select('id, question, answer, category')
     .order('category')
 
-  if (error) throw new Error(extractMessage(error))
+  if (error) {throw new Error(extractMessage(error))}
 
   // Cast at the single service boundary: .select() matches FaqRow exactly
   return (data ?? []) as FaqRow[]

@@ -158,7 +158,7 @@ export function useStudyForm(): UseStudyFormReturn {
     e.preventDefault()
     setDragOver(false)
     const dropped = e.dataTransfer.files[0]
-    if (dropped) setFile(dropped)
+    if (dropped) {setFile(dropped)}
   }, [])
 
   // ── handleSubmit ───────────────────────────────────────────────────────────
@@ -171,9 +171,9 @@ export function useStudyForm(): UseStudyFormReturn {
       const existingFileUrl = editTarget?.file_url ?? null
       const errs = validate(form, file, existingFileUrl)
       setErrors(errs)
-      if (Object.keys(errs).length > 0) return
+      if (Object.keys(errs).length > 0) {return}
 
-      if (submitting) return
+      if (submitting) {return}
       setSubmitting(true)
 
       try {

@@ -1,22 +1,29 @@
 // lib/types/student/mock-exams/mock-exams.ts
 
-export type ExamStatus = 'available' | 'coming_soon' | 'completed' | 'in_progress'
+export type ExamStatus = 'available' | 'coming_soon' | 'completed' | 'in_progress' | 'locked'
+
+import   type { SubmissionStatus } from '@/lib/types/database'
+export type { SubmissionStatus }
+
+export const MAX_ATTEMPTS = 3
 
 export interface MockExam {
-  id:           string
-  title:        string
-  shortCode:    string
-  category:     string
-  status:       ExamStatus
-  questions?:   number
-  duration?:    string
+  id:            string
+  title:         string
+  shortCode:     string
+  category:      string
+  status:        ExamStatus
+  questions?:    number
+  duration?:     string
   durationMins?: number
   submissionId?: string
+  attemptCount:  number
 }
 
 export interface Question {
   id:             string
   question_text:  string
+  scenario?:      string | null
   question_type:  string
   points:         number
   options:        QuestionOption[] | null
@@ -44,14 +51,17 @@ export interface AnswerMap { [qId: string]: string }
 export interface StateMap  { [qId: string]: QState  }
 
 export interface ExamAttempt {
-  id:                 string
-  exam_id:            string
-  student_id:         string
-  status:             'in_progress' | 'submitted'
-  started_at:         string
-  submitted_at:       string | null
-  time_spent_seconds: number | null
-  score?:             number | null
+  id:                  string
+  exam_id:             string
+  student_id:          string
+  status:              SubmissionStatus
+  attempt_no:          number
+  started_at:          string
+  submitted_at:        string | null
+  time_spent_seconds:  number | null
+  score:               number | null
+  percentage:          number | null
+  passed:              boolean | null
 }
 
 export type CategoryShape = { id: string; name: string; icon: string | null }
@@ -65,4 +75,16 @@ export type ExamRaw = {
   exam_type:        string | null
   exam_categories:  CategoryShape | CategoryShape[] | null
   programs:         ProgramShape  | ProgramShape[]  | null
+}
+
+// ── Session creation result shapes ───────────────────────────────────────────
+
+export type SessionCreateResult =
+  | { kind: 'started';  submissionId: string; startedAt: string; attemptNo: number }
+  | { kind: 'resumed';  submissionId: string; startedAt: string; attemptNo: number }
+  | { kind: 'locked';   attemptsUsed: number }
+
+export interface AttemptCountMap {
+  /** examId → number of non-in_progress submissions */
+  [examId: string]: number
 }

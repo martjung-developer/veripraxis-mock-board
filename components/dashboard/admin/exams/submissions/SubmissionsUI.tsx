@@ -87,7 +87,7 @@ interface PaginationProps {
 }
 
 export function Pagination({ page, totalPages, totalItems, onPage }: PaginationProps) {
-  if (totalItems === 0) return null
+  if (totalItems === 0) {return null}
   return (
     <div className={s.pagination}>
       <span className={s.pageInfo}>

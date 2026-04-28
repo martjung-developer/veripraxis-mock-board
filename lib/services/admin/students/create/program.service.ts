@@ -19,7 +19,7 @@ export async function getPrograms(supabase: SupabaseDB): Promise<Program[]> {
     .select('id, code, name')
     .order('code', { ascending: true })
 
-  if (error) throw new Error(error.message)
+  if (error) {throw new Error(error.message)}
 
   return (data as ProgramRow[]).map((row) => ({
     id:   row.id,

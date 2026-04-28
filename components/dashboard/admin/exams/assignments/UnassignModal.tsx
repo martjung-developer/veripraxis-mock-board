@@ -5,6 +5,8 @@
  * Renders the unassign confirmation modal.
  */
 
+'use client'
+
 import { Loader2, Trash2, Users } from 'lucide-react'
 import type { Assignment }        from '@/lib/types/admin/exams/assignments/assignments.types'
 import s from '@/app/(dashboard)/admin/exams/[examId]/assignments/assignments.module.css'

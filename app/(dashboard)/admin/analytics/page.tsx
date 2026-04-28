@@ -25,8 +25,6 @@ import styles from './analytics.module.css'
 import { containerVariants, sectionVariants, chartVariants } from '@/animations/admin/analytics/analytics'
 
 // ── Role type guard ──────────────────────────────────────────────────────────
-// Avoids `as` casting when reading user metadata.
-
 function resolveRole(user: { user_metadata?: Record<string, unknown>; app_metadata?: Record<string, unknown> }): string | undefined {
   const fromMeta    = user.user_metadata?.['role']
   const fromAppMeta = user.app_metadata?.['role']

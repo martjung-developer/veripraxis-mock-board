@@ -41,8 +41,8 @@ function StatusBadge({ status, passed }: BadgeProps) {
     )
   }
   // released
-  if (passed === true)  return <span className={`${styles.badge} ${styles.badgePassed}`}>Passed</span>
-  if (passed === false) return <span className={`${styles.badge} ${styles.badgeFailed}`}>Failed</span>
+  if (passed === true)  {return <span className={`${styles.badge} ${styles.badgePassed}`}>Passed</span>}
+  if (passed === false) {return <span className={`${styles.badge} ${styles.badgeFailed}`}>Failed</span>}
   return (
     <span className={styles.badge}
       style={{ background: '#f0f5fa', color: '#64748b', border: '1px solid #e2e8f0' }}>

@@ -1,19 +1,20 @@
 // lib/hooks/student/notifications/useNotifications.ts
 //
-// Orchestrates all notification logic:
-//   • Initial fetch from Supabase
-//   • Writes to Zustand store
-//   • Subscribes to real-time channel (INSERT / UPDATE / DELETE)
-//   • Triggers toast queue on new arrivals
-//   • Exposes typed action callbacks to components
+// ─────────────────────────────────────────────────────────────────────────────
+// Orchestrates all notification state for the student dashboard.
 //
-// Reusable: accepts any `userId` so both student + admin can use it.
+//   • Initial fetch from Supabase (via notification.service.ts)
+//   • Writes to Zustand store
+//   • Real-time channel — INSERT / UPDATE / DELETE, filtered to current user
+//   • Pushes toasts for new arrivals
+//   • Exposes strongly-typed action callbacks to components
+// ─────────────────────────────────────────────────────────────────────────────
 
 'use client'
 
 import { useCallback, useEffect, useRef } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
+import { createClient }                   from '@/lib/supabase/client'
 
 import {
   useNotificationStore,
@@ -23,23 +24,22 @@ import {
 } from '@/lib/stores/notifications/notificationStore'
 
 import {
-  fetchNotifications,
-  markAsRead    as svcMarkAsRead,
-  markAsUnread  as svcMarkAsUnread,
-  markAllAsRead as svcMarkAllAsRead,
-  deleteNotification as svcDelete,
-  mapRowToNotification,
-} from '@/lib/utils/student/notifications/notifications'
+  fetchNotificationsForUser,
+  markNotificationRead,
+  markAllNotificationsRead,
+  deleteNotificationById,
+} from '@/lib/services/notifications/notification.service'
 
-import type {
-  Notification,
-  NotificationRow,
-} from '@/lib/types/student/notifications/notifications.types'
+import {
+  rowToDTO,
+  type NotificationDTO,
+  type NotificationRow,
+} from '@/lib/types/notifications/notification.dto'
 
-// ── Return type ────────────────────────────────────────────────────────────
+// ── Return type ───────────────────────────────────────────────────────────────
 
-export interface UseNotificationsReturn {
-  notifications:      Notification[]
+export interface UseStudentNotificationsReturn {
+  notifications:      NotificationDTO[]
   unreadCount:        number
   loading:            boolean
   markAsRead:         (id: string) => Promise<void>
@@ -49,9 +49,11 @@ export interface UseNotificationsReturn {
   refetch:            ()           => Promise<void>
 }
 
-// ── Hook ───────────────────────────────────────────────────────────────────
+// ── Hook ──────────────────────────────────────────────────────────────────────
 
-export function useNotifications(userId: string | null): UseNotificationsReturn {
+export function useNotifications(
+  userId: string | null,
+): UseStudentNotificationsReturn {
   const {
     setNotifications,
     addNotification,
@@ -62,22 +64,27 @@ export function useNotifications(userId: string | null): UseNotificationsReturn 
     pushToast,
   } = useNotificationStore()
 
-  const notifications = useNotificationStore(selectNotifications)
-  const loading       = useNotificationStore(selectLoading)
-  const unreadCount   = useNotificationStore(selectUnreadCount)
+  const notifications = useNotificationStore(selectNotifications) as NotificationDTO[]
+  const loading       = useNotificationStore(selectLoading)       as boolean
+  const unreadCount   = useNotificationStore(selectUnreadCount)   as number
 
-  // Prevent duplicate subscriptions across StrictMode double-mounts
-  const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
+  // Prevent duplicate channels across StrictMode double-mounts
+  const channelRef = useRef<ReturnType<
+    ReturnType<typeof createClient>['channel']
+  > | null>(null)
 
-  // ── Fetch ────────────────────────────────────────────────────────────────
+  // ── Fetch ──────────────────────────────────────────────────────────────────
 
-  const refetch = useCallback(async () => {
-    if (!userId) return
+  const refetch = useCallback(async (): Promise<void> => {
+    if (userId === null) {return}
 
     setLoading(true)
-    const { data, error } = await fetchNotifications(userId)
+    const { data, error } = await fetchNotificationsForUser(
+      createClient(),
+      userId,
+    )
 
-    if (!error && data) {
+    if (error === null && data !== null) {
       setNotifications(data)
     }
     setLoading(false)
@@ -87,21 +94,22 @@ export function useNotifications(userId: string | null): UseNotificationsReturn 
     void refetch()
   }, [refetch])
 
-  // ── Real-time subscription ────────────────────────────────────────────────
+  // ── Real-time subscription ─────────────────────────────────────────────────
 
   useEffect(() => {
-    if (!userId) return
+    if (userId === null) {return}
 
-    // Tear down any existing channel before creating a new one
-    if (channelRef.current) {
+    // Tear down stale channel before creating a new one
+    if (channelRef.current !== null) {
       void createClient().removeChannel(channelRef.current)
       channelRef.current = null
     }
 
-    const supabase = createClient()
+    const supabase  = createClient()
+    const channelId = `student:notifications:${userId}`
 
     const channel = supabase
-      .channel(`notifications:${userId}`)
+      .channel(channelId)
       .on<NotificationRow>(
         'postgres_changes',
         {
@@ -112,23 +120,24 @@ export function useNotifications(userId: string | null): UseNotificationsReturn 
         },
         (payload: RealtimePostgresChangesPayload<NotificationRow>) => {
           if (payload.eventType === 'INSERT') {
-            const newNotif = mapRowToNotification(payload.new)
-            addNotification(newNotif)
-
-            // Trigger toast popup for new arrivals
+            const dto = rowToDTO(payload.new)
+            addNotification(dto)
             pushToast({
-              id:      newNotif.id,
-              title:   newNotif.title,
-              message: newNotif.message,
+              id:      dto.id,
+              title:   dto.title,
+              message: dto.message,
             })
           }
 
           if (payload.eventType === 'UPDATE') {
-            const updated = mapRowToNotification(payload.new)
-            updateNotification(updated.id, updated)
+            const dto = rowToDTO(payload.new)
+            updateNotification(dto.id, dto)
           }
 
-          if (payload.eventType === 'DELETE' && payload.old.id) {
+          if (
+            payload.eventType === 'DELETE' &&
+            typeof payload.old.id === 'string'
+          ) {
             removeNotification(payload.old.id)
           }
         },
@@ -138,58 +147,52 @@ export function useNotifications(userId: string | null): UseNotificationsReturn 
     channelRef.current = channel
 
     return () => {
-      if (channelRef.current) {
+      if (channelRef.current !== null) {
         void supabase.removeChannel(channelRef.current)
         channelRef.current = null
       }
     }
   }, [userId, addNotification, updateNotification, removeNotification, pushToast])
 
-  // ── Actions ───────────────────────────────────────────────────────────────
+  // ── Actions ────────────────────────────────────────────────────────────────
 
   const markAsRead = useCallback(
-    async (id: string) => {
-      // Optimistic update
-      updateNotification(id, { is_read: true })
-      const { error } = await svcMarkAsRead(id)
-      if (error) {
-        // Roll back
-        updateNotification(id, { is_read: false })
+    async (id: string): Promise<void> => {
+      updateNotification(id, { isRead: true })
+      const { error } = await markNotificationRead(createClient(), id, true)
+      if (error !== null) {
+        updateNotification(id, { isRead: false })
       }
     },
     [updateNotification],
   )
 
   const markAsUnread = useCallback(
-    async (id: string) => {
-      updateNotification(id, { is_read: false })
-      const { error } = await svcMarkAsUnread(id)
-      if (error) {
-        updateNotification(id, { is_read: true })
+    async (id: string): Promise<void> => {
+      updateNotification(id, { isRead: false })
+      const { error } = await markNotificationRead(createClient(), id, false)
+      if (error !== null) {
+        updateNotification(id, { isRead: true })
       }
     },
     [updateNotification],
   )
 
-  const markAllAsRead = useCallback(async () => {
-    if (!userId) return
-    // Optimistic
+  const markAllAsRead = useCallback(async (): Promise<void> => {
+    if (userId === null) {return}
     markAllRead()
-    const { error } = await svcMarkAllAsRead(userId)
-    if (error) {
-      // Re-fetch to restore correct state on failure
+    const { error } = await markAllNotificationsRead(createClient(), userId)
+    if (error !== null) {
       void refetch()
     }
   }, [userId, markAllRead, refetch])
 
-  const deleteNotificationAction = useCallback(
-    async (id: string) => {
-      // Optimistic remove
+  const deleteNotification = useCallback(
+    async (id: string): Promise<void> => {
       const snapshot = notifications.find((n) => n.id === id) ?? null
       removeNotification(id)
-      const { error } = await svcDelete(id)
-      if (error && snapshot) {
-        // Roll back
+      const { error } = await deleteNotificationById(createClient(), id)
+      if (error !== null && snapshot !== null) {
         addNotification(snapshot)
       }
     },
@@ -203,7 +206,7 @@ export function useNotifications(userId: string | null): UseNotificationsReturn 
     markAsRead,
     markAsUnread,
     markAllAsRead,
-    deleteNotification: deleteNotificationAction,
+    deleteNotification,
     refetch,
   }
 }

@@ -34,8 +34,8 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  flex-shrink: 0;
-  margin-top: 0.1rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .statPills {
@@ -113,6 +113,39 @@
   border-radius: 50%;
   background: #3b82f6;
   flex-shrink: 0;
+}
+
+.refreshBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.375rem 0.78rem;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #334155;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 700;
+  transition: all 0.16s ease;
+}
+
+.refreshBtn:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.refreshBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 /* ── Filter Row ── */
@@ -277,6 +310,11 @@
   transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
 }
 
+.examCardLocked {
+  opacity: 0.72;
+  pointer-events: auto; 
+}
+
 .examCard:hover {
   border-color: #b8ccdb;
   box-shadow: 0 4px 18px rgba(30, 58, 95, 0.09);
@@ -290,6 +328,10 @@
   top: 0; left: 0; right: 0;
   height: 3px;
   border-radius: 13px 13px 0 0;
+}
+
+.cardAccentLocked {
+  background: linear-gradient(90deg, #dc2626, #ef4444);
 }
 
 .cardAccentAvailable { background: linear-gradient(90deg, #1e3a5f, #4a7fa5); }
@@ -312,6 +354,12 @@
   flex-shrink: 0;
 }
 
+.cardIconLocked {
+  background: #fef2f2;
+  border: 1.5px solid #fecaca;
+  color: #dc2626;
+}
+
 .cardIconAvailable { background: #dce8f5; color: #1e3a5f; }
 .cardIconSoon      { background: #f3f4f6; color: #9ca3af; }
 
@@ -324,6 +372,12 @@
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.01em;
+}
+
+.badgeLocked {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1.5px solid #fecaca;
 }
 
 .badgeAvailable  { background: #d1fae5; color: #065f46;  border: 1px solid #a7f3d0; }
@@ -485,6 +539,38 @@
   width: 100%;
   justify-content: center;
   opacity: 0.85;
+}
+
+.attemptPips {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0 1.1rem 0.5rem;
+}
+ 
+.pip {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+ 
+.pipUsed {
+  background: #0d2540;
+}
+ 
+.pipEmpty {
+  background: #e2e8f0;
+  border: 1.5px solid #cbd5e1;
+}
+ 
+.pipLabel {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #64748b;
+  margin-left: 0.25rem;
+  letter-spacing: 0.02em;
 }
 
 /* ── Empty state ── */

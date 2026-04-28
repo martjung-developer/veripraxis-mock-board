@@ -18,7 +18,7 @@
 'use client'
 
 import Image     from 'next/image'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'   // ← add useEffect
 import { Camera, Trash2, Loader2 } from 'lucide-react'
 
 import { Modal }              from '../Modal'
@@ -34,7 +34,6 @@ interface AvatarUploaderProps {
   userId:            string
   initialAvatarUrl:  string | null
   initials:          string
-  /** Callback so the profile page can keep its own `liveAvatarUrl` in sync */
   onAvatarChange?:   (url: string | null) => void
 }
 
@@ -59,30 +58,24 @@ export function AvatarUploader({
     onDeleteAvatar,
   } = useAvatarUpload(userId, initialAvatarUrl)
 
-  // Sync parent whenever liveAvatarUrl changes
-  const [prevUrl, setPrevUrl] = useState(liveAvatarUrl)
-  if (liveAvatarUrl !== prevUrl) {
-    setPrevUrl(liveAvatarUrl)
+  useEffect(() => {
     onAvatarChange?.(liveAvatarUrl)
-  }
+  }, [liveAvatarUrl, onAvatarChange])
 
-  // Upload panel open/close (separate from cropper/preview stage)
   const [uploadOpen, setUploadOpen] = useState(false)
 
   const isBusy    = stage === 'uploading' || stage === 'deleting'
   const hasAvatar = !!liveAvatarUrl
 
   function handleFilesAccepted(files: File[]) {
-    setUploadOpen(false)   // close the dropzone modal first
-    onFilesAccepted(files) // then open the cropper
+    setUploadOpen(false)
+    onFilesAccepted(files)
   }
 
   return (
     <>
-      {/* ── Avatar display + action controls ── */}
       <div className={styles.root}>
         <div className={styles.avatarWrap}>
-          {/* Avatar image or fallback */}
           {hasAvatar ? (
             <Image
               src={liveAvatarUrl!}
@@ -98,10 +91,8 @@ export function AvatarUploader({
             </div>
           )}
 
-          {/* Online presence dot */}
           <span className={styles.dot} aria-hidden="true" />
 
-          {/* Camera / change button */}
           <button
             className={styles.cameraBtn}
             onClick={() => setUploadOpen(true)}
@@ -115,7 +106,6 @@ export function AvatarUploader({
           </button>
         </div>
 
-        {/* Remove button */}
         {hasAvatar && !isBusy && (
           <button
             className={styles.removeBtn}
@@ -128,7 +118,6 @@ export function AvatarUploader({
         )}
       </div>
 
-      {/* ── Dropzone upload modal ── */}
       <Modal
         open={uploadOpen}
         onClose={() => setUploadOpen(false)}
@@ -142,14 +131,10 @@ export function AvatarUploader({
               You can crop and position it on the next step.
             </p>
           </div>
-          <Dropzone
-            onFilesAccepted={handleFilesAccepted}
-            disabled={isBusy}
-          />
+          <Dropzone onFilesAccepted={handleFilesAccepted} disabled={isBusy} />
         </div>
       </Modal>
 
-      {/* ── Cropper modal ── */}
       <Modal
         open={stage === 'cropping' && !!selectedFile}
         onClose={onCropCancel}
@@ -165,7 +150,6 @@ export function AvatarUploader({
         )}
       </Modal>
 
-      {/* ── Preview + confirm modal ── */}
       <Modal
         open={(stage === 'previewing' || stage === 'uploading') && !!croppedDataUrl}
         onClose={onCancelPreview}
@@ -182,7 +166,6 @@ export function AvatarUploader({
         )}
       </Modal>
 
-      {/* ── Toasts ── */}
       <Toast toasts={toasts} onDismiss={dismissToast} />
     </>
   )

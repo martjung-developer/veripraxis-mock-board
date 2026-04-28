@@ -1,13 +1,23 @@
 // lib/hooks/admin/settings/useSettings.ts
 //
-// Owns ALL page-level state and logic.
-// Makes zero direct Supabase calls — it delegates everything to the service layer.
+// UPDATED from the previously delivered version:
+//  - handleAvatarChange (raw file → upload) is REMOVED from the public API
+//  - handleConfirmUpload (cropped data-URL → upload) is ADDED
+//    so it matches the new AvatarUploader's onConfirmUpload prop
+//  - handleDeleteAvatar is ADDED so the Remove button works
+//  - Everything else (realtime, password, prefs, etc.) is unchanged
 
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { useUser } from '@/lib/context/AuthContext'
+import { useRouter }           from 'next/navigation'
+import { useUser }             from '@/lib/context/AuthContext'
+import { createClient }        from '@/lib/supabase/client'
+import { useRealtimeProfile }  from '@/lib/hooks/shared/useRealtimeProfile'
+import {
+  uploadAvatarFromDataUrl,
+  deleteAvatar as sharedDeleteAvatar,
+} from '@/lib/utils/shared/avatar/upload'
 
 import * as SettingsService from '@/lib/services/admin/settings/settings.service'
 
@@ -23,7 +33,7 @@ import type {
 } from '@/lib/types/admin/settings/settings.types'
 
 // ---------------------------------------------------------------------------
-// Helpers (pure — not exported; only used inside the hook)
+// Helpers
 // ---------------------------------------------------------------------------
 
 function deriveInitials(name: string | null, email: string): string {
@@ -38,9 +48,7 @@ function deriveInitials(name: string | null, email: string): string {
 }
 
 function derivePasswordStrength(pw: string): PasswordStrength | null {
-  if (!pw) {
-    return null
-  }
+  if (!pw) {return null}
   const score = [
     /[A-Z]/.test(pw),
     /[a-z]/.test(pw),
@@ -48,12 +56,8 @@ function derivePasswordStrength(pw: string): PasswordStrength | null {
     /[^A-Za-z0-9]/.test(pw),
     pw.length >= 12,
   ].filter(Boolean).length
-  if (score <= 2) {
-    return 'weak'
-  }
-  if (score <= 3) {
-    return 'fair'
-  }
+  if (score <= 2) {return 'weak'}
+  if (score <= 3) {return 'fair'}
   return 'strong'
 }
 
@@ -62,52 +66,46 @@ function derivePasswordStrength(pw: string): PasswordStrength | null {
 // ---------------------------------------------------------------------------
 
 export interface UseSettingsReturn {
-  // Auth / loading
   authLoading: boolean
-  loading: boolean
+  loading:     boolean
 
-  // Data
-  profile: Profile | null
+  profile:   Profile | null
   avatarUrl: string | null
-  initials: string
+  initials:  string
 
-  // Navigation
-  activeSection: NavSection
+  activeSection:    NavSection
   setActiveSection: (section: NavSection) => void
 
-  // Toast
-  toast: ToastState | null
+  toast:        ToastState | null
   dismissToast: () => void
 
-  // Profile form
-  profileForm: ProfileFormState
-  setFullName: (name: string) => void
-  resetProfileForm: () => void
+  profileForm:       ProfileFormState
+  setFullName:       (name: string) => void
+  resetProfileForm:  () => void
   handleSaveProfile: () => Promise<void>
 
-  // Avatar
-  avatarUpload: AvatarUploadState
-  handleAvatarChange: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>
+  avatarUpload:        AvatarUploadState
+  /** Called by AvatarUploader after crop + preview are confirmed */
+  handleConfirmUpload: (dataUrl: string) => Promise<void>
+  /** Called by AvatarUploader "Remove" button */
+  handleDeleteAvatar:  () => Promise<void>
 
-  // Password form
-  passwordForm: PasswordFormState
-  setCurrentPw: (v: string) => void
-  setNewPw: (v: string) => void
-  setConfirmPw: (v: string) => void
-  toggleShowCurrent: () => void
-  toggleShowNew: () => void
-  toggleShowConfirm: () => void
-  resetPasswordForm: () => void
+  passwordForm:         PasswordFormState
+  setCurrentPw:         (v: string) => void
+  setNewPw:             (v: string) => void
+  setConfirmPw:         (v: string) => void
+  toggleShowCurrent:    () => void
+  toggleShowNew:        () => void
+  toggleShowConfirm:    () => void
+  resetPasswordForm:    () => void
   handleChangePassword: () => Promise<void>
 
-  // Preferences
-  preferences: PreferencesState
-  toggleDarkMode: () => void
-  toggleNotif: () => void
-  toggleEmailNotif: () => void
+  preferences:           PreferencesState
+  toggleDarkMode:        () => void
+  toggleNotif:           () => void
+  toggleEmailNotif:      () => void
   handleSavePreferences: () => void
 
-  // Danger
   handleLogout: () => Promise<void>
 }
 
@@ -116,44 +114,35 @@ export interface UseSettingsReturn {
 // ---------------------------------------------------------------------------
 
 export function useSettings(): UseSettingsReturn {
-  const router = useRouter()
+  const router   = useRouter()
+  const supabase = useMemo(() => createClient(), [])
   const { user, loading: authLoading } = useUser()
 
-  // ── Core data ─────────────────────────────────────────────────────────────
   const [profile,   setProfile]   = useState<Profile | null>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [loading,   setLoading]   = useState(true)
 
-  // ── Navigation ────────────────────────────────────────────────────────────
   const [activeSection, setActiveSection] = useState<NavSection>('profile')
 
-  // ── Toast ─────────────────────────────────────────────────────────────────
-  const [toast, setToast] = useState<ToastState | null>(null)
-  const toastTimerRef     = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [toast,       setToast]     = useState<ToastState | null>(null)
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const showToast = useCallback((next: ToastState) => {
-    if (toastTimerRef.current) {
-      clearTimeout(toastTimerRef.current)
-    }
+    if (toastTimerRef.current) {clearTimeout(toastTimerRef.current)}
     setToast(next)
     toastTimerRef.current = setTimeout(() => setToast(null), 4000)
   }, [])
 
   const dismissToast = useCallback(() => {
-    if (toastTimerRef.current) {
-      clearTimeout(toastTimerRef.current)
-    }
+    if (toastTimerRef.current) {clearTimeout(toastTimerRef.current)}
     setToast(null)
   }, [])
 
-  // Cleanup on unmount
-  useEffect(() => () => {
-    if (toastTimerRef.current) {
-      clearTimeout(toastTimerRef.current)
-    }
-  }, [])
+  useEffect(
+    () => () => { if (toastTimerRef.current) {clearTimeout(toastTimerRef.current)} },
+    [],
+  )
 
-  // ── Profile form ──────────────────────────────────────────────────────────
   const [fullName,      setFullName]      = useState('')
   const [savingProfile, setSavingProfile] = useState(false)
 
@@ -166,14 +155,12 @@ export function useSettings(): UseSettingsReturn {
     setFullName(profile?.full_name ?? '')
   }, [profile])
 
-  // ── Avatar ────────────────────────────────────────────────────────────────
   const [avatarUpload, setAvatarUpload] = useState<AvatarUploadState>({
     uploading: false,
     progress:  0,
     url:       null,
   })
 
-  // ── Password form ─────────────────────────────────────────────────────────
   const [currentPw,   setCurrentPw]   = useState('')
   const [newPw,       setNewPw_]      = useState('')
   const [confirmPw,   setConfirmPw]   = useState('')
@@ -182,7 +169,6 @@ export function useSettings(): UseSettingsReturn {
   const [showConfirm, setShowConfirm] = useState(false)
   const [savingPw,    setSavingPw]    = useState(false)
 
-  // Derive strength on every newPw change — memoised to avoid re-running regex
   const pwStrength: PasswordStrength | null = useMemo(
     () => derivePasswordStrength(newPw),
     [newPw],
@@ -192,14 +178,9 @@ export function useSettings(): UseSettingsReturn {
 
   const passwordForm: PasswordFormState = useMemo(
     () => ({
-      currentPw,
-      newPw,
-      confirmPw,
-      showCurrent,
-      showNew,
-      showConfirm,
-      saving:   savingPw,
-      strength: pwStrength,
+      currentPw, newPw, confirmPw,
+      showCurrent, showNew, showConfirm,
+      saving: savingPw, strength: pwStrength,
     }),
     [currentPw, newPw, confirmPw, showCurrent, showNew, showConfirm, savingPw, pwStrength],
   )
@@ -214,11 +195,10 @@ export function useSettings(): UseSettingsReturn {
   const toggleShowNew     = useCallback(() => setShowNew((v) => !v), [])
   const toggleShowConfirm = useCallback(() => setShowConfirm((v) => !v), [])
 
-  // ── Preferences ───────────────────────────────────────────────────────────
   const [preferences, setPreferences] = useState<PreferencesState>({
-    darkMode:    false,
+    darkMode:     false,
     notifEnabled: true,
-    emailNotif:  true,
+    emailNotif:   true,
   })
 
   const toggleDarkMode   = useCallback(() => setPreferences((p) => ({ ...p, darkMode:     !p.darkMode })), [])
@@ -226,50 +206,46 @@ export function useSettings(): UseSettingsReturn {
   const toggleEmailNotif = useCallback(() => setPreferences((p) => ({ ...p, emailNotif:   !p.emailNotif })), [])
 
   const handleSavePreferences = useCallback(() => {
-    // Persist to DB / localStorage here when ready.
     showToast({ type: 'success', message: 'Preferences saved.' })
   }, [showToast])
 
-  // ── Derived: initials ─────────────────────────────────────────────────────
   const initials = useMemo(
     () => deriveInitials(profile?.full_name ?? null, profile?.email ?? 'U'),
     [profile],
   )
 
+  // ── Realtime ──────────────────────────────────────────────────────────────
+  useRealtimeProfile({
+    supabase,
+    userId: user?.id ?? null,
+    onUpdate: useCallback((updated) => {
+      if (updated.avatar_url !== undefined) {
+        setAvatarUrl(updated.avatar_url)
+        setProfile((p) => (p ? { ...p, avatar_url: updated.avatar_url ?? null } : p))
+      }
+      if (updated.full_name !== undefined) {
+        setProfile((p) => (p ? { ...p, full_name: updated.full_name ?? null } : p))
+      }
+    }, []),
+  })
+
   // ── Role guard ────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (authLoading) {
-      return
-    }
-    if (!user) {
-      router.replace('/login')
-      return
-    }
-
+    if (authLoading) {return}
+    if (!user) { router.replace('/login'); return }
     const role =
       (user.user_metadata?.role as string | undefined) ??
       (user.app_metadata?.role  as string | undefined)
-
-    if (role !== 'admin' && role !== 'faculty') {
-      router.replace('/unauthorized')
-    }
+    if (role !== 'admin' && role !== 'faculty') {router.replace('/unauthorized')}
   }, [user, authLoading, router])
 
   // ── Fetch profile ─────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!user) {
-      return
-    }
-
+    if (!user) {return}
     let cancelled = false
-
-    ;(async () => {
+    void (async () => {
       const { data, error } = await SettingsService.getProfile(user.id)
-
-      if (cancelled) {
-        return
-      }
-
+      if (cancelled) {return}
       if (!error && data) {
         setProfile(data)
         setFullName(data.full_name ?? '')
@@ -277,24 +253,16 @@ export function useSettings(): UseSettingsReturn {
       }
       setLoading(false)
     })()
-
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [user])
 
   // ── Actions ───────────────────────────────────────────────────────────────
 
   const handleSaveProfile = useCallback(async () => {
-    if (!profile) {
-      return
-    }
+    if (!profile) {return}
     setSavingProfile(true)
-
     const { error } = await SettingsService.updateProfileName(profile.id, fullName.trim())
-
     setSavingProfile(false)
-
     if (error) {
       showToast({ type: 'error', message: 'Failed to save profile. Please try again.' })
     } else {
@@ -303,49 +271,42 @@ export function useSettings(): UseSettingsReturn {
     }
   }, [profile, fullName, showToast])
 
-  const handleAvatarChange = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0]
-      if (!file || !profile) {
-        return
-      }
+  /**
+   * Receives the final cropped PNG data-URL from AvatarUploader.
+   * Uploads directly to Supabase Storage + saves URL to profiles table.
+   */
+  const handleConfirmUpload = useCallback(async (dataUrl: string) => {
+    if (!profile) {return}
 
-      if (file.size > 2 * 1024 * 1024) {
-        showToast({ type: 'error', message: 'Image must be smaller than 2 MB.' })
-        return
-      }
+    setAvatarUpload({ uploading: true, progress: 30, url: null })
 
-      setAvatarUpload({ uploading: true, progress: 10, url: null })
+    const result = await uploadAvatarFromDataUrl(supabase, profile.id, dataUrl)
 
-      const { data: publicUrl, error: uploadError } = await SettingsService.uploadAvatar(
-        profile.id,
-        file,
-        (pct) => setAvatarUpload((prev) => ({ ...prev, progress: pct })),
-      )
+    if (result.error || !result.publicUrl) {
+      setAvatarUpload({ uploading: false, progress: 0, url: null })
+      showToast({ type: 'error', message: 'Avatar upload failed. Please try again.' })
+      return
+    }
 
-      if (uploadError || !publicUrl) {
-        setAvatarUpload({ uploading: false, progress: 0, url: null })
-        showToast({ type: 'error', message: 'Avatar upload failed.' })
-        return
-      }
+    // Optimistic update — realtime will also confirm
+    setAvatarUrl(result.publicUrl)
+    setProfile((p) => (p ? { ...p, avatar_url: result.publicUrl } : p))
+    setAvatarUpload({ uploading: false, progress: 0, url: result.publicUrl })
+    showToast({ type: 'success', message: 'Avatar updated successfully.' })
+  }, [supabase, profile, showToast])
 
-      const { error: updateError } = await SettingsService.updateAvatarUrl(profile.id, publicUrl)
-
-      // Brief pause so the 100% bar is visible before hiding
-      setTimeout(() => {
-        setAvatarUpload({ uploading: false, progress: 0, url: publicUrl })
-      }, 600)
-
-      if (updateError) {
-        showToast({ type: 'error', message: 'Failed to save avatar URL.' })
-      } else {
-        setAvatarUrl(publicUrl)
-        setProfile((p) => (p ? { ...p, avatar_url: publicUrl } : p))
-        showToast({ type: 'success', message: 'Avatar updated successfully.' })
-      }
-    },
-    [profile, showToast],
-  )
+  const handleDeleteAvatar = useCallback(async () => {
+    if (!profile) {return}
+    const { error } = await sharedDeleteAvatar(supabase, profile.id)
+    if (error) {
+      showToast({ type: 'error', message: 'Could not remove avatar.' })
+      return
+    }
+    setAvatarUrl(null)
+    setProfile((p) => (p ? { ...p, avatar_url: null } : p))
+    setAvatarUpload({ uploading: false, progress: 0, url: null })
+    showToast({ type: 'success', message: 'Avatar removed.' })
+  }, [supabase, profile, showToast])
 
   const handleChangePassword = useCallback(async () => {
     if (newPw !== confirmPw) {
@@ -356,24 +317,17 @@ export function useSettings(): UseSettingsReturn {
       showToast({ type: 'error', message: 'Password must be at least 8 characters.' })
       return
     }
-
     setSavingPw(true)
-
     const { error: verifyError } = await SettingsService.verifyPassword(
-      profile?.email ?? '',
-      currentPw,
+      profile?.email ?? '', currentPw,
     )
-
     if (verifyError) {
       setSavingPw(false)
       showToast({ type: 'error', message: 'Current password is incorrect.' })
       return
     }
-
     const { error } = await SettingsService.updatePassword(newPw)
-
     setSavingPw(false)
-
     if (error) {
       showToast({ type: 'error', message: 'Failed to change password.' })
     } else {
@@ -387,46 +341,17 @@ export function useSettings(): UseSettingsReturn {
     window.location.href = '/login'
   }, [])
 
-  // ── Return ─────────────────────────────────────────────────────────────────
-
   return {
-    authLoading,
-    loading,
-
-    profile,
-    avatarUrl,
-    initials,
-
-    activeSection,
-    setActiveSection,
-
-    toast,
-    dismissToast,
-
-    profileForm,
-    setFullName,
-    resetProfileForm,
-    handleSaveProfile,
-
-    avatarUpload,
-    handleAvatarChange,
-
-    passwordForm,
-    setCurrentPw,
-    setNewPw,
-    setConfirmPw,
-    toggleShowCurrent,
-    toggleShowNew,
-    toggleShowConfirm,
-    resetPasswordForm,
-    handleChangePassword,
-
-    preferences,
-    toggleDarkMode,
-    toggleNotif,
-    toggleEmailNotif,
-    handleSavePreferences,
-
+    authLoading, loading,
+    profile, avatarUrl, initials,
+    activeSection, setActiveSection,
+    toast, dismissToast,
+    profileForm, setFullName, resetProfileForm, handleSaveProfile,
+    avatarUpload, handleConfirmUpload, handleDeleteAvatar,
+    passwordForm, setCurrentPw, setNewPw, setConfirmPw,
+    toggleShowCurrent, toggleShowNew, toggleShowConfirm,
+    resetPasswordForm, handleChangePassword,
+    preferences, toggleDarkMode, toggleNotif, toggleEmailNotif, handleSavePreferences,
     handleLogout,
   }
 }

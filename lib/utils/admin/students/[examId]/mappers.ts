@@ -6,7 +6,6 @@ import type { SubmissionRaw, Submission, JoinedExamForSubmission } from '@/lib/t
 import type { NotificationRaw, Notification } from '@/lib/types/admin/students/[examId]/notification.types'
 
 // ── Generic FK unwrapper ──────────────────────────────────────────────────────
-// Supabase returns FK joins as T | T[] | null. We always want T | null.
 function unwrapOne<T>(value: T | T[] | null | undefined): T | null {
   if (value == null) { return null }
   if (Array.isArray(value)) { return value[0] ?? null }
@@ -19,13 +18,31 @@ function safeExamType(raw: string | null | undefined): ExamType {
 }
 
 // ── Safe submission status narrowing ─────────────────────────────────────────
-const VALID_STATUSES = new Set<SubmissionStatus>(['in_progress', 'submitted', 'graded'])
+// Must match the DB CHECK constraint exactly:
+// 'in_progress' | 'submitted' | 'graded' | 'reviewed' | 'released'
+const VALID_STATUSES = new Set<SubmissionStatus>([
+  'in_progress',
+  'submitted',
+  'graded',
+  'reviewed',
+  'released',
+])
 
 function safeSubmissionStatus(raw: string | null | undefined): SubmissionStatus {
   if (raw && VALID_STATUSES.has(raw as SubmissionStatus)) {
     return raw as SubmissionStatus
   }
   return 'in_progress'
+}
+
+// ── Safe date guard — prevents "Jan 1, 1970" ─────────────────────────────────
+const EPOCH_LOWER_BOUND = Date.UTC(2000, 0, 1) // Jan 1 2000 — no real submission predates this
+
+function safeDate(raw: string | null | undefined): string | null {
+  if (!raw) { return null }
+  const ms = Date.parse(raw)
+  if (isNaN(ms) || ms < EPOCH_LOWER_BOUND) { return null }
+  return raw
 }
 
 // ── Profile mapper ────────────────────────────────────────────────────────────
@@ -70,12 +87,13 @@ export function mapSubmissionRow(row: SubmissionRaw): Submission {
 
   return {
     id:           row.id,
-    exam_title:   exam?.title     ?? 'Untitled',
+    exam_title:   exam?.title    ?? 'Untitled',
     exam_type:    safeExamType(exam?.exam_type),
     status:       safeSubmissionStatus(row.status),
-    percentage:   row.percentage  ?? null,
-    passed:       row.passed      ?? null,
-    submitted_at: row.submitted_at ?? null,
+    score:        row.score      ?? null,   // ← now mapped
+    percentage:   row.percentage ?? null,
+    passed:       row.passed     ?? null,
+    submitted_at: safeDate(row.submitted_at), // ← guards epoch-zero
   }
 }
 

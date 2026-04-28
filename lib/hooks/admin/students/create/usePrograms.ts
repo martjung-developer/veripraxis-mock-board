@@ -23,9 +23,9 @@ export function usePrograms(): UseProgramsReturn {
     let cancelled = false
 
     getPrograms(supabase)
-      .then((data) => { if (!cancelled) setPrograms(data) })
+      .then((data) => { if (!cancelled) {setPrograms(data)} })
       .catch((err) => { console.warn('Failed to load programs:', err) })
-      .finally(() => { if (!cancelled) setLoading(false) })
+      .finally(() => { if (!cancelled) {setLoading(false)} })
 
     return () => { cancelled = true }
   }, [supabase])

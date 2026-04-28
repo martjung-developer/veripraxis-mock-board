@@ -117,7 +117,7 @@ export function useQuestionForm(): UseQuestionFormReturn {
     setForm((prev) => {
       const opts = [...prev.options]
       const existing = opts[index]
-      if (!existing) return prev
+      if (!existing) {return prev}
       opts[index] = { ...existing, text }
       return { ...prev, options: opts }
     })
@@ -125,7 +125,7 @@ export function useQuestionForm(): UseQuestionFormReturn {
 
   const addOption = useCallback(() => {
     setForm((prev) => {
-      if (prev.options.length >= 6) return prev
+      if (prev.options.length >= 6) {return prev}
       const label  = nextOptionLabel(prev.options.length)
       const newOpt: QuestionOption = { label, text: '' }
       return { ...prev, options: [...prev.options, newOpt] }

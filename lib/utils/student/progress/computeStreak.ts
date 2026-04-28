@@ -14,7 +14,7 @@ import type { RawSubmission } from '@/lib/types/student/progress/progress.types'
  *   3. Increment streak while each next day is exactly 1 day before the cursor.
  */
 export function computeStreak(submissions: RawSubmission[]): number {
-  if (submissions.length === 0) return 0
+  if (submissions.length === 0) {return 0}
 
   const daySet = new Set<string>()
   for (const s of submissions) {

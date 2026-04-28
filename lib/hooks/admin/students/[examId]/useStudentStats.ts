@@ -10,11 +10,11 @@ export interface StudentStats {
 
 export function useStudentStats(submissions: Submission[]): StudentStats {
   return useMemo(() => {
-    // NOTE: DB status values are 'in_progress' | 'submitted' | 'graded'.
-    // The original code filtered by 'released' which is not a valid DB status.
-    // We filter by 'graded' (the final state) to compute meaningful stats.
-    // Update this predicate if your app adds a 'released' status column.
-    const graded = submissions.filter((s) => s.status === 'graded')
+    // "Graded" family = graded | reviewed | released (all have a final score)
+    const graded = submissions.filter((s) =>
+      s.status === 'graded' || s.status === 'reviewed' || s.status === 'released'
+    )
+
     const scores = graded
       .map((s) => s.percentage)
       .filter((v): v is number => v !== null)

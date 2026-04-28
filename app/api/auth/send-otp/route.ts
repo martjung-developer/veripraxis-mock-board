@@ -1,5 +1,6 @@
 // app/api/auth/send-otp/route.ts
-import { NextRequest, NextResponse } from 'next/server'
+import type { NextRequest} from 'next/server';
+import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { SendOtpResult } from '@/lib/types/auth/'

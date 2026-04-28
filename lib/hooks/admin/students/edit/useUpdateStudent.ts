@@ -39,7 +39,7 @@ export function useUpdateStudent(
   // Sync when initialForm resolves from the fetch hook
   // (initialForm starts null while loading)
   useMemo(() => {
-    if (initialForm !== null) setForm(initialForm)
+    if (initialForm !== null) {setForm(initialForm)}
   }, [initialForm])
 
   const handleChange = useCallback((field: keyof EditStudentForm, value: string) => {
@@ -50,7 +50,7 @@ export function useUpdateStudent(
   const handleSubmit = useCallback(
     async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault()
-      if (!form) return
+      if (!form) {return}
 
       const errors = validateEditStudentForm(form)
       if (Object.keys(errors).length > 0) { setFormErrors(errors); return }

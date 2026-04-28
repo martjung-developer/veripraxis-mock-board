@@ -29,7 +29,7 @@ export default function ResetPasswordPage() {
   const mismatch = confirm.length > 0 && password !== confirm
 
   function strengthClass(s: ReturnType<typeof getPasswordStrength>): string {
-    if (!s) return ''
+    if (!s) {return ''}
     return (styles as Record<string, string>)[`strength${s.charAt(0).toUpperCase()}${s.slice(1)}`] ?? ''
   }
 

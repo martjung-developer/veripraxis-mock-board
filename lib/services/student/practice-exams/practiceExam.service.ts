@@ -23,18 +23,34 @@ const supabase = createClient()
 
 export async function fetchPracticeExamMeta(
   examId: string,
+  userId: string,
+  programId: string,
   signal: AbortSignal,
 ): Promise<{ exam: ExamMeta | null; error: string | null }> {
-  const { data, error } = await supabase
-    .from('exams')
-    .select('id, title, total_points, duration_minutes, exam_type, is_published')
-    .eq('id', examId)
-    .eq('is_published', true)
-    .single()
-    .abortSignal(signal)
+  const [examRes, assignmentRes] = await Promise.all([
+    supabase
+      .from('exams')
+      .select('id, title, total_points, duration_minutes, exam_type, is_published')
+      .eq('id', examId)
+      .eq('is_published', true)
+      .eq('exam_type', 'practice')
+      .eq('program_id', programId)
+      .single()
+      .abortSignal(signal),
+    supabase
+      .from('exam_assignments')
+      .select('id')
+      .eq('exam_id', examId)
+      .eq('is_active', true)
+      .or(`student_id.eq.${userId},program_id.eq.${programId}`)
+      .limit(1)
+      .maybeSingle()
+      .abortSignal(signal),
+  ])
 
-  if (error || !data) return { exam: null, error: 'Reviewer not found or unavailable.' }
-  return { exam: data as ExamMeta, error: null }
+  if (examRes.error || !examRes.data) {return { exam: null, error: 'Reviewer not found or unavailable.' }}
+  if (!assignmentRes.data) {return { exam: null, error: 'This reviewer is not assigned to your program.' }}
+  return { exam: examRes.data as ExamMeta, error: null }
 }
 
 export async function fetchPracticeQuestions(
@@ -43,16 +59,17 @@ export async function fetchPracticeQuestions(
 ): Promise<{ questions: PracticeQuestion[]; error: string | null }> {
   const { data, error } = await supabase
     .from('questions')
-    .select('id, question_text, question_type, points, options, correct_answer, explanation, order_number')
+    .select('id, question_text, scenario, question_type, points, options, correct_answer, explanation, order_number')
     .eq('exam_id', examId)
     .order('order_number', { ascending: true, nullsFirst: false })
     .abortSignal(signal)
 
-  if (error || !data?.length) return { questions: [], error: 'No questions found for this reviewer.' }
+  if (error || !data?.length) {return { questions: [], error: 'No questions found for this reviewer.' }}
 
   const questions: PracticeQuestion[] = (data as Question[]).map(q => ({
     id:             q.id,
     question_text:  q.question_text,
+    scenario:       q.scenario ?? null,
     question_type:  q.question_type as QuestionType,
     points:         q.points,
     options:        parseOptions(q.options),
@@ -80,7 +97,7 @@ export async function fetchPastAttempts(
     .order('started_at', { ascending: false })
     .abortSignal(signal)
 
-  if (!data) return []
+  if (!data) {return []}
 
   return (data as Submission[]).map((row, idx) => ({
     id:           row.id,
@@ -111,7 +128,7 @@ export async function createAttempt(
     .select('id')
     .single()
 
-  if (error || !data) return { submissionId: null, error: 'Could not start attempt.' }
+  if (error || !data) {return { submissionId: null, error: 'Could not start attempt.' }}
   return { submissionId: (data as Pick<Submission, 'id'>).id, error: null }
 }
 
@@ -159,7 +176,7 @@ export async function completeAttempt(
     })
     .eq('id', submissionId)
 
-  if (error) return { error: 'Could not save final result.' }
+  if (error) {return { error: 'Could not save final result.' }}
   return { error: null }
 }
 

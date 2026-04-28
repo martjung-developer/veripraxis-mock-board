@@ -10,7 +10,7 @@ import { getDashboardByRole, canManageContent }   from '@/lib/types/auth'
 export async function getUser() {
   const supabase = await createClient()
   const { data: { user }, error } = await supabase.auth.getUser()
-  if (error || !user) return null
+  if (error || !user) {return null}
   return user
 }
 
@@ -24,7 +24,7 @@ export async function getProfile(userId: string): Promise<Profile | null> {
     .eq('id', userId)
     .single()
 
-  if (error || !data) return null
+  if (error || !data) {return null}
   return data as Profile
 }
 
@@ -64,7 +64,7 @@ export async function getStudentProfile(userId: string): Promise<StudentProfile 
     .eq('id', userId)
     .single()
 
-  if (error || !rawData) return null
+  if (error || !rawData) {return null}
 
   const data = rawData as unknown as ProfileWithStudents
 
@@ -92,7 +92,7 @@ export async function getStudentProfile(userId: string): Promise<StudentProfile 
 // ── Require auth ──────────────────────────────────────────────────────────────
 export async function requireAuth() {
   const user = await getUser()
-  if (!user) redirect('/login')
+  if (!user) {redirect('/login')}
   return user
 }
 
@@ -134,7 +134,7 @@ export async function requireContentAccess() {
 // ── Redirect already-authenticated users ─────────────────────────────────────
 export async function redirectIfAuthenticated() {
   const user = await getUser()
-  if (!user) return
+  if (!user) {return}
 
   const profile = await getProfile(user.id)
   redirect(getDashboardByRole(profile?.role ?? 'student'))

@@ -1,30 +1,58 @@
 // components/dashboard/admin/questionnaires/QuestionTypeSection.tsx
+// ─────────────────────────────────────────────────────────────────────────────
+// CHANGES FROM PREVIOUS VERSION:
+//   + Scenario column shown when at least one question in the section has one
+//   + Correct-answer cell highlights detected answer; shows warning if absent
+//   + Lucide icons used — no emoji literals
+// ─────────────────────────────────────────────────────────────────────────────
+'use client'
+
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronDown, HelpCircle, Eye, Pencil, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
+import {
+  ChevronDown, HelpCircle, Eye, Pencil, Trash2,
+  ChevronLeft, ChevronRight, AlertCircle, CheckCircle2,
+  BookOpen,
+} from 'lucide-react'
 import type { QuestionType } from '@/lib/types/database'
 import type { DisplayQuestion } from '@/lib/types/admin/questionnaires/questionnaires'
-import { TYPE_COLORS, TYPE_LABELS, PAGE_SIZE } from '@/lib/constants/admin/questionnaires/questionnaires.constants'
+import {
+  TYPE_COLORS,
+  TYPE_LABELS,
+  PAGE_SIZE,
+} from '@/lib/constants/admin/questionnaires/questionnaires.constants'
 import { DiffBadge }  from './DiffBadge'
 import { SkeletonRow } from './SkeletonRow'
 import styles from '@/app/(dashboard)/admin/questionnaires/questionnaires.module.css'
 
 interface Props {
-  type:     QuestionType
+  type:      QuestionType
   questions: DisplayQuestion[]
-  loading:  boolean
-  onView:   (q: DisplayQuestion) => void
-  onEdit:   (q: DisplayQuestion) => void
-  onDelete: (id: string) => void
+  loading:   boolean
+  onView:    (q: DisplayQuestion) => void
+  onEdit:    (q: DisplayQuestion) => void
+  onDelete:  (id: string) => void
 }
 
-export function QuestionTypeSection({ type, questions, loading, onView, onEdit, onDelete }: Props) {
+// Whether a question type requires a correct answer
+const NEEDS_ANSWER = new Set<QuestionType>([
+  'multiple_choice',
+  'true_false',
+  'fill_blank',
+])
+
+export function QuestionTypeSection({
+  type, questions, loading, onView, onEdit, onDelete,
+}: Props) {
   const [expanded, setExpanded] = useState(true)
   const [page,     setPage]     = useState(1)
 
   const color      = TYPE_COLORS[type]
   const paginated  = questions.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
   const totalPages = Math.max(1, Math.ceil(questions.length / PAGE_SIZE))
+
+  // Show scenario column only when at least one visible question has a scenario
+  const hasScenarioCol = paginated.some((q) => (q.scenario ?? '').trim().length > 0)
 
   return (
     <div className={styles.typeSection}>
@@ -36,7 +64,11 @@ export function QuestionTypeSection({ type, questions, loading, onView, onEdit, 
         <div className={styles.typeSectionHeaderLeft}>
           <span
             className={styles.typeTag}
-            style={{ background: color.bg, color: color.color, border: `1px solid ${color.border}` }}
+            style={{
+              background: color.bg,
+              color:      color.color,
+              border:     `1px solid ${color.border}`,
+            }}
           >
             {TYPE_LABELS[type]}
           </span>
@@ -47,7 +79,10 @@ export function QuestionTypeSection({ type, questions, loading, onView, onEdit, 
         <ChevronDown
           size={15}
           color="#8a9ab5"
-          style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
+          style={{
+            transform:  expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.2s',
+          }}
         />
       </button>
 
@@ -71,8 +106,10 @@ export function QuestionTypeSection({ type, questions, loading, onView, onEdit, 
                   <table className={styles.table}>
                     <thead>
                       <tr>
-                        <th style={{ width: '45%' }}>Question</th>
+                        <th style={{ width: '35%' }}>Question</th>
+                        {hasScenarioCol && <th style={{ width: '15%' }}>Scenario</th>}
                         <th>Difficulty</th>
+                        <th>Answer</th>
                         <th>Exam</th>
                         <th>Pts</th>
                         <th style={{ width: 100 }}>Actions</th>
@@ -80,55 +117,200 @@ export function QuestionTypeSection({ type, questions, loading, onView, onEdit, 
                     </thead>
                     <tbody>
                       {loading
-                        ? Array.from({ length: 3 }).map((_, i) => <SkeletonRow key={i} />)
-                        : paginated.map((q) => (
-                          <tr key={q.id} className={styles.tableRow}>
-                            <td>
-                              <div className={styles.questionCell}>
-                                <div
-                                  className={styles.questionIconWrap}
-                                  style={{ background: color.bg, borderColor: color.border }}
-                                >
-                                  <HelpCircle size={13} color={color.color} strokeWidth={2} />
-                                </div>
-                                <div>
-                                  <div className={styles.questionText}>{q.question_text}</div>
-                                  <div className={styles.questionPoints}>{q.points} pt{q.points !== 1 ? 's' : ''}</div>
-                                </div>
-                              </div>
-                            </td>
-                            <td><DiffBadge diff={q.difficulty} /></td>
-                            <td>
-                              <span className={styles.examTag}>
-                                {q.examTitle
-                                  ? (q.examTitle.length > 28 ? q.examTitle.slice(0, 28) + '…' : q.examTitle)
-                                  : '—'}
-                              </span>
-                            </td>
-                            <td style={{ fontWeight: 700, color: '#4a5568', fontSize: '0.8rem' }}>
-                              {q.points}
-                            </td>
-                            <td>
-                              <div className={styles.actions}>
-                                <button className={`${styles.actionBtn} ${styles.actionView}`}   title="View"   onClick={() => onView(q)}><Eye    size={13} /></button>
-                                <button className={`${styles.actionBtn} ${styles.actionEdit}`}   title="Edit"   onClick={() => onEdit(q)}><Pencil size={13} /></button>
-                                <button className={`${styles.actionBtn} ${styles.actionDelete}`} title="Delete" onClick={() => onDelete(q.id)}><Trash2 size={13} /></button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
+                        ? Array.from({ length: 3 }).map((_, i) => (
+                            <SkeletonRow key={i} />
+                          ))
+                        : paginated.map((q) => {
+                            const hasAnswer    = Boolean(q.correct_answer)
+                            const needsAnswer  = NEEDS_ANSWER.has(q.question_type)
+                            const scenario     = (q.scenario ?? '').trim()
+
+                            return (
+                              <tr key={q.id} className={styles.tableRow}>
+                                {/* Question text */}
+                                <td>
+                                  <div className={styles.questionCell}>
+                                    <div
+                                      className={styles.questionIconWrap}
+                                      style={{
+                                        background:   color.bg,
+                                        borderColor:  color.border,
+                                      }}
+                                    >
+                                      <HelpCircle
+                                        size={13}
+                                        color={color.color}
+                                        strokeWidth={2}
+                                      />
+                                    </div>
+                                    <div>
+                                      <div className={styles.questionText}>
+                                        {q.question_text}
+                                      </div>
+                                      <div className={styles.questionPoints}>
+                                        {q.points} pt{q.points !== 1 ? 's' : ''}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+
+                                {/* Scenario (conditional column) */}
+                                {hasScenarioCol && (
+                                  <td>
+                                    {scenario.length > 0 ? (
+                                      <span
+                                        title={scenario}
+                                        style={{
+                                          display:     'inline-flex',
+                                          alignItems:  'center',
+                                          gap:         4,
+                                          fontSize:    '0.7rem',
+                                          fontWeight:  600,
+                                          color:       '#1e40af',
+                                          background:  '#eff6ff',
+                                          border:      '1px solid #bfdbfe',
+                                          borderRadius: 20,
+                                          padding:     '2px 8px',
+                                          maxWidth:    130,
+                                          overflow:    'hidden',
+                                          textOverflow:'ellipsis',
+                                          whiteSpace:  'nowrap',
+                                        }}
+                                      >
+                                        <BookOpen size={10} />
+                                        {scenario.length > 30
+                                          ? `${scenario.slice(0, 30)}…`
+                                          : scenario}
+                                      </span>
+                                    ) : (
+                                      <span style={{ color: '#cbd5e1', fontSize: '0.72rem' }}>—</span>
+                                    )}
+                                  </td>
+                                )}
+
+                                {/* Difficulty */}
+                                <td><DiffBadge diff={q.difficulty} /></td>
+
+                                {/* Correct answer — highlight or warn */}
+                                <td>
+                                  {needsAnswer ? (
+                                    hasAnswer ? (
+                                      <span style={{
+                                        display:      'inline-flex',
+                                        alignItems:   'center',
+                                        gap:          4,
+                                        fontSize:     '0.72rem',
+                                        fontWeight:   700,
+                                        color:        '#059669',
+                                        background:   '#f0fdf4',
+                                        border:       '1px solid #bbf7d0',
+                                        borderRadius: 20,
+                                        padding:      '2px 8px',
+                                      }}>
+                                        <CheckCircle2 size={11} />
+                                        {q.correct_answer}
+                                      </span>
+                                    ) : (
+                                      <span
+                                        title="No correct answer detected — set one in Edit"
+                                        style={{
+                                          display:      'inline-flex',
+                                          alignItems:   'center',
+                                          gap:          4,
+                                          fontSize:     '0.72rem',
+                                          fontWeight:   600,
+                                          color:        '#dc2626',
+                                          background:   '#fef2f2',
+                                          border:       '1px solid #fecaca',
+                                          borderRadius: 20,
+                                          padding:      '2px 8px',
+                                          cursor:       'help',
+                                        }}
+                                      >
+                                        <AlertCircle size={11} /> None
+                                      </span>
+                                    )
+                                  ) : (
+                                    <span style={{ color: '#94a3b8', fontSize: '0.72rem' }}>
+                                      Manual
+                                    </span>
+                                  )}
+                                </td>
+
+                                {/* Exam */}
+                                <td>
+                                  <span className={styles.examTag}>
+                                    {q.examTitle
+                                      ? q.examTitle.length > 28
+                                        ? `${q.examTitle.slice(0, 28)}…`
+                                        : q.examTitle
+                                      : '—'}
+                                  </span>
+                                </td>
+
+                                {/* Points */}
+                                <td style={{
+                                  fontWeight: 700,
+                                  color:      '#4a5568',
+                                  fontSize:   '0.8rem',
+                                }}>
+                                  {q.points}
+                                </td>
+
+                                {/* Actions */}
+                                <td>
+                                  <div className={styles.actions}>
+                                    <button
+                                      className={`${styles.actionBtn} ${styles.actionView}`}
+                                      title="View"
+                                      onClick={() => onView(q)}
+                                    >
+                                      <Eye size={13} />
+                                    </button>
+                                    <button
+                                      className={`${styles.actionBtn} ${styles.actionEdit}`}
+                                      title="Edit"
+                                      onClick={() => onEdit(q)}
+                                    >
+                                      <Pencil size={13} />
+                                    </button>
+                                    <button
+                                      className={`${styles.actionBtn} ${styles.actionDelete}`}
+                                      title="Delete"
+                                      onClick={() => onDelete(q.id)}
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            )
+                          })}
                     </tbody>
                   </table>
                 </div>
 
                 {totalPages > 1 && (
-                  <div className={styles.pagination} style={{ borderTop: '1px solid #f1f5f9', padding: '0.6rem 1rem' }}>
-                    <span className={styles.pageInfo}>Page {page} of {totalPages}</span>
+                  <div
+                    className={styles.pagination}
+                    style={{ borderTop: '1px solid #f1f5f9', padding: '0.6rem 1rem' }}
+                  >
+                    <span className={styles.pageInfo}>
+                      Page {page} of {totalPages}
+                    </span>
                     <div className={styles.pageButtons}>
-                      <button className={styles.pageBtn} onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                      <button
+                        className={styles.pageBtn}
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        disabled={page === 1}
+                      >
                         <ChevronLeft size={13} />
                       </button>
-                      <button className={styles.pageBtn} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                      <button
+                        className={styles.pageBtn}
+                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={page === totalPages}
+                      >
                         <ChevronRight size={13} />
                       </button>
                     </div>

@@ -49,7 +49,7 @@ export function PreviewModal({ item, onClose, onViewed }: PreviewModalProps) {
 
   // Keyboard + scroll lock
   useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') {onClose()} }
     document.body.style.overflow = 'hidden'
     window.addEventListener('keydown', onKey)
     return () => {
@@ -71,7 +71,7 @@ export function PreviewModal({ item, onClose, onViewed }: PreviewModalProps) {
   return (
     <div
       className={styles.modalOverlay}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      onClick={(e) => { if (e.target === e.currentTarget) {onClose()} }}
       role="dialog"
       aria-modal="true"
       aria-label={item.title}

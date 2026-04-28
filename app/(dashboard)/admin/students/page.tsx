@@ -30,7 +30,7 @@ export default function StudentsPage() {
   const { deleteModal, deleting, openDeleteModal,
           closeDeleteModal, handleDelete } = useDeleteStudent(removeStudent, refetch)
 
-  if (!isReady) return null
+  if (!isReady) {return null}
 
   return (
     <div className={styles.page}>

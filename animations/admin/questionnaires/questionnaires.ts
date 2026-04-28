@@ -1,6 +1,6 @@
 // animations/admin/questionnaires.ts
 
-import { Variants } from 'framer-motion'
+import type { Variants } from 'framer-motion'
 
 /**
  * Animation 1: Page fade-up
