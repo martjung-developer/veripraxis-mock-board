@@ -216,6 +216,16 @@
 .statusBadge_blue  { background: var(--primary-pale); color: var(--primary); border: 1px solid var(--primary-tint); }
 .statusBadge_green { background: var(--success-pale); color: var(--success); border: 1px solid #a7f3d0; }
 
+.sourceBadge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 9px; border-radius: 20px;
+  font-size: .67rem; font-weight: 700;
+  color: var(--text-sub);
+  background: var(--surface-tint);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+
 /* ── Score ── */
 .scoreChip { font-size: .73rem; font-weight: 800; font-family: var(--font-head); border-radius: 6px; padding: 2px 8px; }
 .scorePass { background: var(--success-pale); color: var(--success); border: 1px solid #a7f3d0; }

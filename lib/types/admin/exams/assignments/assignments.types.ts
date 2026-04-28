@@ -78,6 +78,7 @@ export interface Assignment {
   id:                string
   student:           AssignedStudent
   program_name:      string | null
+  assignment_source: 'program' | 'manual'
   assigned_at:       string
   deadline:          string | null
   is_active:         boolean
@@ -127,6 +128,7 @@ export interface AssignProgramPayload {
   examId:     string
   programId:  string
   deadline:   string | null
+  yearLevel?: number | null
 }
 
 export interface MutationResult {
